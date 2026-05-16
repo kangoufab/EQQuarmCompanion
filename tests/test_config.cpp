@@ -40,6 +40,7 @@ TEST(Config, SetAndSaveRoundtrip) {
         EXPECT_EQ(c.get("current_expansion"), "Luclin");
     }
     std::filesystem::remove(cfg);
+    std::filesystem::remove(defaults);
 }
 
 TEST(Config, GetDbConfig) {
