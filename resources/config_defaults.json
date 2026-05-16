@@ -1,0 +1,29 @@
+{
+  "eq_files_dir": "",
+  "current_expansion": "Classic",
+  "db": {
+    "host": "localhost",
+    "port": 3306,
+    "user": "root",
+    "password": "",
+    "database": "quarm"
+  },
+  "characters": {},
+  "class_weights": {
+    "Warrior":     {"ac": 4, "hp": 3, "damage": 3, "delay": -2, "astr": 2, "asta": 3, "aagi": 1, "adex": 1, "awis": 0, "aint": 0, "acha": 0, "mana": 0},
+    "Cleric":      {"ac": 2, "hp": 2, "damage": 0, "delay":  0, "astr": 0, "asta": 1, "aagi": 0, "adex": 0, "awis": 5, "aint": 0, "acha": 0, "mana": 4},
+    "Paladin":     {"ac": 4, "hp": 3, "damage": 2, "delay": -1, "astr": 2, "asta": 2, "aagi": 1, "adex": 1, "awis": 3, "aint": 0, "acha": 1, "mana": 2},
+    "Ranger":      {"ac": 2, "hp": 2, "damage": 3, "delay": -2, "astr": 3, "asta": 2, "aagi": 3, "adex": 3, "awis": 2, "aint": 0, "acha": 0, "mana": 1},
+    "Shadowknight":{"ac": 4, "hp": 3, "damage": 3, "delay": -2, "astr": 2, "asta": 2, "aagi": 1, "adex": 1, "awis": 0, "aint": 2, "acha": 0, "mana": 2},
+    "Druid":       {"ac": 1, "hp": 2, "damage": 0, "delay":  0, "astr": 0, "asta": 1, "aagi": 0, "adex": 0, "awis": 5, "aint": 0, "acha": 0, "mana": 4},
+    "Monk":        {"ac": 2, "hp": 3, "damage": 3, "delay": -2, "astr": 3, "asta": 3, "aagi": 4, "adex": 3, "awis": 2, "aint": 0, "acha": 0, "mana": 0},
+    "Bard":        {"ac": 2, "hp": 2, "damage": 2, "delay": -1, "astr": 2, "asta": 2, "aagi": 2, "adex": 4, "awis": 0, "aint": 0, "acha": 3, "mana": 0},
+    "Rogue":       {"ac": 1, "hp": 2, "damage": 4, "delay": -2, "astr": 3, "asta": 2, "aagi": 3, "adex": 4, "awis": 0, "aint": 0, "acha": 0, "mana": 0},
+    "Shaman":      {"ac": 2, "hp": 2, "damage": 1, "delay": -1, "astr": 1, "asta": 2, "aagi": 0, "adex": 0, "awis": 5, "aint": 0, "acha": 0, "mana": 4},
+    "Necromancer": {"ac": 1, "hp": 2, "damage": 0, "delay":  0, "astr": 0, "asta": 1, "aagi": 0, "adex": 0, "awis": 0, "aint": 5, "acha": 0, "mana": 5},
+    "Wizard":      {"ac": 1, "hp": 2, "damage": 0, "delay":  0, "astr": 0, "asta": 1, "aagi": 0, "adex": 0, "awis": 0, "aint": 5, "acha": 0, "mana": 5},
+    "Magician":    {"ac": 1, "hp": 2, "damage": 0, "delay":  0, "astr": 0, "asta": 1, "aagi": 0, "adex": 0, "awis": 0, "aint": 5, "acha": 0, "mana": 5},
+    "Enchanter":   {"ac": 1, "hp": 2, "damage": 0, "delay":  0, "astr": 0, "asta": 1, "aagi": 0, "adex": 0, "awis": 0, "aint": 4, "acha": 2, "mana": 5},
+    "Berserker":   {"ac": 2, "hp": 3, "damage": 4, "delay": -2, "astr": 3, "asta": 2, "aagi": 2, "adex": 3, "awis": 0, "aint": 0, "acha": 0, "mana": 0}
+  }
+}

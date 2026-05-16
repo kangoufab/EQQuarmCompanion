@@ -1,0 +1,8 @@
+build/
+out/
+.cmake/
+CMakeUserPresets.json
+*.user
+.vs/
+*.suo
+x64/
