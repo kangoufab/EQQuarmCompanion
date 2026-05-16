@@ -99,12 +99,12 @@ static int classLevelFactor(std::string_view cls, int level) {
 // D'après EQMacEmu : cap item HP = 2000 (RuleI Character, ItemHPCap).
 // ═══════════════════════════════════════════════════════════════════════════
 int hpCap(std::string_view /*cls*/, int /*level*/) {
-    // RuleI(Character, ItemHPCap) = 2000 (EQMacEmu default)
+    // EQMacEmu RuleI::Character__ItemHPCap — valeur globale, non dépendante de la classe
     return 2000;
 }
 
 int manaCap(std::string_view /*cls*/, int /*level*/) {
-    // RuleI(Character, ItemManaCap) = 2000 (EQMacEmu default)
+    // EQMacEmu RuleI::Character__ItemManaCap — valeur globale, non dépendante de la classe
     return 2000;
 }
 
@@ -127,7 +127,7 @@ static int calcBaseHp(std::string_view cls, int level, int totalSta) {
 // ═══════════════════════════════════════════════════════════════════════════
 // _calc_base_mana — portée depuis stats_calculator.py
 // ═══════════════════════════════════════════════════════════════════════════
-static int calcBaseMana(int /*cls*/, int level, int wi) {
+static int calcBaseMana(std::string_view /*primaryStat*/, int level, int wi) {
     int lesser    = std::max(0, (wi - 199) / 2);
     int mindFactor = wi - lesser;
     if (wi > 100)
@@ -203,16 +203,21 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
                               const std::vector<ItemData>& items)
 {
     PlayerTotals t;
+    if (ci.level <= 0) return t;  // garde : level invalide → totaux nuls
 
     // ── Accumulation brute depuis les items ───────────────────────────────
-    int itemAtkRaw      = 0;
-    int itemHpRegenRaw  = 0;
+    int itemAtkRaw       = 0;
+    int itemHpRegenRaw   = 0;
     int itemManaRegenRaw = 0;
+    int rawAc            = 0;
+    const bool classHasMana = hasMana(ci.class_name);
 
     for (const auto& item : items) {
         t.hp.base    += item.hp;
-        t.mana.base  += item.mana;
+        if (classHasMana)
+            t.mana.base += item.mana;  // mana ignoré pour les classes sans mana
         itemAtkRaw   += item.atk;
+        rawAc        += item.ac;
         t.str_v      += item.astr;
         t.sta        += item.asta;
         t.dex        += item.adex;
@@ -228,30 +233,26 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
         t.haste       = std::max(t.haste, item.haste);  // max-wins
         t.hp_regen   += item.hp_regen;
         t.mana_regen += item.mana_regen;
-        itemHpRegenRaw  += item.hp_regen;
+        itemHpRegenRaw   += item.hp_regen;
         itemManaRegenRaw += item.mana_regen;
     }
 
     // ── Haste cap (GetHasteCap) ───────────────────────────────────────────
-    if (ci.level > 0)
-        t.haste = std::min(t.haste, hasteCapPct(ci.level));
+    t.haste = std::min(t.haste, hasteCapPct(ci.level));
 
     // ── HP cap items (RuleI Character ItemHPCap = 2000) ──────────────────
     t.hp.capped = std::min(t.hp.base, hpCap(ci.class_name, ci.level));
 
-    // ── Mana cap items ────────────────────────────────────────────────────
-    t.mana.capped = std::min(t.mana.base, manaCap(ci.class_name, ci.level));
+    // ── Mana cap items (seulement pour les classes avec mana) ────────────
+    if (classHasMana)
+        t.mana.capped = std::min(t.mana.base, manaCap(ci.class_name, ci.level));
 
     // ── ATK item cap ──────────────────────────────────────────────────────
     t.atk = std::min(itemAtkRaw, attackCap(ci.class_name, ci.level));
 
     // ── Mitigation AC (EQMacEmu CalcAC formula) ──────────────────────────
     // Mitigation = 0 quand aucun item n'a d'AC (correct pour le test)
-    if (items.empty()) {
-        t.mitigation = 0;
-    } else {
-        int rawAc = 0;
-        for (const auto& item : items) rawAc += item.ac;
+    if (!items.empty()) {
         auto acResult = calcDisplayedAc(ci.class_name, ci.level, t.agi, rawAc);
         t.mitigation = acResult.mitigation;
     }

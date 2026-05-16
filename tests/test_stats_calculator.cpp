@@ -12,9 +12,8 @@ TEST(StatsCalculator, HpCapApplied) {
     CharacterInfo ci; ci.class_name = "Warrior"; ci.level = 65;
     ItemData item; item.hp = 10000; item.slots = 4; // chest
     auto totals = calculateTotals(ci, {item});
-    // HP capped should be less than raw 10000 (cap applies)
-    EXPECT_LT(totals.hp.capped, 10000);
-    EXPECT_GT(totals.hp.capped, 0);
+    EXPECT_EQ(totals.hp.capped, 2000);  // RuleI ItemHPCap = 2000
+    EXPECT_EQ(totals.hp.base, 10000);   // base non cappé
 }
 
 TEST(StatsCalculator, HpBaseAccumulated) {
@@ -39,4 +38,26 @@ TEST(StatsCalculator, ApplyWornStatsNoEffectWhenNoWorn) {
     item.worneffect = 0;
     applyWornStats(item, 65);
     EXPECT_EQ(item.hp, 0);
+}
+
+TEST(StatsCalculator, HasteCappedAt100ForLevel65) {
+    CharacterInfo ci; ci.class_name = "Warrior"; ci.level = 65;
+    ItemData item; item.haste = 150;  // dépasse le cap de 100%
+    auto totals = calculateTotals(ci, {item});
+    EXPECT_EQ(totals.haste, 100);  // cap = 100% à level >= 60
+}
+
+TEST(StatsCalculator, AtkCappedAt250) {
+    CharacterInfo ci; ci.class_name = "Warrior"; ci.level = 65;
+    ItemData item; item.atk = 400;
+    auto totals = calculateTotals(ci, {item});
+    EXPECT_EQ(totals.atk, 250);  // ItemATKCap = 250
+}
+
+TEST(StatsCalculator, NonCasterNoManaAccumulation) {
+    CharacterInfo ci; ci.class_name = "Warrior"; ci.level = 65;
+    ItemData item; item.mana = 500;
+    auto totals = calculateTotals(ci, {item});
+    EXPECT_EQ(totals.mana.base, 0);   // Warriors n'ont pas de mana
+    EXPECT_EQ(totals.mana.capped, 0);
 }
