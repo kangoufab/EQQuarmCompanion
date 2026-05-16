@@ -6,7 +6,7 @@
 
 // Parse character profile data from EQ export file
 [[nodiscard]] std::optional<CharacterInfo>
-parseCharacterInfo(const std::filesystem::path& path);
+parseCharacterFile(const std::filesystem::path& path);
 
 // Parse equipped items from EQ export file
 [[nodiscard]] std::vector<std::pair<std::string, std::string>>

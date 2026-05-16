@@ -93,7 +93,7 @@ TEST(CharacterParser, ParsesCharacterInfo) {
         f << "Character\tName\tClass\tLevel\n";
         f << "Character\tLaraliel\t1\t65\n";
     }
-    auto result = parseCharacterInfo(tmp);
+    auto result = parseCharacterFile(tmp);
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->name,       "Laraliel");
     EXPECT_EQ(result->class_name, "Warrior");
@@ -102,7 +102,7 @@ TEST(CharacterParser, ParsesCharacterInfo) {
 }
 
 TEST(CharacterParser, ReturnsNulloptForMissingFile) {
-    auto result = parseCharacterInfo("D:/nonexistent/path/char.txt");
+    auto result = parseCharacterFile("D:/nonexistent/path/char.txt");
     EXPECT_FALSE(result.has_value());
 }
 

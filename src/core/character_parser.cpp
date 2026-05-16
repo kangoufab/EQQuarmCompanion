@@ -52,7 +52,7 @@ static std::string rtrim(std::string s)
 }
 
 // ── Parse Character Info ────────────────────────────────────────────────
-std::optional<CharacterInfo> parseCharacterInfo(const std::filesystem::path& path)
+std::optional<CharacterInfo> parseCharacterFile(const std::filesystem::path& path)
 {
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) return std::nullopt;
