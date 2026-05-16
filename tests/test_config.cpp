@@ -24,6 +24,7 @@ TEST(Config, GetReturnsDefaultValue) {
     auto cfg = std::filesystem::temp_directory_path() / "eq_test_cfg_nonexistent.json";
     Config c(cfg, defaults);
     EXPECT_EQ(c.get("current_expansion"), "Classic");
+    std::filesystem::remove(defaults);
 }
 
 TEST(Config, SetAndSaveRoundtrip) {
@@ -49,6 +50,7 @@ TEST(Config, GetDbConfig) {
     EXPECT_EQ(db.host, "localhost");
     EXPECT_EQ(db.port, 3306);
     EXPECT_EQ(db.database, "quarm");
+    std::filesystem::remove(defaults);
 }
 
 TEST(Config, GetClassWeights) {
@@ -66,4 +68,16 @@ TEST(Config, GetClassWeights) {
     EXPECT_FLOAT_EQ(w.at("ac"), 4.f);
     EXPECT_FLOAT_EQ(w.at("hp"), 3.f);
     std::filesystem::remove(p);
+}
+
+TEST(Config, CorruptConfigFallsBackToDefaults) {
+    auto defaults = writeTempDefaults();
+    auto cfg = std::filesystem::temp_directory_path() / "eq_test_cfg_corrupt.json";
+    // Écrire un JSON invalide dans config.json
+    { std::ofstream f(cfg); f << "{ invalid json !!!"; }
+    // Le constructeur doit utiliser les defaults silencieusement (pas de throw)
+    Config c(cfg, defaults);
+    EXPECT_EQ(c.get("current_expansion"), "Classic");
+    std::filesystem::remove(cfg);
+    std::filesystem::remove(defaults);
 }

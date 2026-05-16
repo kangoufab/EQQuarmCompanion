@@ -35,6 +35,9 @@ void Config::set(std::string_view key, nlohmann::json value) {
 
 void Config::save() const {
     std::ofstream f(_configPath);
+    if (!f.is_open())
+        throw std::runtime_error("Impossible d'écrire config.json : "
+                                 + _configPath.string());
     f << _data.dump(2);
 }
 
@@ -58,8 +61,10 @@ std::map<std::string, float> Config::getClassWeights(
     if (cw == _data.end()) return weights;
     auto cls = cw->find(std::string(className));
     if (cls == cw->end()) return weights;
-    for (auto& [k, v] : cls->items())
-        weights[k] = v.get<float>();
+    for (auto& [k, v] : cls->items()) {
+        if (v.is_number())
+            weights[k] = v.get<float>();
+    }
     return weights;
 }
 
@@ -73,7 +78,7 @@ std::string Config::getCharacterClass(std::string_view charName) const {
     try {
         return _data.at("characters").at(std::string(charName))
                     .at("class").get<std::string>();
-    } catch (...) { return {}; }
+    } catch (const std::exception&) { return {}; }
 }
 
 void Config::setCharacterClass(std::string_view charName,
