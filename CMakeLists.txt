@@ -24,7 +24,7 @@ add_library(eq_core STATIC
     src/core/equipped_effects.cpp
 )
 target_include_directories(eq_core PUBLIC "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(eq_core PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(eq_core PUBLIC nlohmann_json::nlohmann_json)
 
 # ── DB library (Qt SQL + Network) ────────────────────────────────────
 add_library(eq_db STATIC
