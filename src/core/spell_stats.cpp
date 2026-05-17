@@ -42,6 +42,21 @@ int calcSpellEffectValue(int base, int max, int formula, int level) {
     return result;
 }
 
+// Valeur d'un sort (dégâts, heal, etc.) pour un niveau donné.
+// Retourne la valeur du premier slot d'effet non nul.
+float spellValue(const SpellData& sp, int level) {
+    for (int i = 0; i < 12; ++i) {
+        if (sp.spa[i] != 0 || sp.effect_base_value[i] != 0) {
+            return static_cast<float>(calcSpellEffectValue(
+                sp.effect_base_value[i],
+                sp.effect_limit_value[i],
+                sp.effect_formula[i],
+                level));
+        }
+    }
+    return 0.f;
+}
+
 // Retourne le DPS moyen des sorts NPC entrants contre le joueur.
 // Version stub : calcule la somme des dégâts par sort divisée par le cast time.
 // Retourne 0 si la liste est vide.
