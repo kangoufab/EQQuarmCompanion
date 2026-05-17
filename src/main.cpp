@@ -6,6 +6,7 @@
 #include <QFont>
 #include <filesystem>
 #include "core/config.h"
+#include "db/db_connection.h"
 #include "ui/main_window.h"
 
 static QSplashScreen* makeSplash() {
@@ -40,6 +41,13 @@ int main(int argc, char* argv[]) {
     auto defsPath = exeDir / "config_defaults.json";
 
     Config config(cfgPath, defsPath);
+
+    // Connexion DB (non bloquant si échec — certaines fonctions désactivées)
+    auto dbCfg = config.getDbConfig();
+    bool dbOk  = DbConnection::instance().connect(dbCfg);
+    if (!dbOk) {
+        qWarning() << "DB non connectée — vérifier les paramètres dans config.json";
+    }
 
     MainWindow window(&config);
     window.show();
