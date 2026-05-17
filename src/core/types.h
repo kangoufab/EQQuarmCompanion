@@ -80,10 +80,10 @@ struct ItemData {
     int mr{}, fr{}, cr{}, dr{}, pr{};
     int damage{}, delay{}, itemtype{};
     int haste{}, hp_regen{}, mana_regen{};
-    int slots{}, reqlevel{};
+    int item_slots{}, reqlevel{};
     int worneffect{}, focuseffect{}, proceffect{};
     std::string name, lore;
     std::string worneffect_name, focuseffect_name, proceffect_name;
 };
 
-struct LootItem { int item_id{}, slots{}; float chance{}; std::string name; };
+struct LootItem { int item_id{}, item_slots{}; float chance{}; std::string name; };

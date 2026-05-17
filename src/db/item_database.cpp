@@ -84,7 +84,7 @@ static ItemData rowToItemData(QSqlQuery& q) {
     item.dr             = q.value("dr").toInt();
     item.mr             = q.value("mr").toInt();
     item.pr             = q.value("pr").toInt();
-    item.slots          = q.value("slots").toInt();
+    item.item_slots     = q.value("slots").toInt();
     item.reqlevel       = q.value("reqlevel").toInt();
     item.worneffect     = q.value("worneffect").toInt();
     item.focuseffect    = q.value("focuseffect").toInt();

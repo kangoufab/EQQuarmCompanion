@@ -7,6 +7,8 @@
 #include <filesystem>
 #include "core/config.h"
 #include "db/db_connection.h"
+#include "db/npc_database.h"
+#include "db/item_database.h"
 #include "ui/main_window.h"
 
 static QSplashScreen* makeSplash() {
@@ -49,7 +51,9 @@ int main(int argc, char* argv[]) {
         qWarning() << "DB non connectée — vérifier les paramètres dans config.json";
     }
 
-    MainWindow window(&config);
+    NpcDatabase  npcDb;
+    ItemDatabase itemDb;
+    MainWindow window(&config, &npcDb, &itemDb);
     window.show();
     splash->finish(&window);
     delete splash;

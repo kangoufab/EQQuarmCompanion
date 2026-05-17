@@ -32,6 +32,8 @@ add_library(eq_db STATIC
     src/db/item_database.cpp
     src/db/npc_database.cpp
     src/db/bis_scraper.cpp
+    src/db/item_database.h
+    src/db/npc_database.h
 )
 target_include_directories(eq_db PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(eq_db PUBLIC Qt6::Sql Qt6::Network eq_core)

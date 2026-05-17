@@ -257,7 +257,7 @@ QList<LootItem> NpcDatabase::getNpcLoot(int loottableId) {
         li.item_id = r.item_id;
         li.name    = r.name.toStdString();
         li.chance  = static_cast<float>(chance);
-        li.slots   = r.slots;
+        li.item_slots = r.slots;
         result.append(li);
     }
 
