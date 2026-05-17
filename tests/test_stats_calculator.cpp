@@ -10,7 +10,7 @@ TEST(StatsCalculator, EmptyEquipmentGivesZeroMitigation) {
 
 TEST(StatsCalculator, HpCapApplied) {
     CharacterInfo ci; ci.class_name = "Warrior"; ci.level = 65;
-    ItemData item; item.hp = 10000; item.slots = 4; // chest
+    ItemData item; item.hp = 10000; item.item_slots = 4; // chest
     auto totals = calculateTotals(ci, {item});
     EXPECT_EQ(totals.hp.capped, 2000);  // RuleI ItemHPCap = 2000
     EXPECT_EQ(totals.hp.base, 10000);   // base non cappé
@@ -18,16 +18,16 @@ TEST(StatsCalculator, HpCapApplied) {
 
 TEST(StatsCalculator, HpBaseAccumulated) {
     CharacterInfo ci; ci.class_name = "Warrior"; ci.level = 65;
-    ItemData item1; item1.hp = 100; item1.slots = 4;
-    ItemData item2; item2.hp = 50;  item2.slots = 2;
+    ItemData item1; item1.hp = 100; item1.item_slots = 4;
+    ItemData item2; item2.hp = 50;  item2.item_slots = 2;
     auto totals = calculateTotals(ci, {item1, item2});
     EXPECT_EQ(totals.hp.base, 150);
 }
 
 TEST(StatsCalculator, HasteDoesNotStack) {
     CharacterInfo ci; ci.class_name = "Warrior"; ci.level = 65;
-    ItemData item1; item1.haste = 40; item1.slots = 4;
-    ItemData item2; item2.haste = 35; item2.slots = 2;
+    ItemData item1; item1.haste = 40; item1.item_slots = 4;
+    ItemData item2; item2.haste = 35; item2.item_slots = 2;
     auto totals = calculateTotals(ci, {item1, item2});
     // Haste prend le max, pas la somme
     EXPECT_EQ(totals.haste, 40);
