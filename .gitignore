@@ -4,5 +4,9 @@ out/
 CMakeUserPresets.json
 *.user
 .vs/
-*.suo
 x64/
+.claude/
+.superpowers/
+tools/
+*.ps1
+config.json
