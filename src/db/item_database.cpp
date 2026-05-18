@@ -11,8 +11,11 @@
 static QString spaCase(int spa, const QString& col, int defaultVal = 0) {
     QString whens;
     for (int i = 1; i <= 12; ++i)
-        whens += QString(" WHEN sw.effectid%1 = %2 THEN sw.%3%1").arg(i).arg(spa).arg(col);
-    return QString("COALESCE(CASE%1 ELSE %2 END, %2)").arg(whens).arg(defaultVal);
+        whens += " WHEN sw.effectid" + QString::number(i)
+               + " = " + QString::number(spa)
+               + " THEN sw." + col + QString::number(i);
+    return "COALESCE(CASE" + whens + " ELSE " + QString::number(defaultVal)
+           + " END, " + QString::number(defaultVal) + ")";
 }
 
 // Build COALESCE(CASE WHEN sw.effectid{i} IN (spas) THEN sw.col{i} ... END, default)
@@ -22,8 +25,11 @@ static QString spaCaseMulti(const QList<int>& spas, const QString& col, int defa
     QString inList = ids.join(", ");
     QString whens;
     for (int i = 1; i <= 12; ++i)
-        whens += QString(" WHEN sw.effectid%1 IN (%2) THEN sw.%3%1").arg(i).arg(inList).arg(col);
-    return QString("COALESCE(CASE%1 ELSE %2 END, %2)").arg(whens).arg(defaultVal);
+        whens += " WHEN sw.effectid" + QString::number(i)
+               + " IN (" + inList + ")"
+               + " THEN sw." + col + QString::number(i);
+    return "COALESCE(CASE" + whens + " ELSE " + QString::number(defaultVal)
+           + " END, " + QString::number(defaultVal) + ")";
 }
 
 // ── Column list ────────────────────────────────────────────────────────────
@@ -85,6 +91,7 @@ static ItemData rowToItemData(QSqlQuery& q) {
     item.mr             = q.value("mr").toInt();
     item.pr             = q.value("pr").toInt();
     item.item_slots     = q.value("slots").toInt();
+    item.classes        = q.value("classes").isNull() ? 65535 : q.value("classes").toInt();
     item.reqlevel       = q.value("reqlevel").toInt();
     item.worneffect     = q.value("worneffect").toInt();
     item.focuseffect    = q.value("focuseffect").toInt();
@@ -92,6 +99,16 @@ static ItemData rowToItemData(QSqlQuery& q) {
     item.worneffect_name  = q.value("worneffect_name").toString().toStdString();
     item.focuseffect_name = q.value("focuseffect_name").toString().toStdString();
     item.proceffect_name  = q.value("proceffect_name").toString().toStdString();
+
+    // Worn effects — formula 100 = fixed value, others = level-scaled (use base as approx)
+    auto resolveWorn = [&](const char* baseCol) -> int {
+        return q.value(baseCol).toInt(); // base value is sufficient for lv60 display
+    };
+    item.atk       = resolveWorn("atk_base");
+    item.haste     = resolveWorn("haste_base");
+    item.hp_regen  = resolveWorn("hp_regen_base");
+    item.mana_regen = resolveWorn("mana_regen_base");
+
     return item;
 }
 

@@ -6,6 +6,8 @@
 #include <QLabel>
 #include <QMainWindow>
 #include <QTabWidget>
+#include <map>
+#include <string>
 #include <vector>
 
 class Config;
@@ -29,6 +31,7 @@ private slots:
 private:
     void loadCharacterFiles();
     void refreshAllTabs();
+    void recalculateTotals();
 
     Config*       _config;
     NpcDatabase*  _npcDb;
@@ -41,7 +44,8 @@ private:
     SpellsTab*    _spellsTab;
     InfosTab*     _infosTab;
 
-    std::vector<CharacterInfo> _characters;
-    CharacterInfo              _currentChar;
-    PlayerTotals               _playerTotals;
+    std::vector<CharacterInfo>      _characters;
+    CharacterInfo                   _currentChar;
+    PlayerTotals                    _playerTotals;
+    std::map<std::string, ItemData> _equippedItems;
 };

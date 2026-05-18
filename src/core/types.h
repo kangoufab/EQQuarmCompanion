@@ -11,6 +11,11 @@ struct CharacterInfo {
     std::string name;
     std::string class_name;
     int         level{};
+    int         race{};   // EQMacEmu race ID (1=Human, 2=Barbarian, ... 128=Iksar, 130=Vahshir)
+    int         base_str{}, base_sta{}, base_dex{};
+    int         base_agi{}, base_int{}, base_wis{}, base_cha{};
+    // Equipped items from the .quarmy file: (slot_name, item_id)
+    std::vector<std::pair<std::string, int>> equipped;
 };
 
 // ── NPC ───────────────────────────────────────────────────────────────
@@ -80,7 +85,7 @@ struct ItemData {
     int mr{}, fr{}, cr{}, dr{}, pr{};
     int damage{}, delay{}, itemtype{};
     int haste{}, hp_regen{}, mana_regen{};
-    int item_slots{}, reqlevel{};
+    int item_slots{}, classes{65535}, reqlevel{};
     int worneffect{}, focuseffect{}, proceffect{};
     std::string name, lore;
     std::string worneffect_name, focuseffect_name, proceffect_name;

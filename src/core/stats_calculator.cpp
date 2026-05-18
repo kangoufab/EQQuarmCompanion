@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <string>
 #include <unordered_map>
+#include <string_view>
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Constantes portées depuis stat_caps.py et stats_calculator.py
@@ -15,6 +16,116 @@ static constexpr int RESIST_CAP    = 500;
 static constexpr int ATK_ITEM_CAP        = 250;
 // RuleI(Character, ItemManaRegenCap) — bonuses.cpp:184
 static constexpr int MANA_REGEN_ITEM_CAP = 15;
+
+// ── Skill caps par classe (depuis skill_caps table + stats_calculator.py) ─
+// class_id → {skill_id → max_cap}
+// Skills: Offense=33, 1HBlunt=0, 1HSlash=1, 2HBlunt=2, 2HSlash=3, 1HPiercing=36, HTH=28
+static const std::unordered_map<int, std::unordered_map<int,int>> CLASS_SKILL_CAPS = {
+    {1,  {{0,250},{1,250},{2,250},{3,250},{28,100},{33,252},{36,240}}}, // Warrior
+    {2,  {{0,175},        {2,175},        {28, 75},{33,200}         }}, // Cleric
+    {3,  {{0,225},{1,225},{2,225},{3,225},{28,100},{33,225},{36,225}}}, // Paladin
+    {4,  {{0,250},{1,250},{2,250},{3,250},{28,100},{33,252},{36,240}}}, // Ranger
+    {5,  {{0,225},{1,225},{2,225},{3,225},{28,100},{33,225},{36,225}}}, // Shadowknight
+    {6,  {{0,175},{1,175},{2,175},        {28, 75},{33,200}         }}, // Druid
+    {7,  {{0,252},        {2,252},        {28,252},{33,252}         }}, // Monk
+    {8,  {{0,250},{1,250},               {28,100},{33,252},{36,250}}}, // Bard
+    {9,  {{0,250},{1,250},               {28,100},{33,252},{36,250}}}, // Rogue
+    {10, {{0,200},        {2,200},        {28, 75},{33,200},{36,200}}}, // Shaman
+    {11, {{0,110},        {2,110},        {28, 75},{33,140},{36,110}}}, // Necromancer
+    {12, {{0,110},        {2,110},        {28, 75},{33,140},{36,110}}}, // Wizard
+    {13, {{0,110},        {2,110},        {28, 75},{33,140},{36,110}}}, // Magician
+    {14, {{0,110},        {2,110},        {28, 75},{33,140},{36,110}}}, // Enchanter
+    {15, {{0,225},        {2,225},        {28,250},{33,252},{36,225}}}, // Beastlord
+};
+static const std::unordered_map<std::string, int> CLASS_ID = {
+    {"Warrior",1},{"Cleric",2},{"Paladin",3},{"Ranger",4},{"Shadowknight",5},
+    {"Druid",6},{"Monk",7},{"Bard",8},{"Rogue",9},{"Shaman",10},
+    {"Necromancer",11},{"Wizard",12},{"Magician",13},{"Enchanter",14},{"Beastlord",15},
+};
+// itemtype → weapon skill_id (GetSkillByItemType in mob.cpp)
+static const std::unordered_map<int,int> ITEMTYPE_TO_SKILL = {
+    {0,1},{1,3},{2,36},{3,0},{4,2},{97,36},
+};
+static int estimateSkill(int classId, int skillId, int level) {
+    auto cit = CLASS_SKILL_CAPS.find(classId);
+    if (cit == CLASS_SKILL_CAPS.end()) return 0;
+    auto sit = cit->second.find(skillId);
+    if (sit == cit->second.end()) return 0;
+    int cap = sit->second;
+    return std::min(cap, cap * std::min(level, 60) / 60);
+}
+static int calcDisplayedAtk(std::string_view className, int level, int totalStr,
+                             int itemAtk, int primaryItemtype)
+{
+    itemAtk = std::min(itemAtk, ATK_ITEM_CAP);
+    int strBonus = (totalStr >= 75) ? (2 * totalStr - 150) / 3 : 0;
+
+    auto cit = CLASS_ID.find(std::string(className));
+    int classId = (cit != CLASS_ID.end()) ? cit->second : 0;
+
+    auto wit = ITEMTYPE_TO_SKILL.find(primaryItemtype);
+    int weaponSkillId = (wit != ITEMTYPE_TO_SKILL.end()) ? wit->second : 28; // HTH
+
+    int offenseSkill = estimateSkill(classId, 33, level);
+    int weaponSkill  = estimateSkill(classId, weaponSkillId, level);
+
+    if (className == "Ranger" && level > 54)
+        offenseSkill += level * 4 - 216;
+
+    int toHit  = 7 + offenseSkill + weaponSkill;
+    int offVal = weaponSkill + itemAtk + strBonus;
+    return (toHit + offVal) * 1000 / 744;
+}
+
+// ── Race IDs (EQMacEmu common/races.h) ───────────────────────────────────
+static constexpr int RACE_HUMAN     = 1,  RACE_BARBARIAN = 2,  RACE_ERUDITE  = 3;
+static constexpr int RACE_WOOD_ELF  = 4,  RACE_HIGH_ELF  = 5,  RACE_DARK_ELF = 6;
+static constexpr int RACE_HALF_ELF  = 7,  RACE_DWARF     = 8,  RACE_TROLL    = 9;
+static constexpr int RACE_OGRE      = 10, RACE_HALFLING   = 11, RACE_GNOME    = 12;
+static constexpr int RACE_IKSAR     = 128, RACE_VAHSHIR   = 130;
+
+// ── Résistances de base (portées de EQMacEmu zone/client_mods.cpp) ────────
+struct BaseResists { int mr, fr, cr, dr, pr; };
+static BaseResists calcBaseResists(int race, std::string_view cls, int level)
+{
+    // MR raciale
+    int mr = (race == RACE_ERUDITE || race == RACE_DWARF) ? 30 : 25;
+
+    // FR raciale
+    int fr;
+    if (race == RACE_IKSAR)        fr = 30;
+    else if (race == RACE_TROLL)   fr = 5;
+    else                           fr = 25;
+
+    // CR raciale
+    int cr;
+    if (race == RACE_BARBARIAN)    cr = 35;
+    else if (race == RACE_IKSAR)   cr = 15;
+    else                           cr = 25;
+
+    // DR raciale
+    int dr;
+    if (race == RACE_HALFLING)     dr = 20;
+    else if (race == RACE_ERUDITE) dr = 10;
+    else                           dr = 15;
+
+    // PR raciale
+    int pr = (race == RACE_DWARF || race == RACE_HALFLING) ? 20 : 15;
+
+    // Bonus de classe (mêmes conditions que le serveur)
+    auto lvlBonus49 = [&](int base) { return level > 49 ? base + (level - 49) : base; };
+    auto lvlBonus50 = [&]() { return level > 50 ? level - 50 : 0; };
+
+    if      (cls == "Warrior")     mr += level / 2;
+    if      (cls == "Ranger")    { fr += lvlBonus49(4); cr += lvlBonus49(4); }
+    else if (cls == "Monk")      { fr += lvlBonus49(8); dr += lvlBonus50(); pr += lvlBonus50(); }
+    if      (cls == "Paladin")     dr += lvlBonus49(8);
+    else if (cls == "Shadowknight"){ dr += lvlBonus49(4); pr += lvlBonus49(4); }
+    else if (cls == "Beastlord") { dr += lvlBonus49(4); cr += lvlBonus49(4); }
+    if      (cls == "Rogue")       pr += lvlBonus49(8);
+
+    return {mr, fr, cr, dr, pr};
+}
 
 // ── Classes qui ont du mana ───────────────────────────────────────────────
 static bool hasMana(std::string_view cls) {
@@ -200,10 +311,27 @@ static int hasteCapPct(int level) {
 // calculateTotals — portée depuis stats_calculator.py::compute_totals()
 // ═══════════════════════════════════════════════════════════════════════════
 PlayerTotals calculateTotals(const CharacterInfo& ci,
-                              const std::vector<ItemData>& items)
+                              const std::vector<ItemData>& items,
+                              int primaryItemtype)
 {
     PlayerTotals t;
     if (ci.level <= 0) return t;  // garde : level invalide → totaux nuls
+
+    // ── Stats de base du personnage ───────────────────────────────────────
+    t.str_v = ci.base_str;
+    t.sta   = ci.base_sta;
+    t.dex   = ci.base_dex;
+    t.agi   = ci.base_agi;
+    t.int_v = ci.base_int;
+    t.wis   = ci.base_wis;
+    t.cha   = ci.base_cha;
+
+    // ── Résistances de base (race + classe + niveau) ──────────────────────
+    {
+        auto br = calcBaseResists(ci.race, ci.class_name, ci.level);
+        t.mr = br.mr;  t.fr = br.fr;  t.cr = br.cr;
+        t.dr = br.dr;  t.pr = br.pr;
+    }
 
     // ── Accumulation brute depuis les items ───────────────────────────────
     int itemAtkRaw       = 0;
@@ -240,20 +368,39 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
     // ── Haste cap (GetHasteCap) ───────────────────────────────────────────
     t.haste = std::min(t.haste, hasteCapPct(ci.level));
 
-    // ── HP cap items (RuleI Character ItemHPCap = 2000) ──────────────────
-    t.hp.capped = std::min(t.hp.base, hpCap(ci.class_name, ci.level));
+    // ── Attribute caps (255 hard cap) ─────────────────────────────────────
+    int totalSta = std::min(t.sta,   ATTRIBUTE_CAP);
+    int totalAgi = std::min(t.agi,   ATTRIBUTE_CAP);
 
-    // ── Mana cap items (seulement pour les classes avec mana) ────────────
-    if (classHasMana)
-        t.mana.capped = std::min(t.mana.base, manaCap(ci.class_name, ci.level));
+    // ── HP : base (STA/niveau) + bonus items (cap 2000) ──────────────────
+    {
+        int itemHpRaw = t.hp.base;
+        int baseHp    = calcBaseHp(ci.class_name, ci.level, totalSta);
+        t.hp.base     = baseHp + itemHpRaw;
+        t.hp.capped   = baseHp + std::min(itemHpRaw, hpCap(ci.class_name, ci.level));
+    }
 
-    // ── ATK item cap ──────────────────────────────────────────────────────
-    t.atk = std::min(itemAtkRaw, attackCap(ci.class_name, ci.level));
+    // ── Mana : base (INT/WIS/niveau) + bonus items (cap 2000) ────────────
+    if (classHasMana) {
+        char ct = casterType(ci.class_name);
+        int wi = (ct == 'I') ? std::min(t.int_v, ATTRIBUTE_CAP)
+                             : std::min(t.wis,   ATTRIBUTE_CAP);
+        int itemManaRaw = t.mana.base;
+        int baseMana    = calcBaseMana("", ci.level, wi);
+        t.mana.base     = baseMana + itemManaRaw;
+        t.mana.capped   = baseMana + std::min(itemManaRaw, manaCap(ci.class_name, ci.level));
+    }
+
+    // ── ATK affiché = (toHit + offense) * 1000 / 744 ────────────────────────
+    {
+        int totalStr = std::min(t.str_v, ATTRIBUTE_CAP);
+        t.atk = calcDisplayedAtk(ci.class_name, ci.level, totalStr,
+                                  itemAtkRaw, primaryItemtype);
+    }
 
     // ── Mitigation AC (EQMacEmu CalcAC formula) ──────────────────────────
-    // Mitigation = 0 quand aucun item n'a d'AC (correct pour le test)
-    if (!items.empty()) {
-        auto acResult = calcDisplayedAc(ci.class_name, ci.level, t.agi, rawAc);
+    {
+        auto acResult = calcDisplayedAc(ci.class_name, ci.level, totalAgi, rawAc);
         t.mitigation = acResult.mitigation;
     }
 

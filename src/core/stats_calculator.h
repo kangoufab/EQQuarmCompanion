@@ -4,9 +4,11 @@
 #include <vector>
 
 // Calcule les totaux capped du joueur à partir de son équipement.
+// primaryItemtype : itemtype EQ de l'arme en main (0=1HSlash par défaut → HTH si 0)
 [[nodiscard]] PlayerTotals calculateTotals(
     const CharacterInfo& charInfo,
-    const std::vector<ItemData>& equippedItems);
+    const std::vector<ItemData>& equippedItems,
+    int primaryItemtype = 0);
 
 // Applique les effets worn (procs, focus, etc.) à un item.
 void applyWornStats(ItemData& item, int level);

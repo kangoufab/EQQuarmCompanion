@@ -73,13 +73,35 @@ void MainWindow::loadCharacterFiles() {
 
 void MainWindow::onCharacterChanged(int index) {
     if (index < 0 || index >= static_cast<int>(_characters.size())) return;
-    _currentChar  = _characters[index];
-    _playerTotals = calculateTotals(_currentChar, {});
+    _currentChar = _characters[index];
+    _equippedItems.clear();
+
+    for (const auto& [slot, itemId] : _currentChar.equipped) {
+        auto item = _itemDb->getItemById(itemId);
+        if (item)
+            _equippedItems[slot] = *item;
+    }
+
+    recalculateTotals();
     refreshAllTabs();
 }
 
+void MainWindow::recalculateTotals() {
+    std::vector<ItemData> items;
+    items.reserve(_equippedItems.size());
+    for (const auto& kv : _equippedItems)
+        items.push_back(kv.second);
+
+    int primaryItemtype = 0;
+    auto pit = _equippedItems.find("Primary");
+    if (pit != _equippedItems.end())
+        primaryItemtype = pit->second.itemtype;
+
+    _playerTotals = calculateTotals(_currentChar, items, primaryItemtype);
+}
+
 void MainWindow::refreshAllTabs() {
-    _charTab->setCharacter(&_currentChar, &_playerTotals);
+    _charTab->setCharacter(&_currentChar, &_playerTotals, _equippedItems);
     _fightTab->setCharacter(&_currentChar, &_playerTotals);
     _spellsTab->setCharacter(&_currentChar, &_playerTotals);
 }

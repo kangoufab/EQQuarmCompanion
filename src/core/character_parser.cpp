@@ -57,64 +57,92 @@ std::optional<CharacterInfo> parseCharacterFile(const std::filesystem::path& pat
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) return std::nullopt;
 
-    std::vector<std::string> header;
+    std::optional<CharacterInfo> result;
+    bool inEquipSection = false;
+    std::map<std::string, int> slotCounters;
+    std::vector<std::string> charHeader;
     std::string line;
 
     while (std::getline(file, line)) {
         line = rtrim(line);
         auto parts = splitTsv(line);
-
         if (parts.empty()) continue;
 
-        // Looking for header: "Character Name Class Level Race ..."
+        // ── Character header row ──────────────────────────────────────────
         if (parts[0] == "Character" && parts.size() > 1 && parts[1] == "Name") {
-            header = parts;
+            charHeader = parts;
             continue;
         }
 
-        // When we have a header, look for data line starting with "Character"
-        if (!header.empty() && parts[0] == "Character" && parts.size() > 1) {
-            // Build column index map
+        // ── Character data row ────────────────────────────────────────────
+        if (!charHeader.empty() && !result.has_value()
+            && parts[0] == "Character" && parts.size() > 1) {
             std::map<std::string, size_t> col;
-            for (size_t i = 0; i < header.size(); ++i) {
-                col[header[i]] = i;
-            }
+            for (size_t i = 0; i < charHeader.size(); ++i)
+                col[charHeader[i]] = i;
 
-            // Extract required fields
             if (col.find("Name") == col.end() || col.find("Class") == col.end()
-                || col.find("Level") == col.end()) {
+                || col.find("Level") == col.end())
                 return std::nullopt;
-            }
 
             try {
-                size_t nameIdx = col["Name"];
-                size_t classIdx = col["Class"];
-                size_t levelIdx = col["Level"];
-
-                if (nameIdx >= parts.size() || classIdx >= parts.size()
-                    || levelIdx >= parts.size()) {
-                    return std::nullopt;
-                }
-
-                std::string name = parts[nameIdx];
-                int classId = std::stoi(parts[classIdx]);
-                int level = std::stoi(parts[levelIdx]);
-
-                auto classIt = EQ_CLASS_NAMES.find(classId);
-                std::string className = classIt != EQ_CLASS_NAMES.end() ? classIt->second : "";
-
                 CharacterInfo info;
-                info.name = name;
-                info.class_name = className;
-                info.level = level;
-                return info;
-            } catch (const std::exception&) {
+                info.name       = parts[col["Name"]];
+                info.class_name = [&]{
+                    int id = std::stoi(parts[col["Class"]]);
+                    auto it = EQ_CLASS_NAMES.find(id);
+                    return it != EQ_CLASS_NAMES.end() ? it->second : std::string{};
+                }();
+                info.level = std::stoi(parts[col["Level"]]);
+
+                auto readStat = [&](const char* key) -> int {
+                    auto it = col.find(key);
+                    if (it == col.end() || it->second >= parts.size()) return 0;
+                    try { return std::stoi(parts[it->second]); } catch (...) { return 0; }
+                };
+                info.race     = readStat("Race");
+                info.base_str = readStat("BaseSTR");
+                info.base_sta = readStat("BaseSTA");
+                info.base_dex = readStat("BaseDEX");
+                info.base_agi = readStat("BaseAGI");
+                info.base_int = readStat("BaseINT");
+                info.base_wis = readStat("BaseWIS");
+                info.base_cha = readStat("BaseCHA");
+                result = std::move(info);
+            } catch (...) {
                 return std::nullopt;
+            }
+            continue;
+        }
+
+        // ── Equipment section header ──────────────────────────────────────
+        if (parts[0] == "Location" && parts.size() >= 3 && parts[1] == "Name" && parts[2] == "ID") {
+            inEquipSection = true;
+            continue;
+        }
+
+        // ── Equipment data rows ───────────────────────────────────────────
+        if (inEquipSection && result.has_value() && parts.size() >= 3) {
+            std::string location = parts[0];
+            std::string itemName = parts[1];
+            int itemId = 0;
+            try { itemId = std::stoi(parts[2]); } catch (...) {}
+
+            if (itemName.empty() || itemName == "Empty" || itemId <= 0) continue;
+
+            auto expandIt = SLOT_EXPANSION.find(location);
+            if (expandIt != SLOT_EXPANSION.end()) {
+                const auto& slots = expandIt->second;
+                int idx = slotCounters[location]++;
+                if (idx < static_cast<int>(slots.size()))
+                    result->equipped.emplace_back(slots[idx], itemId);
+            } else if (EQUIPPED_LOCATIONS.count(location)) {
+                result->equipped.emplace_back(location, itemId);
             }
         }
     }
 
-    return std::nullopt;
+    return result;
 }
 
 // ── Parse Equipped Items ────────────────────────────────────────────────

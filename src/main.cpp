@@ -33,6 +33,7 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     app.setApplicationName("EQ Quarm Companion");
 
+
     auto* splash = makeSplash();
     splash->show();
     app.processEvents();
@@ -47,9 +48,8 @@ int main(int argc, char* argv[]) {
     // Connexion DB (non bloquant si échec — certaines fonctions désactivées)
     auto dbCfg = config.getDbConfig();
     bool dbOk  = DbConnection::instance().connect(dbCfg);
-    if (!dbOk) {
+    if (!dbOk)
         qWarning() << "DB non connectée — vérifier les paramètres dans config.json";
-    }
 
     NpcDatabase  npcDb;
     ItemDatabase itemDb;
