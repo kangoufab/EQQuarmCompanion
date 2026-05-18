@@ -44,8 +44,8 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
 
     _tabs = new QTabWidget;
     _tabs->addTab(_charTab,   "Stuff");
-    _tabs->addTab(_fightTab,  "Fight");
     _tabs->addTab(_spellsTab, "Buffs");
+    _tabs->addTab(_fightTab,  "Fight");
     _tabs->addTab(_infosTab,  "Infos");
 
     setCentralWidget(_tabs);
