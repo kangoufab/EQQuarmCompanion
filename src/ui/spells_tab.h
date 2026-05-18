@@ -37,7 +37,6 @@ private:
     void rebuildClassList();
     void refreshStats();
     int  expansionMaxLevel() const;
-    QFrame* makeStatsBarsWidget(const QString& label, const PlayerTotals& totals);
 
     Config*        _config;
     ItemDatabase*  _itemDb;

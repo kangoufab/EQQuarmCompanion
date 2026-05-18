@@ -1,4 +1,5 @@
 #include "ui/spells_tab.h"
+#include "ui/stats_bar.h"
 #include "core/config.h"
 #include "core/spell_stacking.h"
 #include "core/spell_stats.h"
@@ -152,7 +153,16 @@ void SpellsTab::buildUi()
     layout->setContentsMargins(8, 8, 8, 8);
     layout->setSpacing(8);
 
-    // En-tête
+    // Bandeau stats en haut
+    {
+        _statsHolder = new QWidget;
+        _statsHolder->setStyleSheet("background: transparent;");
+        _statsLayout = new QVBoxLayout(_statsHolder);
+        _statsLayout->setContentsMargins(0, 0, 0, 0);
+        layout->addWidget(_statsHolder);
+    }
+
+    // En-tête section sorts
     {
         _headerLabel = new QLabel(QString::fromUtf8("Sorts b\xc3\xa9" "n\xc3\xa9" "fiques (0/%1)").arg(MAX_BUFF_SLOTS));
         _headerLabel->setStyleSheet(
@@ -200,15 +210,6 @@ void SpellsTab::buildUi()
 
         sv->addLayout(panels);
         layout->addWidget(sectionFrame);
-    }
-
-    // Zone stats
-    {
-        _statsHolder = new QWidget;
-        _statsHolder->setStyleSheet("background: transparent;");
-        _statsLayout = new QVBoxLayout(_statsHolder);
-        _statsLayout->setContentsMargins(0, 0, 0, 0);
-        layout->addWidget(_statsHolder);
     }
 
     layout->addStretch();
@@ -428,138 +429,9 @@ void SpellsTab::refreshStats()
               .arg((int)effective.size())
               .arg(effective.size() > 1 ? "s" : "");
 
-    _statsLayout->addWidget(makeStatsBarsWidget(lbl, totals));
-}
-
-// ── makeStatsBarsWidget ───────────────────────────────────────────────────
-// Version simplifiée de CharacterTab::makeStatsBar (sans tooltips).
-
-QFrame* SpellsTab::makeStatsBarsWidget(const QString& label, const PlayerTotals& totals)
-{
     std::string cls = _charInfo ? _charInfo->class_name : "";
-
-    // Catégories à afficher selon la classe
-    std::vector<std::pair<std::string, std::vector<std::string>>> cats;
-    auto classIt = CLASS_CATS_UI.find(cls);
-    if (classIt != CLASS_CATS_UI.end()) {
-        for (auto& [name, stats] : STAT_CATS)
-            if (classIt->second.count(name))
-                cats.push_back({name, stats});
-    }
-    if (cats.empty()) cats = STAT_CATS;
-
-    // Defense toujours en première position
-    auto defIt = std::find_if(cats.begin(), cats.end(),
-                              [](const auto& p){ return p.first == "Defense"; });
-    if (defIt != cats.end() && defIt != cats.begin())
-        std::rotate(cats.begin(), defIt, defIt + 1);
-
-    // Expansion caps
     std::string exp = _config->get("current_expansion");
-    int attrCap   = (exp == "Classic" || exp == "Kunark" || exp == "Velious") ? 200 : 255;
-    int resistCap = (exp == "Classic" || exp == "Kunark" || exp == "Velious") ? 200 : 500;
-
-    auto* frame = new QFrame;
-    frame->setStyleSheet("QFrame { background: #0f1624; border: none; }");
-    auto* outer = new QVBoxLayout(frame);
-    outer->setContentsMargins(0, 4, 0, 4);
-    outer->setSpacing(4);
-
-    auto* grid = new QGridLayout;
-    grid->setSpacing(6);
-    grid->setContentsMargins(0, 0, 0, 0);
-
-    for (int idx = 0; idx < (int)cats.size(); ++idx) {
-        auto& [catName, catStats] = cats[idx];
-        int row = idx / 2, col = idx % 2;
-
-        auto colIt = CAT_COLORS_UI.find(catName);
-        if (colIt == CAT_COLORS_UI.end()) continue;
-        auto& [bg, border, accent] = colIt->second;
-
-        auto* panel = new QFrame;
-        panel->setStyleSheet(
-            QString("QFrame { background: %1; border-radius: 4px; border: 1px solid %2; }")
-            .arg(bg).arg(border));
-        auto* panelL = new QVBoxLayout(panel);
-        panelL->setContentsMargins(6, 4, 6, 6);
-        panelL->setSpacing(3);
-
-        auto lblIt = CAT_LABELS_UI.find(catName);
-        const char* catStr = (lblIt != CAT_LABELS_UI.end()) ? lblIt->second : catName.c_str();
-        auto* catLbl = new QLabel(QString::fromUtf8(catStr));
-        catLbl->setStyleSheet(
-            QString("font-size: 10px; color: %1; font-variant: small-caps; "
-                    "font-weight: bold; border: none; background: transparent;").arg(accent));
-        panelL->addWidget(catLbl);
-
-        auto* tilesW = new QWidget;
-        tilesW->setStyleSheet("background: transparent;");
-        auto* tilesL = new QHBoxLayout(tilesW);
-        tilesL->setSpacing(3);
-        tilesL->setContentsMargins(0, 0, 0, 0);
-
-        for (auto& stat : catStats) {
-            bool hasCap = isAttr(stat) || isResist(stat);
-            int cap = isAttr(stat) ? attrCap : (isResist(stat) ? resistCap : 0);
-            int rawVal  = getStatVal(stat, totals);
-            int dispVal = hasCap ? std::min(rawVal, cap) : rawVal;
-            bool atCap  = hasCap && rawVal >= cap;
-
-            const char *tileBg, *tileFg;
-            if (!hasCap)    { tileBg = "#1e2a1e"; tileFg = "#81c784"; }
-            else if (atCap) { tileBg = "#1e3a5f"; tileFg = "#4fc3f7"; }
-            else             { tileBg = "#252540"; tileFg = "#cccccc"; }
-
-            auto* tile = new QFrame;
-            tile->setStyleSheet(
-                QString("QFrame { background: %1; border-radius: 3px; "
-                        "border: 1px solid rgba(255,255,255,0.06); }").arg(tileBg));
-            auto* tileL = new QVBoxLayout(tile);
-            tileL->setContentsMargins(4, 3, 4, 3);
-            tileL->setSpacing(1);
-
-            static const std::map<std::string, std::string> SLABELS = {
-                {"astr","STR"},{"asta","STA"},{"aagi","AGI"},{"adex","DEX"},
-                {"awis","WIS"},{"aint","INT"},{"acha","CHA"},
-                {"hp","HP"},{"ac","AC"},{"mana","Mana"},{"atk","ATK"},
-                {"haste","Haste"},{"hp_regen","HP/tick"},{"mana_regen","Mana/tick"},
-                {"mr","Magic"},{"fr","Fire"},{"cr","Cold"},{"dr","Disease"},{"pr","Poison"},
-            };
-            static const std::map<std::string, std::string> SUFFIXES = {
-                {"haste","%"},{"hp_regen","/tick"},{"mana_regen","/tick"},
-            };
-
-            auto slbIt  = SLABELS.find(stat);
-            auto sufIt  = SUFFIXES.find(stat);
-            QString slabel = slbIt != SLABELS.end()
-                ? QString::fromStdString(slbIt->second) : QString::fromStdString(stat);
-            QString suffix = sufIt != SUFFIXES.end()
-                ? QString::fromStdString(sufIt->second) : QString();
-
-            auto* statNameLbl = new QLabel(slabel);
-            statNameLbl->setStyleSheet(
-                "font-size: 8px; color: #888888; border: none; background: transparent;");
-            statNameLbl->setAlignment(Qt::AlignCenter);
-
-            auto* valLbl = new QLabel(QString::number(dispVal) + suffix);
-            valLbl->setStyleSheet(
-                QString("font-size: 11px; font-weight: bold; color: %1; "
-                        "border: none; background: transparent;").arg(tileFg));
-            valLbl->setAlignment(Qt::AlignCenter);
-
-            tileL->addWidget(statNameLbl);
-            tileL->addWidget(valLbl);
-            tilesL->addWidget(tile);
-        }
-
-        panelL->addWidget(tilesW);
-        grid->addWidget(panel, row, col);
-    }
-
-    auto* gridW = new QWidget;
-    gridW->setStyleSheet("background: transparent;");
-    gridW->setLayout(grid);
-    outer->addWidget(gridW);
-    return frame;
+    _statsLayout->addWidget(makePlayerStatsBar(totals, cls, exp));
 }
+
+
