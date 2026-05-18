@@ -39,13 +39,13 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
 
     _charTab   = new CharacterTab(config, npcDb, itemDb);
     _fightTab  = new FightTab(config, npcDb, itemDb);
-    _spellsTab = new SpellsTab(config, npcDb);
+    _spellsTab = new SpellsTab(config, itemDb);
     _infosTab  = new InfosTab(config);
 
     _tabs = new QTabWidget;
     _tabs->addTab(_charTab,   "Stuff");
     _tabs->addTab(_fightTab,  "Fight");
-    _tabs->addTab(_spellsTab, "Spells");
+    _tabs->addTab(_spellsTab, "Buffs");
     _tabs->addTab(_infosTab,  "Infos");
 
     setCentralWidget(_tabs);
@@ -103,7 +103,7 @@ void MainWindow::recalculateTotals() {
 void MainWindow::refreshAllTabs() {
     _charTab->setCharacter(&_currentChar, &_playerTotals, _equippedItems);
     _fightTab->setCharacter(&_currentChar, &_playerTotals);
-    _spellsTab->setCharacter(&_currentChar, &_playerTotals);
+    _spellsTab->setCharacter(&_currentChar, &_playerTotals, _equippedItems);
 }
 
 void MainWindow::openSettings() {

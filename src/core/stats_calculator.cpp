@@ -1,5 +1,6 @@
 #include "core/stats_calculator.h"
 #include <algorithm>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <string_view>
@@ -399,6 +400,119 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
     }
 
     // ── Mitigation AC (EQMacEmu CalcAC formula) ──────────────────────────
+    {
+        auto acResult = calcDisplayedAc(ci.class_name, ci.level, totalAgi, rawAc);
+        t.mitigation = acResult.mitigation;
+    }
+
+    return t;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// calculateTotalsWithSpells — idem calculateTotals + accumulation des sorts
+// ═══════════════════════════════════════════════════════════════════════════
+PlayerTotals calculateTotalsWithSpells(
+    const CharacterInfo& ci,
+    const std::vector<ItemData>& items,
+    const std::vector<std::map<std::string, int>>& spellDicts,
+    int primaryItemtype)
+{
+    PlayerTotals t;
+    if (ci.level <= 0) return t;
+
+    t.str_v = ci.base_str;
+    t.sta   = ci.base_sta;
+    t.dex   = ci.base_dex;
+    t.agi   = ci.base_agi;
+    t.int_v = ci.base_int;
+    t.wis   = ci.base_wis;
+    t.cha   = ci.base_cha;
+
+    {
+        auto br = calcBaseResists(ci.race, ci.class_name, ci.level);
+        t.mr = br.mr;  t.fr = br.fr;  t.cr = br.cr;
+        t.dr = br.dr;  t.pr = br.pr;
+    }
+
+    int itemAtkRaw = 0, rawAc = 0;
+    const bool classHasMana = hasMana(ci.class_name);
+
+    for (const auto& item : items) {
+        t.hp.base    += item.hp;
+        if (classHasMana) t.mana.base += item.mana;
+        itemAtkRaw   += item.atk;
+        rawAc        += item.ac;
+        t.str_v      += item.astr;
+        t.sta        += item.asta;
+        t.dex        += item.adex;
+        t.agi        += item.aagi;
+        t.int_v      += item.aint;
+        t.wis        += item.awis;
+        t.cha        += item.acha;
+        t.mr         += item.mr;
+        t.fr         += item.fr;
+        t.cr         += item.cr;
+        t.dr         += item.dr;
+        t.pr         += item.pr;
+        t.haste       = std::max(t.haste, item.haste);
+        t.hp_regen   += item.hp_regen;
+        t.mana_regen += item.mana_regen;
+    }
+
+    // Accumulation des stats de sorts (avant caps)
+    auto getSpell = [&](const std::map<std::string,int>& d, const char* k) {
+        auto it = d.find(k); return it != d.end() ? it->second : 0;
+    };
+    for (const auto& d : spellDicts) {
+        t.hp.base    += getSpell(d, "hp");
+        if (classHasMana) t.mana.base += getSpell(d, "mana");
+        itemAtkRaw   += getSpell(d, "atk");
+        rawAc        += getSpell(d, "ac");
+        t.str_v      += getSpell(d, "astr");
+        t.sta        += getSpell(d, "asta");
+        t.dex        += getSpell(d, "adex");
+        t.agi        += getSpell(d, "aagi");
+        t.int_v      += getSpell(d, "aint");
+        t.wis        += getSpell(d, "awis");
+        t.cha        += getSpell(d, "acha");
+        t.mr         += getSpell(d, "mr");
+        t.fr         += getSpell(d, "fr");
+        t.cr         += getSpell(d, "cr");
+        t.dr         += getSpell(d, "dr");
+        t.pr         += getSpell(d, "pr");
+        t.haste       = std::max(t.haste, getSpell(d, "haste") + getSpell(d, "haste_v2") + getSpell(d, "haste_v3"));
+        t.hp_regen   += getSpell(d, "hp_regen");
+        t.mana_regen += getSpell(d, "mana_regen");
+    }
+
+    t.haste = std::min(t.haste, hasteCapPct(ci.level));
+
+    int totalSta = std::min(t.sta,   ATTRIBUTE_CAP);
+    int totalAgi = std::min(t.agi,   ATTRIBUTE_CAP);
+
+    {
+        int itemHpRaw = t.hp.base;
+        int baseHp    = calcBaseHp(ci.class_name, ci.level, totalSta);
+        t.hp.base     = baseHp + itemHpRaw;
+        t.hp.capped   = baseHp + std::min(itemHpRaw, hpCap(ci.class_name, ci.level));
+    }
+
+    if (classHasMana) {
+        char ct = casterType(ci.class_name);
+        int wi = (ct == 'I') ? std::min(t.int_v, ATTRIBUTE_CAP)
+                             : std::min(t.wis,   ATTRIBUTE_CAP);
+        int itemManaRaw = t.mana.base;
+        int baseMana    = calcBaseMana("", ci.level, wi);
+        t.mana.base     = baseMana + itemManaRaw;
+        t.mana.capped   = baseMana + std::min(itemManaRaw, manaCap(ci.class_name, ci.level));
+    }
+
+    {
+        int totalStr = std::min(t.str_v, ATTRIBUTE_CAP);
+        t.atk = calcDisplayedAtk(ci.class_name, ci.level, totalStr,
+                                  itemAtkRaw, primaryItemtype);
+    }
+
     {
         auto acResult = calcDisplayedAc(ci.class_name, ci.level, totalAgi, rawAc);
         t.mitigation = acResult.mitigation;

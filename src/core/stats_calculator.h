@@ -1,5 +1,7 @@
 #pragma once
 #include "core/types.h"
+#include <map>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -8,6 +10,14 @@
 [[nodiscard]] PlayerTotals calculateTotals(
     const CharacterInfo& charInfo,
     const std::vector<ItemData>& equippedItems,
+    int primaryItemtype = 0);
+
+// Idem mais avec des sorts actifs (buffs) ajoutés avant le cap.
+// spellDicts : résultats de spellToStatDict() pour chaque sort effectif.
+[[nodiscard]] PlayerTotals calculateTotalsWithSpells(
+    const CharacterInfo& charInfo,
+    const std::vector<ItemData>& equippedItems,
+    const std::vector<std::map<std::string, int>>& spellDicts,
     int primaryItemtype = 0);
 
 // Applique les effets worn (procs, focus, etc.) à un item.

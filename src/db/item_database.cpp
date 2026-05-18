@@ -3,6 +3,8 @@
 #include <QtSql/QSqlQuery>
 #include <QtSql/QSqlError>
 #include <QDebug>
+#include <map>
+#include <string>
 #undef slots  // Qt macro — conflicts with field names in plain structs
 
 // ── SQL helpers ────────────────────────────────────────────────────────────
@@ -114,6 +116,31 @@ static ItemData rowToItemData(QSqlQuery& q) {
 
 // ── ItemDatabase ───────────────────────────────────────────────────────────
 
+// Noms de classes → index 1-based dans spells_new.classesN
+static const std::map<std::string, int> SPELL_CLASS_ID = {
+    {"Warrior",1},{"Cleric",2},{"Paladin",3},{"Ranger",4},
+    {"Shadowknight",5},{"Druid",6},{"Monk",7},{"Bard",8},
+    {"Rogue",9},{"Shaman",10},{"Necromancer",11},{"Wizard",12},
+    {"Magician",13},{"Enchanter",14},{"Beastlord",15},{"Berserker",16},
+};
+
+static SpellData rowToSpellData(QSqlQuery& q, int minLevelCol = -1) {
+    SpellData sd;
+    sd.id         = q.value("id").toInt();
+    sd.name       = q.value("name").toString().toStdString();
+    sd.targettype = q.value("targettype").toInt();
+    for (int i = 0; i < 12; ++i) {
+        int n = i + 1;
+        sd.spa[i]               = q.value(QString("effectid%1").arg(n)).toInt();
+        sd.effect_base_value[i] = q.value(QString("effect_base_value%1").arg(n)).toInt();
+        sd.effect_limit_value[i]= q.value(QString("max%1").arg(n)).toInt();
+        sd.effect_formula[i]    = q.value(QString("formula%1").arg(n)).toInt();
+    }
+    for (int i = 0; i < 16; ++i)
+        sd.classes[i] = q.value(QString("classes%1").arg(i+1)).toInt();
+    return sd;
+}
+
 ItemDatabase::ItemDatabase(QObject* parent) : QObject(parent) {}
 
 std::optional<ItemData> ItemDatabase::getItemById(int id) {
@@ -152,5 +179,40 @@ QList<ItemData> ItemDatabase::searchItems(const QString& nameFragment, int limit
     }
     while (q.next())
         result.append(rowToItemData(q));
+    return result;
+}
+
+QList<SpellData> ItemDatabase::getBeneficialSpellsByClass(const QString& className, int maxLevel) {
+    QList<SpellData> result;
+    auto it = SPELL_CLASS_ID.find(className.toStdString());
+    if (it == SPELL_CLASS_ID.end()) return result;
+    int cid = it->second;
+
+    // Colonnes effect (12 slots)
+    QString effectCols;
+    for (int i = 1; i <= 12; ++i)
+        effectCols += QString("effectid%1, effect_base_value%1, max%1, formula%1, ").arg(i);
+    // Colonnes classes (16 classes)
+    QString classCols;
+    for (int i = 1; i <= 16; ++i)
+        classCols += QString("classes%1, ").arg(i);
+    classCols.chop(2); // remove trailing ", "
+
+    QString sql = QString(
+        "SELECT id, name, targettype, %1 %2"
+        " FROM spells_new"
+        " WHERE goodEffect = 1 AND classes%3 > 0 AND classes%3 <= :maxlvl"
+        " ORDER BY classes%3 DESC, name ASC")
+        .arg(effectCols).arg(classCols).arg(cid);
+
+    QSqlQuery q(DbConnection::instance().db());
+    q.prepare(sql);
+    q.bindValue(":maxlvl", maxLevel);
+    if (!q.exec()) {
+        qWarning() << "getBeneficialSpellsByClass failed:" << q.lastError().text();
+        return result;
+    }
+    while (q.next())
+        result.append(rowToSpellData(q));
     return result;
 }

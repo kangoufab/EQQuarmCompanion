@@ -96,3 +96,48 @@ float spellIncomingDps(
     }
     return totalDps;
 }
+
+// ── spellToStatDict ────────────────────────────────────────────────────────
+// Porte spell_to_stat_dict() de spell_stats.py.
+// SPA 254 = SE_Blank (fin des effets). SPA 0 = SE_CurrentHP (hp_regen bard).
+
+std::map<std::string, int> spellToStatDict(const SpellData& spell, int casterLevel) {
+    std::map<std::string, int> result;
+
+    static const std::pair<int, const char*> SPA_MAP[] = {
+        {0,  "hp_regen"}, {1,  "ac"},   {2,  "atk"},
+        {4,  "astr"},     {5,  "adex"}, {6,  "aagi"}, {7,  "asta"},
+        {8,  "aint"},     {9,  "awis"}, {10, "acha"},
+        {15, "mana_regen"},
+        {46, "fr"},  {47, "cr"},  {48, "pr"},  {49, "dr"},  {50, "mr"},
+        {69, "hp"},  {97, "mana"}, {100, "hp_regen"},
+    };
+
+    for (int i = 0; i < 12; ++i) {
+        int spa = spell.spa[i];
+        if (spa == 254) break;    // SE_Blank — pas d'effets suivants
+        int base = spell.effect_base_value[i];
+        if (base == 0) continue;
+        int formula = spell.effect_formula[i] ? spell.effect_formula[i] : 100;
+        int mx      = spell.effect_limit_value[i];
+        int value   = calcSpellEffectValue(base, mx, formula, casterLevel);
+
+        if (spa == 11) {
+            result["haste"]    += (value - 100);
+        } else if (spa == 98) {
+            result["haste_v2"] += (value - 100);
+        } else if (spa == 119) {
+            result["haste_v3"] += value;
+        } else if (spa == 111) {
+            for (const char* r : {"mr", "fr", "cr", "dr", "pr"})
+                result[r] += value;
+        } else if (spa == 159) {
+            for (const char* a : {"astr", "asta", "aagi", "adex", "awis", "aint", "acha"})
+                result[a] += value;
+        } else {
+            for (auto& [s, k] : SPA_MAP)
+                if (s == spa) { result[k] += value; break; }
+        }
+    }
+    return result;
+}

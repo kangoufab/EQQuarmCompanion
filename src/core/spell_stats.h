@@ -1,5 +1,7 @@
 #pragma once
 #include "core/types.h"
+#include <map>
+#include <string>
 #include <vector>
 
 // Calcule la valeur d'un effet de sort au niveau donné.
@@ -15,3 +17,7 @@
     const std::vector<SpellData>& npcSpells,
     const PlayerTotals& player,
     int playerLevel, int npcLevel);
+
+// Convertit un sort en dictionnaire de stats (porte spell_to_stat_dict de spell_stats.py).
+// casterLevel : niveau du lanceur (personnage pour sorts self-only, level max expansion sinon).
+[[nodiscard]] std::map<std::string, int> spellToStatDict(const SpellData& spell, int casterLevel);
