@@ -348,13 +348,6 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
     outer->setContentsMargins(0, 4, 0, 4);
     outer->setSpacing(4);
 
-    // Label de section
-    auto* headerLbl = new QLabel(label);
-    headerLbl->setStyleSheet(
-        "font-size: 10px; color: #888; font-variant: small-caps; "
-        "border: none; background: transparent;");
-    outer->addWidget(headerLbl);
-
     // Grille 2×2 de panneaux de catégories
     auto* grid = new QGridLayout;
     grid->setSpacing(6);

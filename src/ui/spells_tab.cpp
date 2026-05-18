@@ -465,12 +465,6 @@ QFrame* SpellsTab::makeStatsBarsWidget(const QString& label, const PlayerTotals&
     outer->setContentsMargins(0, 4, 0, 4);
     outer->setSpacing(4);
 
-    auto* headerLbl = new QLabel(label);
-    headerLbl->setStyleSheet(
-        "font-size: 10px; color: #888; font-variant: small-caps; "
-        "border: none; background: transparent;");
-    outer->addWidget(headerLbl);
-
     auto* grid = new QGridLayout;
     grid->setSpacing(6);
     grid->setContentsMargins(0, 0, 0, 0);
