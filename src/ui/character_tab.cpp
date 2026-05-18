@@ -16,6 +16,7 @@
 #include <QPushButton>
 #include <QString>
 #include <algorithm>
+#include <algorithm>
 #include <set>
 
 // ── Constantes portées depuis Python stat_caps.py et character_tab.py ─────
@@ -249,6 +250,21 @@ void CharacterTab::buildUi()
         connect(_searchCombo, qOverload<int>(&QComboBox::activated),
                 this, &CharacterTab::onItemSelected);
         row->addWidget(_searchCombo);
+
+        _clearBtn = new QPushButton("Clear");
+        _clearBtn->setEnabled(false);
+        _clearBtn->setStyleSheet(
+            "QPushButton { background: #2a3a5a; border: 1px solid #3a4a6a; "
+            "border-radius: 3px; color: #c0c0c0; padding: 3px 10px; font-size: 11px; }"
+            "QPushButton:hover { border-color: #64b5f6; color: #64b5f6; }"
+            "QPushButton:disabled { color: #444; border-color: #2a3045; }");
+        connect(_clearBtn, &QPushButton::clicked, this, [this]() {
+            _searchCombo->clear();
+            _searchCombo->lineEdit()->clear();
+            _searchResults.clear();
+            clearComparison();
+        });
+        row->addWidget(_clearBtn);
         row->addStretch();
         auto* rw = new QWidget;
         rw->setStyleSheet("background: transparent;");
@@ -317,6 +333,12 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
     }
     if (cats.empty())
         cats = STAT_CATEGORIES;
+
+    // Defense toujours en première position
+    auto defIt = std::find_if(cats.begin(), cats.end(),
+                              [](const auto& p){ return p.first == "Defense"; });
+    if (defIt != cats.end() && defIt != cats.begin())
+        std::rotate(cats.begin(), defIt, defIt + 1);
 
     auto* frame = new QFrame;
     frame->setFrameShape(QFrame::StyledPanel);
@@ -767,6 +789,7 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
 
     _comparisonLayout->addWidget(sumFrame);
     _comparisonArea->setVisible(true);
+    if (_clearBtn) _clearBtn->setEnabled(true);
 }
 
 // ── clearComparison ───────────────────────────────────────────────────────
@@ -779,7 +802,7 @@ void CharacterTab::clearComparison()
         delete child;
     }
     _comparisonArea->setVisible(false);
-    // Restaurer "Stats actuelles" dans le bandeau unique
+    if (_clearBtn) _clearBtn->setEnabled(false);
     refreshStats();
 }
 

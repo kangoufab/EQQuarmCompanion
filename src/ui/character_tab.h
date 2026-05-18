@@ -12,6 +12,7 @@ class ItemDatabase;
 class SearchComboBox;
 class QScrollArea;
 class QLabel;
+class QPushButton;
 class QVBoxLayout;
 class QFrame;
 
@@ -53,8 +54,9 @@ private:
     std::map<std::string, ItemData> _equippedItems;
 
     QLabel*         _lblHeader{nullptr};
-    QVBoxLayout*    _statsLayout{nullptr};   // unique bandeau stats (avant ou après)
+    QVBoxLayout*    _statsLayout{nullptr};
     SearchComboBox* _searchCombo{nullptr};
+    QPushButton*    _clearBtn{nullptr};
     QWidget*        _comparisonArea{nullptr};
     QVBoxLayout*    _comparisonLayout{nullptr};
 

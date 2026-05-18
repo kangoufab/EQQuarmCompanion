@@ -448,6 +448,12 @@ QFrame* SpellsTab::makeStatsBarsWidget(const QString& label, const PlayerTotals&
     }
     if (cats.empty()) cats = STAT_CATS;
 
+    // Defense toujours en première position
+    auto defIt = std::find_if(cats.begin(), cats.end(),
+                              [](const auto& p){ return p.first == "Defense"; });
+    if (defIt != cats.end() && defIt != cats.begin())
+        std::rotate(cats.begin(), defIt, defIt + 1);
+
     // Expansion caps
     std::string exp = _config->get("current_expansion");
     int attrCap   = (exp == "Classic" || exp == "Kunark" || exp == "Velious") ? 200 : 255;
