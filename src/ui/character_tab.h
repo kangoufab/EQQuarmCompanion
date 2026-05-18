@@ -53,9 +53,7 @@ private:
     std::map<std::string, ItemData> _equippedItems;
 
     QLabel*         _lblHeader{nullptr};
-    QVBoxLayout*    _beforeLayout{nullptr};
-    QWidget*        _afterContainer{nullptr};
-    QVBoxLayout*    _afterLayout{nullptr};
+    QVBoxLayout*    _statsLayout{nullptr};   // unique bandeau stats (avant ou après)
     SearchComboBox* _searchCombo{nullptr};
     QWidget*        _comparisonArea{nullptr};
     QVBoxLayout*    _comparisonLayout{nullptr};

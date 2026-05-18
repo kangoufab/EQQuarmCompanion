@@ -180,8 +180,7 @@ void CharacterTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* totals,
     _charInfo      = charInfo;
     _totals        = totals;
     _equippedItems = equipped;
-    clearComparison();
-    refreshStats();
+    clearComparison(); // reconstruit le bandeau stats + nettoie la comparaison
 }
 
 // ── buildUi ───────────────────────────────────────────────────────────────
@@ -220,23 +219,13 @@ void CharacterTab::buildUi()
         layout->addWidget(frame);
     }
 
-    // Conteneur pour la barre "Stats actuelles" (reconstruite à chaque refresh)
+    // Bandeau stats unique (se met à jour avant/après)
     {
         auto* bw = new QWidget;
         bw->setStyleSheet("background: transparent;");
-        _beforeLayout = new QVBoxLayout(bw);
-        _beforeLayout->setContentsMargins(0, 0, 0, 0);
+        _statsLayout = new QVBoxLayout(bw);
+        _statsLayout->setContentsMargins(0, 0, 0, 0);
         layout->addWidget(bw);
-    }
-
-    // Conteneur pour la barre "Si équipé (slot)" (masqué par défaut)
-    {
-        _afterContainer = new QWidget;
-        _afterContainer->setStyleSheet("background: transparent;");
-        _afterLayout = new QVBoxLayout(_afterContainer);
-        _afterLayout->setContentsMargins(0, 0, 0, 0);
-        _afterContainer->setVisible(false);
-        layout->addWidget(_afterContainer);
     }
 
     // Barre de recherche
@@ -295,15 +284,15 @@ void CharacterTab::refreshStats()
         _lblHeader->setText(QString::fromUtf8("\xe2\x80\x94"));
     }
 
-    // Reconstruire la barre "Stats actuelles"
-    while (_beforeLayout->count()) {
-        auto* child = _beforeLayout->takeAt(0);
+    // Reconstruire le bandeau stats unique ("Stats actuelles")
+    while (_statsLayout->count()) {
+        auto* child = _statsLayout->takeAt(0);
         if (child->widget()) child->widget()->deleteLater();
         delete child;
     }
     if (_totals && _charInfo && _charInfo->level > 0) {
         auto [attrCap, resistCap] = expansionCaps();
-        _beforeLayout->addWidget(
+        _statsLayout->addWidget(
             makeStatsBar("Stats actuelles", *_totals, attrCap, resistCap));
     }
 }
@@ -714,19 +703,18 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
             primType = pit->second.itemtype;
         PlayerTotals afterTotals = calculateTotals(*_charInfo, afterVec, primType);
 
-        // Barre "Si équipé"
-        while (_afterLayout->count()) {
-            auto* child = _afterLayout->takeAt(0);
+        // Mettre à jour le bandeau stats unique avec les totaux "après"
+        while (_statsLayout->count()) {
+            auto* child = _statsLayout->takeAt(0);
             if (child->widget()) child->widget()->deleteLater();
             delete child;
         }
         auto [attrCap, resistCap] = expansionCaps();
-        _afterLayout->addWidget(
+        _statsLayout->addWidget(
             makeStatsBar(
                 "Si " + QString::fromUtf8("\xc3\xa9") + "quip"
                 + QString::fromUtf8("\xc3\xa9") + " (" + slot + ")",
                 afterTotals, attrCap, resistCap, _totals));
-        _afterContainer->setVisible(true);
     }
 
     // Cartes de comparaison côte à côte
@@ -790,13 +778,9 @@ void CharacterTab::clearComparison()
         if (child->widget()) child->widget()->deleteLater();
         delete child;
     }
-    while (_afterLayout->count()) {
-        auto* child = _afterLayout->takeAt(0);
-        if (child->widget()) child->widget()->deleteLater();
-        delete child;
-    }
-    _afterContainer->setVisible(false);
     _comparisonArea->setVisible(false);
+    // Restaurer "Stats actuelles" dans le bandeau unique
+    refreshStats();
 }
 
 // ── detectSlots ──────────────────────────────────────────────────────────
