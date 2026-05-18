@@ -3,9 +3,21 @@
 #include <QtSql/QSqlQuery>
 #include <QtSql/QSqlError>
 #include <QDebug>
+#include <QStringList>
 #include <map>
 #include <string>
+#include <vector>
 #undef slots  // Qt macro — conflicts with field names in plain structs
+
+// ── AA effect → stat key (portée de item_database.py) ─────────────────────
+static const std::map<int, const char*> AA_EFFECT_TO_STAT = {
+    {4,"astr"},{5,"adex"},{6,"aagi"},{7,"asta"},{8,"aint"},{9,"awis"},{10,"acha"},
+    {46,"fr"},{47,"cr"},{48,"pr"},{49,"dr"},{50,"mr"},
+    {214,"hp"},{259,"ac"},{262,"mana"},
+};
+static constexpr int ND_SKILL_ID = 107;
+static constexpr int PE_SKILL_ID = 279;
+static const std::map<int,float> ND_BONUS = {{1,2.0f},{2,5.0f},{3,10.0f}};
 
 // ── SQL helpers ────────────────────────────────────────────────────────────
 
@@ -136,7 +148,7 @@ static SpellData rowToSpellData(QSqlQuery& q, int minLevelCol = -1) {
         sd.effect_limit_value[i]= q.value(QString("max%1").arg(n)).toInt();
         sd.effect_formula[i]    = q.value(QString("formula%1").arg(n)).toInt();
     }
-    for (int i = 0; i < 16; ++i)
+    for (int i = 0; i < 15; ++i)
         sd.classes[i] = q.value(QString("classes%1").arg(i+1)).toInt();
     return sd;
 }
@@ -182,6 +194,105 @@ QList<ItemData> ItemDatabase::searchItems(const QString& nameFragment, int limit
     return result;
 }
 
+std::optional<SpellData> ItemDatabase::getSpellById(int id) {
+    if (id <= 0) return std::nullopt;
+    QString effectCols;
+    for (int i = 1; i <= 12; ++i)
+        effectCols += QString("effectid%1, effect_base_value%1, max%1, formula%1, ").arg(i);
+    effectCols.chop(2);
+    QString sql = QString(
+        "SELECT id, name, targettype, %1 FROM spells_new WHERE id = :id").arg(effectCols);
+    QSqlQuery q(DbConnection::instance().db());
+    q.prepare(sql);
+    q.bindValue(":id", id);
+    if (!q.exec() || !q.next()) return std::nullopt;
+    SpellData sd;
+    sd.id        = q.value("id").toInt();
+    sd.name      = q.value("name").toString().toStdString();
+    sd.targettype= q.value("targettype").toInt();
+    for (int i = 0; i < 12; ++i) {
+        int n = i + 1;
+        sd.spa[i]               = q.value(QString("effectid%1").arg(n)).toInt();
+        sd.effect_base_value[i] = q.value(QString("effect_base_value%1").arg(n)).toInt();
+        sd.effect_limit_value[i]= q.value(QString("max%1").arg(n)).toInt();
+        sd.effect_formula[i]    = q.value(QString("formula%1").arg(n)).toInt();
+    }
+    return sd;
+}
+
+AaStats ItemDatabase::getAaStats(const std::vector<std::pair<int,int>>& purchases) {
+    AaStats result;
+    if (purchases.empty()) return result;
+
+    auto& db = DbConnection::instance().db();
+
+    // ── 1. altadv_vars : eqmacid → {skill_id, max_level} ─────────────────
+    QStringList idList;
+    for (auto& [id, rank] : purchases) idList << QString::number(id);
+    QSqlQuery q1(db);
+    q1.exec(QString("SELECT eqmacid, skill_id, max_level FROM altadv_vars"
+                    " WHERE eqmacid IN (%1)").arg(idList.join(',')));
+    std::map<int, std::pair<int,int>> avMap; // eqmacid → {skill_id, max_level}
+    while (q1.next())
+        avMap[q1.value(0).toInt()] = {q1.value(1).toInt(), q1.value(2).toInt()};
+
+    // ── 2. Calculer les aaid pour chaque achat ────────────────────────────
+    QStringList aaidList;
+    for (auto& [eqmacid, rank] : purchases) {
+        auto it = avMap.find(eqmacid);
+        if (it == avMap.end()) continue;
+        auto [skillId, maxLevel] = it->second;
+        int effectiveRank = std::min(rank, maxLevel);
+        aaidList << QString::number(skillId + effectiveRank - 1);
+    }
+
+    // ── 3. aa_effects : SUM(base1) par effectid ───────────────────────────
+    if (!aaidList.isEmpty()) {
+        QSqlQuery q2(db);
+        q2.exec(QString("SELECT effectid, SUM(base1) AS total FROM aa_effects"
+                        " WHERE aaid IN (%1) GROUP BY effectid").arg(aaidList.join(',')));
+        while (q2.next()) {
+            int effectid = q2.value(0).toInt();
+            int total    = q2.value(1).toInt();
+            auto it = AA_EFFECT_TO_STAT.find(effectid);
+            if (it != AA_EFFECT_TO_STAT.end())
+                result.stats[it->second] += total;
+        }
+    }
+
+    // ── 4. Natural Durability + Physical Enhancement (pourcentage HP) ─────
+    std::map<int,int> purchaseMap;
+    for (auto& [id, rank] : purchases) purchaseMap[id] = rank;
+
+    QSqlQuery q3(db);
+    q3.exec(QString("SELECT eqmacid, skill_id, max_level FROM altadv_vars"
+                    " WHERE skill_id IN (%1, %2)").arg(ND_SKILL_ID).arg(PE_SKILL_ID));
+    std::map<int, std::pair<int,int>> ndpe; // skill_id → {eqmacid, max_level}
+    while (q3.next())
+        ndpe[q3.value(1).toInt()] = {q3.value(0).toInt(), q3.value(2).toInt()};
+
+    int ndRank = 0, peRank = 0;
+    if (auto it = ndpe.find(ND_SKILL_ID); it != ndpe.end()) {
+        auto [emacid, maxLvl] = it->second;
+        if (purchaseMap.count(emacid))
+            ndRank = std::min(purchaseMap[emacid], maxLvl);
+    }
+    if (auto it = ndpe.find(PE_SKILL_ID); it != ndpe.end()) {
+        auto [emacid, maxLvl] = it->second;
+        if (purchaseMap.count(emacid))
+            peRank = std::min(purchaseMap[emacid], maxLvl);
+    }
+
+    auto ndIt = ND_BONUS.find(ndRank);
+    if (ndIt != ND_BONUS.end()) {
+        result.nd_pct = ndIt->second;
+        if (ndRank >= 1 && peRank >= 1)
+            result.nd_pct += 2.0f;
+    }
+
+    return result;
+}
+
 QList<SpellData> ItemDatabase::getBeneficialSpellsByClass(const QString& className, int maxLevel) {
     QList<SpellData> result;
     auto it = SPELL_CLASS_ID.find(className.toStdString());
@@ -192,9 +303,9 @@ QList<SpellData> ItemDatabase::getBeneficialSpellsByClass(const QString& classNa
     QString effectCols;
     for (int i = 1; i <= 12; ++i)
         effectCols += QString("effectid%1, effect_base_value%1, max%1, formula%1, ").arg(i);
-    // Colonnes classes (16 classes)
+    // Colonnes classes (15 classes — Berserker/16 absent dans spells_new Quarm)
     QString classCols;
-    for (int i = 1; i <= 16; ++i)
+    for (int i = 1; i <= 15; ++i)
         classCols += QString("classes%1, ").arg(i);
     classCols.chop(2); // remove trailing ", "
 

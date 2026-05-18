@@ -28,7 +28,7 @@ public:
                       const std::map<std::string, ItemData>& equipped);
 
 signals:
-    void statsChanged(PlayerTotals totals);
+    void statsChanged(PlayerTotals totals, PlayerTotalsExtra spellExtra);
 
 private slots:
     void onClassSelected(int row);

@@ -300,6 +300,43 @@ static AcResult calcDisplayedAc(std::string_view cls, int level, int totalAgi, i
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// _calc_base_hp_regen — portée depuis stats_calculator.py
+// LevelRegen (sitting) — EQMacEmu client_mods.cpp
+// ═══════════════════════════════════════════════════════════════════════════
+static int calcBaseHpRegen(int level, int race) {
+    int regen = 2; // 1 base + 1 sitting
+    if (level >= 20) regen++;
+    if (level >= 50) regen++;
+    if (level >= 51) regen++;
+    if (level >= 56) regen++;
+    if (level >= 60) regen++;
+    if (level >= 61) regen++;
+    if (level >= 63) regen++;
+    if (level >= 65) regen++;
+    // Troll=9, Iksar=128 : bonus raciaux puis ×2
+    if (race == 9 || race == 128) {
+        if (level >= 51) regen++;
+        if (level >= 56) regen++;
+        regen *= 2;
+    }
+    return regen;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// _calc_base_mana_regen — portée depuis stats_calculator.py
+// EQMacEmu client_mods.cpp CalcManaRegen (sitting + meditate)
+// ═══════════════════════════════════════════════════════════════════════════
+static int calcBaseManaRegen(std::string_view cls, int level) {
+    if (!hasMana(cls)) return 0;
+    int levelBonus = (level > 61 ? 1 : 0) + (level > 63 ? 1 : 0);
+    if (cls == "Bard" || cls == "Shadowknight")
+        return 2 + levelBonus;
+    // Toutes les classes avec méditate (INT/WIS casters + hybrids)
+    int skill = std::min(level * 4, 235);
+    return 4 + skill / 15 + levelBonus;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // _haste_cap_pct — portée depuis stats_calculator.py
 // ═══════════════════════════════════════════════════════════════════════════
 static int hasteCapPct(int level) {
@@ -313,12 +350,13 @@ static int hasteCapPct(int level) {
 // ═══════════════════════════════════════════════════════════════════════════
 PlayerTotals calculateTotals(const CharacterInfo& ci,
                               const std::vector<ItemData>& items,
-                              int primaryItemtype)
+                              int primaryItemtype,
+                              PlayerTotalsExtra* extra,
+                              const AaStats* aa)
 {
     PlayerTotals t;
-    if (ci.level <= 0) return t;  // garde : level invalide → totaux nuls
+    if (ci.level <= 0) return t;
 
-    // ── Stats de base du personnage ───────────────────────────────────────
     t.str_v = ci.base_str;
     t.sta   = ci.base_sta;
     t.dex   = ci.base_dex;
@@ -327,82 +365,273 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
     t.wis   = ci.base_wis;
     t.cha   = ci.base_cha;
 
-    // ── Résistances de base (race + classe + niveau) ──────────────────────
-    {
-        auto br = calcBaseResists(ci.race, ci.class_name, ci.level);
-        t.mr = br.mr;  t.fr = br.fr;  t.cr = br.cr;
-        t.dr = br.dr;  t.pr = br.pr;
-    }
+    auto br = calcBaseResists(ci.race, ci.class_name, ci.level);
+    t.mr = br.mr;  t.fr = br.fr;  t.cr = br.cr;
+    t.dr = br.dr;  t.pr = br.pr;
 
-    // ── Accumulation brute depuis les items ───────────────────────────────
-    int itemAtkRaw       = 0;
-    int itemHpRegenRaw   = 0;
-    int itemManaRegenRaw = 0;
-    int rawAc            = 0;
+    // Items accumulation (raw)
+    int itemAtkRaw = 0, itemHpRegenRaw = 0, itemManaRegenRaw = 0, rawAc = 0;
+    int itemStr = 0, itemSta = 0, itemDex = 0, itemAgi = 0;
+    int itemInt = 0, itemWis = 0, itemCha = 0;
+    int itemMr = 0, itemFr = 0, itemCr = 0, itemDr = 0, itemPr = 0;
+    int itemHp = 0, itemMana = 0, itemHaste = 0;
     const bool classHasMana = hasMana(ci.class_name);
 
     for (const auto& item : items) {
-        t.hp.base    += item.hp;
-        if (classHasMana)
-            t.mana.base += item.mana;  // mana ignoré pour les classes sans mana
-        itemAtkRaw   += item.atk;
-        rawAc        += item.ac;
-        t.str_v      += item.astr;
-        t.sta        += item.asta;
-        t.dex        += item.adex;
-        t.agi        += item.aagi;
-        t.int_v      += item.aint;
-        t.wis        += item.awis;
-        t.cha        += item.acha;
-        t.mr         += item.mr;
-        t.fr         += item.fr;
-        t.cr         += item.cr;
-        t.dr         += item.dr;
-        t.pr         += item.pr;
-        t.haste       = std::max(t.haste, item.haste);  // max-wins
-        t.hp_regen   += item.hp_regen;
-        t.mana_regen += item.mana_regen;
+        itemHp      += item.hp;
+        if (classHasMana) itemMana += item.mana;
+        itemAtkRaw  += item.atk;
+        rawAc       += item.ac;
+        itemStr     += item.astr;  itemSta += item.asta;
+        itemDex     += item.adex;  itemAgi += item.aagi;
+        itemInt     += item.aint;  itemWis += item.awis;  itemCha += item.acha;
+        itemMr      += item.mr;    itemFr  += item.fr;    itemCr  += item.cr;
+        itemDr      += item.dr;    itemPr  += item.pr;
+        itemHaste    = std::max(itemHaste, item.haste);
         itemHpRegenRaw   += item.hp_regen;
         itemManaRegenRaw += item.mana_regen;
     }
 
-    // ── Haste cap (GetHasteCap) ───────────────────────────────────────────
-    t.haste = std::min(t.haste, hasteCapPct(ci.level));
+    t.str_v += itemStr;  t.sta   += itemSta;  t.dex += itemDex;
+    t.agi   += itemAgi;  t.int_v += itemInt;  t.wis += itemWis;  t.cha += itemCha;
+    t.mr    += itemMr;   t.fr    += itemFr;   t.cr  += itemCr;
+    t.dr    += itemDr;   t.pr    += itemPr;
+    t.haste  = std::min(itemHaste, hasteCapPct(ci.level));
 
-    // ── Attribute caps (255 hard cap) ─────────────────────────────────────
-    int totalSta = std::min(t.sta,   ATTRIBUTE_CAP);
-    int totalAgi = std::min(t.agi,   ATTRIBUTE_CAP);
-
-    // ── HP : base (STA/niveau) + bonus items (cap 2000) ──────────────────
-    {
-        int itemHpRaw = t.hp.base;
-        int baseHp    = calcBaseHp(ci.class_name, ci.level, totalSta);
-        t.hp.base     = baseHp + itemHpRaw;
-        t.hp.capped   = baseHp + std::min(itemHpRaw, hpCap(ci.class_name, ci.level));
+    // ── AAs ───────────────────────────────────────────────────────────────
+    int aaStr=0,aaSta=0,aaDex=0,aaAgi=0,aaInt=0,aaWis=0,aaCha=0;
+    int aaMr=0,aaFr=0,aaCr=0,aaDr=0,aaPr=0,aaHp=0,aaMana=0,aaAc=0;
+    if (aa) {
+        auto getAa = [&](const char* k) {
+            auto it = aa->stats.find(k); return it != aa->stats.end() ? it->second : 0;
+        };
+        aaStr  = getAa("astr"); aaSta = getAa("asta"); aaDex = getAa("adex");
+        aaAgi  = getAa("aagi"); aaInt = getAa("aint"); aaWis = getAa("awis");
+        aaCha  = getAa("acha");
+        aaMr   = getAa("mr");   aaFr  = getAa("fr");  aaCr  = getAa("cr");
+        aaDr   = getAa("dr");   aaPr  = getAa("pr");
+        aaHp   = getAa("hp");   aaMana= getAa("mana"); aaAc = getAa("ac");
+        t.str_v += aaStr;  t.sta   += aaSta;  t.dex += aaDex;
+        t.agi   += aaAgi;  t.int_v += aaInt;  t.wis += aaWis;  t.cha += aaCha;
+        t.mr    += aaMr;   t.fr    += aaFr;   t.cr  += aaCr;
+        t.dr    += aaDr;   t.pr    += aaPr;
+        itemHp  += aaHp;   if (classHasMana) itemMana += aaMana;  rawAc += aaAc;
     }
 
-    // ── Mana : base (INT/WIS/niveau) + bonus items (cap 2000) ────────────
+    // HP Regen : base (niveau/race) + items cappés à 30 (L≤60)
+    {
+        int baseRegen    = calcBaseHpRegen(ci.level, ci.race);
+        int itemRegenCap = (ci.level <= 60) ? 30 : ci.level - 30;
+        t.hp_regen = baseRegen + std::min(itemHpRegenRaw, itemRegenCap);
+    }
+
+    // Mana Regen : base (classe/niveau/méditate) + items cappés à 15
+    {
+        int baseRegen = calcBaseManaRegen(ci.class_name, ci.level);
+        int cappedItem = classHasMana ? std::min(itemManaRegenRaw, MANA_REGEN_ITEM_CAP) : 0;
+        t.mana_regen = baseRegen + cappedItem;
+    }
+
+    int totalSta = std::min(t.sta, ATTRIBUTE_CAP);
+    int totalAgi = std::min(t.agi, ATTRIBUTE_CAP);
+
+    // HP (avec Natural Durability % si présent)
+    int baseHp   = calcBaseHp(ci.class_name, ci.level, totalSta);
+    int itemHpCapped = std::min(itemHp, hpCap(ci.class_name, ci.level));
+    int ndBonus  = 0;
+    if (aa && aa->nd_pct > 0.0f)
+        ndBonus = static_cast<int>((baseHp + itemHpCapped) * aa->nd_pct / 100.0f);
+    int hpCapped = baseHp + itemHpCapped + ndBonus;
+    t.hp.base   = baseHp + itemHp + ndBonus;
+    t.hp.capped = hpCapped;
+    t.hp.base   = t.hp.capped;
+
+    // Mana
+    int baseMana = 0;
     if (classHasMana) {
         char ct = casterType(ci.class_name);
         int wi = (ct == 'I') ? std::min(t.int_v, ATTRIBUTE_CAP)
                              : std::min(t.wis,   ATTRIBUTE_CAP);
-        int itemManaRaw = t.mana.base;
-        int baseMana    = calcBaseMana("", ci.level, wi);
-        t.mana.base     = baseMana + itemManaRaw;
-        t.mana.capped   = baseMana + std::min(itemManaRaw, manaCap(ci.class_name, ci.level));
+        baseMana = calcBaseMana("", ci.level, wi);
+        t.mana.base   = baseMana + itemMana;
+        t.mana.capped = baseMana + std::min(itemMana, manaCap(ci.class_name, ci.level));
+        t.mana.base   = t.mana.capped;
     }
 
-    // ── ATK affiché = (toHit + offense) * 1000 / 744 ────────────────────────
+    // ATK
     {
         int totalStr = std::min(t.str_v, ATTRIBUTE_CAP);
         t.atk = calcDisplayedAtk(ci.class_name, ci.level, totalStr,
                                   itemAtkRaw, primaryItemtype);
     }
 
-    // ── Mitigation AC (EQMacEmu CalcAC formula) ──────────────────────────
+    // AC
     {
         auto acResult = calcDisplayedAc(ci.class_name, ci.level, totalAgi, rawAc);
         t.mitigation = acResult.mitigation;
+    }
+
+    // ── Remplissage de PlayerTotalsExtra ────────────────────────────────
+    if (extra) {
+        auto& s = extra->stats;
+
+        // Construction des item_sources pour chaque stat
+        struct StatKey { const char* key; int ItemData::* field; };
+        static const StatKey ATTR_KEYS[] = {
+            {"astr",&ItemData::astr},{"asta",&ItemData::asta},{"adex",&ItemData::adex},
+            {"aagi",&ItemData::aagi},{"aint",&ItemData::aint},{"awis",&ItemData::awis},
+            {"acha",&ItemData::acha},
+        };
+        static const StatKey RESIST_KEYS[] = {
+            {"mr",&ItemData::mr},{"fr",&ItemData::fr},{"cr",&ItemData::cr},
+            {"dr",&ItemData::dr},{"pr",&ItemData::pr},
+        };
+
+        for (auto& [key,fld] : ATTR_KEYS) {
+            StatInfo si;
+            for (const auto& item : items)
+                if (item.*fld != 0) si.item_sources.push_back({item.name, item.*fld});
+            s[key] = si; // base_val et raw fixés explicitement ci-dessous
+        }
+        // Correct base_val per attribute
+        s["astr"].base_val = ci.base_str; s["astr"].aa_val = aaStr; s["astr"].raw = ci.base_str + itemStr + aaStr;
+        s["asta"].base_val = ci.base_sta; s["asta"].aa_val = aaSta; s["asta"].raw = ci.base_sta + itemSta + aaSta;
+        s["adex"].base_val = ci.base_dex; s["adex"].aa_val = aaDex; s["adex"].raw = ci.base_dex + itemDex + aaDex;
+        s["aagi"].base_val = ci.base_agi; s["aagi"].aa_val = aaAgi; s["aagi"].raw = ci.base_agi + itemAgi + aaAgi;
+        s["aint"].base_val = ci.base_int; s["aint"].aa_val = aaInt; s["aint"].raw = ci.base_int + itemInt + aaInt;
+        s["awis"].base_val = ci.base_wis; s["awis"].aa_val = aaWis; s["awis"].raw = ci.base_wis + itemWis + aaWis;
+        s["acha"].base_val = ci.base_cha; s["acha"].aa_val = aaCha; s["acha"].raw = ci.base_cha + itemCha + aaCha;
+
+        const int baseResistArr[5] = {br.mr, br.fr, br.cr, br.dr, br.pr};
+        const int itemResistArr[5] = {itemMr, itemFr, itemCr, itemDr, itemPr};
+        const int aaResistArr[5]   = {aaMr, aaFr, aaCr, aaDr, aaPr};
+        int ri = 0;
+        for (auto& [key,fld] : RESIST_KEYS) {
+            StatInfo si;
+            si.base_val = baseResistArr[ri];
+            si.aa_val   = aaResistArr[ri];
+            si.raw = baseResistArr[ri] + itemResistArr[ri] + aaResistArr[ri];
+            for (const auto& item : items)
+                if (item.*fld != 0) si.item_sources.push_back({item.name, item.*fld});
+            s[key] = si;
+            ++ri;
+        }
+
+        // Haste (max-wins — on marque le gagnant)
+        {
+            StatInfo si;
+            si.raw = itemHaste;
+            si.base_val = 0;
+            int cap = hasteCapPct(ci.level);
+            for (const auto& item : items)
+                if (item.haste > 0) {
+                    std::string label = item.name + (item.haste == itemHaste ? " ✓" : "");
+                    si.item_sources.push_back({label, item.haste});
+                }
+            si.formula.push_back({"Cap niveau " + std::to_string(ci.level), std::to_string(cap) + "%"});
+            s["haste"] = si;
+        }
+
+        // HP
+        {
+            StatInfo si;
+            si.raw = t.hp.capped;
+            si.base_val = baseHp;
+            si.aa_val   = aaHp + ndBonus;
+            for (const auto& item : items)
+                if (item.hp != 0) si.item_sources.push_back({item.name, item.hp});
+            si.formula.push_back({"Base " + ci.class_name + " L" + std::to_string(ci.level)
+                + " (STA " + std::to_string(std::min(ci.base_sta + itemSta, 255)) + ")",
+                std::to_string(baseHp)});
+            if (itemHp > hpCap(ci.class_name, ci.level))
+                si.formula.push_back({"Items HP (cap 2000)", std::to_string(itemHp) + " → " + std::to_string(itemHpCapped)});
+            if (ndBonus > 0) {
+                float ndp = aa ? aa->nd_pct : 0.0f;
+                si.formula.push_back({"Natural Durability (" + std::to_string((int)ndp) + "%)", "+" + std::to_string(ndBonus)});
+            }
+            si.formula.push_back({"Total", std::to_string(t.hp.capped)});
+            s["hp"] = si;
+        }
+
+        // Mana
+        if (classHasMana) {
+            StatInfo si;
+            si.raw = baseMana + itemMana;
+            si.base_val = baseMana;
+            for (const auto& item : items)
+                if (item.mana != 0) si.item_sources.push_back({item.name, item.mana});
+            si.formula.push_back({"Base mana L" + std::to_string(ci.level), std::to_string(baseMana)});
+            if (itemMana > manaCap(ci.class_name, ci.level))
+                si.formula.push_back({"Items Mana (cap 2000)", std::to_string(itemMana) + " → " + std::to_string(manaCap(ci.class_name, ci.level))});
+            si.formula.push_back({"Total", std::to_string(t.mana.capped)});
+            s["mana"] = si;
+        }
+
+        // HP Regen
+        {
+            int baseRegen    = calcBaseHpRegen(ci.level, ci.race);
+            int itemRegenCap = (ci.level <= 60) ? 30 : ci.level - 30;
+            int cappedItem   = std::min(itemHpRegenRaw, itemRegenCap);
+            StatInfo si;
+            si.base_val = baseRegen;
+            si.raw = baseRegen + itemHpRegenRaw;
+            for (const auto& item : items)
+                if (item.hp_regen != 0) si.item_sources.push_back({item.name, item.hp_regen});
+            si.formula.push_back({"Base regen L" + std::to_string(ci.level), std::to_string(baseRegen) + "/tick"});
+            if (itemHpRegenRaw > itemRegenCap)
+                si.formula.push_back({"Items HP regen (cap " + std::to_string(itemRegenCap) + ")",
+                    std::to_string(itemHpRegenRaw) + " → " + std::to_string(cappedItem)});
+            si.formula.push_back({"Total", std::to_string(t.hp_regen) + "/tick"});
+            s["hp_regen"] = si;
+        }
+
+        // Mana Regen
+        if (classHasMana) {
+            int baseRegen  = calcBaseManaRegen(ci.class_name, ci.level);
+            int cappedItem = std::min(itemManaRegenRaw, MANA_REGEN_ITEM_CAP);
+            StatInfo si;
+            si.base_val = baseRegen;
+            si.raw = baseRegen + itemManaRegenRaw;
+            for (const auto& item : items)
+                if (item.mana_regen != 0) si.item_sources.push_back({item.name, item.mana_regen});
+            si.formula.push_back({"Base méditate L" + std::to_string(ci.level), std::to_string(baseRegen) + "/tick"});
+            if (itemManaRegenRaw > MANA_REGEN_ITEM_CAP)
+                si.formula.push_back({"Flowing Thought (cap " + std::to_string(MANA_REGEN_ITEM_CAP) + ")",
+                    std::to_string(itemManaRegenRaw) + " → " + std::to_string(cappedItem)});
+            si.formula.push_back({"Total", std::to_string(t.mana_regen) + "/tick"});
+            s["mana_regen"] = si;
+        }
+
+        // ATK
+        {
+            int totalStr = std::min(t.str_v, ATTRIBUTE_CAP);
+            int strBonus = (totalStr >= 75) ? (2 * totalStr - 150) / 3 : 0;
+            StatInfo si;
+            si.raw = t.atk;
+            for (const auto& item : items)
+                if (item.atk != 0) si.item_sources.push_back({item.name, item.atk});
+            si.formula.push_back({"Items ATK brut (cap " + std::to_string(ATK_ITEM_CAP) + ")",
+                std::to_string(itemAtkRaw) + (itemAtkRaw > ATK_ITEM_CAP ? " → " + std::to_string(ATK_ITEM_CAP) : "")});
+            si.formula.push_back({"Bonus STR (" + std::to_string(totalStr) + ")", "+" + std::to_string(strBonus)});
+            si.formula.push_back({"Affiché (×1000/744)", std::to_string(t.atk)});
+            s["atk"] = si;
+        }
+
+        // AC
+        {
+            auto acResult = calcDisplayedAc(ci.class_name, ci.level, totalAgi, rawAc);
+            StatInfo si;
+            si.raw = t.mitigation;
+            for (const auto& item : items)
+                if (item.ac != 0) si.item_sources.push_back({item.name, item.ac});
+            si.formula.push_back({"Items AC brut", std::to_string(rawAc)});
+            si.formula.push_back({"Mitigation" + std::string(isPureCaster(ci.class_name) ? "" : " (×4/3)"),
+                std::to_string(acResult.mitigation)});
+            si.formula.push_back({"Avoidance (défense + AGI " + std::to_string(totalAgi) + ")",
+                std::to_string(acResult.avoidance)});
+            si.formula.push_back({"Affiché (×1000/847)", std::to_string(acResult.displayed)});
+            s["ac"] = si;
+        }
     }
 
     return t;
@@ -415,7 +644,8 @@ PlayerTotals calculateTotalsWithSpells(
     const CharacterInfo& ci,
     const std::vector<ItemData>& items,
     const std::vector<std::map<std::string, int>>& spellDicts,
-    int primaryItemtype)
+    int primaryItemtype,
+    PlayerTotalsExtra* extra)
 {
     PlayerTotals t;
     if (ci.level <= 0) return t;
@@ -435,34 +665,36 @@ PlayerTotals calculateTotalsWithSpells(
     }
 
     int itemAtkRaw = 0, rawAc = 0;
+    int itemHpRegenRaw = 0, itemManaRegenRaw = 0;
     const bool classHasMana = hasMana(ci.class_name);
 
     for (const auto& item : items) {
         t.hp.base    += item.hp;
         if (classHasMana) t.mana.base += item.mana;
-        itemAtkRaw   += item.atk;
-        rawAc        += item.ac;
-        t.str_v      += item.astr;
-        t.sta        += item.asta;
-        t.dex        += item.adex;
-        t.agi        += item.aagi;
-        t.int_v      += item.aint;
-        t.wis        += item.awis;
-        t.cha        += item.acha;
-        t.mr         += item.mr;
-        t.fr         += item.fr;
-        t.cr         += item.cr;
-        t.dr         += item.dr;
-        t.pr         += item.pr;
-        t.haste       = std::max(t.haste, item.haste);
-        t.hp_regen   += item.hp_regen;
-        t.mana_regen += item.mana_regen;
+        itemAtkRaw       += item.atk;
+        rawAc            += item.ac;
+        t.str_v          += item.astr;
+        t.sta            += item.asta;
+        t.dex            += item.adex;
+        t.agi            += item.aagi;
+        t.int_v          += item.aint;
+        t.wis            += item.awis;
+        t.cha            += item.acha;
+        t.mr             += item.mr;
+        t.fr             += item.fr;
+        t.cr             += item.cr;
+        t.dr             += item.dr;
+        t.pr             += item.pr;
+        t.haste           = std::max(t.haste, item.haste);
+        itemHpRegenRaw   += item.hp_regen;
+        itemManaRegenRaw += item.mana_regen;
     }
 
     // Accumulation des stats de sorts (avant caps)
     auto getSpell = [&](const std::map<std::string,int>& d, const char* k) {
         auto it = d.find(k); return it != d.end() ? it->second : 0;
     };
+    int spellHpRegen = 0, spellManaRegen = 0;
     for (const auto& d : spellDicts) {
         t.hp.base    += getSpell(d, "hp");
         if (classHasMana) t.mana.base += getSpell(d, "mana");
@@ -481,8 +713,22 @@ PlayerTotals calculateTotalsWithSpells(
         t.dr         += getSpell(d, "dr");
         t.pr         += getSpell(d, "pr");
         t.haste       = std::max(t.haste, getSpell(d, "haste") + getSpell(d, "haste_v2") + getSpell(d, "haste_v3"));
-        t.hp_regen   += getSpell(d, "hp_regen");
-        t.mana_regen += getSpell(d, "mana_regen");
+        spellHpRegen   += getSpell(d, "hp_regen");
+        spellManaRegen += getSpell(d, "mana_regen");
+    }
+
+    // HP Regen : base + items cappés + sorts (non soumis au cap items)
+    {
+        int baseRegen    = calcBaseHpRegen(ci.level, ci.race);
+        int itemRegenCap = (ci.level <= 60) ? 30 : ci.level - 30;
+        t.hp_regen = baseRegen + std::min(itemHpRegenRaw, itemRegenCap) + spellHpRegen;
+    }
+
+    // Mana Regen : base méditate + items cappés + sorts
+    {
+        int baseRegen  = calcBaseManaRegen(ci.class_name, ci.level);
+        int cappedItem = classHasMana ? std::min(itemManaRegenRaw, MANA_REGEN_ITEM_CAP) : 0;
+        t.mana_regen = baseRegen + cappedItem + spellManaRegen;
     }
 
     t.haste = std::min(t.haste, hasteCapPct(ci.level));

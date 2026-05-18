@@ -115,6 +115,24 @@ std::optional<CharacterInfo> parseCharacterFile(const std::filesystem::path& pat
             continue;
         }
 
+        // ── Section AAIndex ──────────────────────────────────────────────
+        if (parts[0] == "AAIndex") {
+            // Lire les lignes suivantes : eqmacid\trank
+            std::string aaLine;
+            while (std::getline(file, aaLine)) {
+                aaLine = rtrim(aaLine);
+                auto ap = splitTsv(aaLine);
+                if (ap.size() < 2) break;
+                try {
+                    int eqmacid = std::stoi(ap[0]);
+                    int rank    = std::stoi(ap[1]);
+                    if (result.has_value())
+                        result->aa_purchases.emplace_back(eqmacid, rank);
+                } catch (...) { break; }
+            }
+            continue;
+        }
+
         // ── Equipment section header ──────────────────────────────────────
         if (parts[0] == "Location" && parts.size() >= 3 && parts[1] == "Name" && parts[2] == "ID") {
             inEquipSection = true;

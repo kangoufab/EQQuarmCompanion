@@ -4,12 +4,31 @@
 #include <QPainter>
 #include <QColor>
 #include <QFont>
+#include <QDebug>
+#include <QFile>
+#include <QTextStream>
+#include <QDateTime>
 #include <filesystem>
 #include "core/config.h"
 #include "db/db_connection.h"
 #include "db/npc_database.h"
 #include "db/item_database.h"
 #include "ui/main_window.h"
+
+static QFile* g_logFile = nullptr;
+
+static void messageHandler(QtMsgType type, const QMessageLogContext&, const QString& msg) {
+    if (!g_logFile) return;
+    QTextStream out(g_logFile);
+    QString prefix;
+    switch (type) {
+        case QtDebugMsg:   prefix = "[D]"; break;
+        case QtWarningMsg: prefix = "[W]"; break;
+        default:           prefix = "[I]"; break;
+    }
+    out << QDateTime::currentDateTime().toString("hh:mm:ss") << " " << prefix << " " << msg << "\n";
+    out.flush();
+}
 
 static QSplashScreen* makeSplash() {
     QPixmap pix(420, 180);
@@ -33,15 +52,20 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     app.setApplicationName("EQ Quarm Companion");
 
+    auto exeDirForLog = std::filesystem::path(
+        QCoreApplication::applicationDirPath().toStdWString());
+    auto logPath = exeDirForLog / "eqquarm_debug.log";
+    g_logFile = new QFile(QString::fromStdWString(logPath.wstring()));
+    g_logFile->open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
+    qInstallMessageHandler(messageHandler);
+
 
     auto* splash = makeSplash();
     splash->show();
     app.processEvents();
 
-    auto exeDir   = std::filesystem::path(
-                        QCoreApplication::applicationDirPath().toStdWString());
-    auto cfgPath  = exeDir / "config.json";
-    auto defsPath = exeDir / "config_defaults.json";
+    auto cfgPath  = exeDirForLog / "config.json";
+    auto defsPath = exeDirForLog / "config_defaults.json";
 
     Config config(cfgPath, defsPath);
 

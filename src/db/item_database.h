@@ -17,4 +17,10 @@ public:
     // jusqu'au niveau maxLevel, triés par niveau décroissant puis nom.
     [[nodiscard]] QList<SpellData> getBeneficialSpellsByClass(const QString& className,
                                                                int maxLevel);
+
+    // Retourne un sort par ID (pour tooltips worn/focus effects).
+    [[nodiscard]] std::optional<SpellData> getSpellById(int id);
+
+    // Retourne les bonus de stats issus des AAs (altadv_vars + aa_effects).
+    [[nodiscard]] AaStats getAaStats(const std::vector<std::pair<int,int>>& purchases);
 };

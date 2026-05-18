@@ -16,6 +16,14 @@ struct CharacterInfo {
     int         base_agi{}, base_int{}, base_wis{}, base_cha{};
     // Equipped items from the .quarmy file: (slot_name, item_id)
     std::vector<std::pair<std::string, int>> equipped;
+    // AAs achetés depuis la section AAIndex du fichier .quarmy: (eqmacid, rank)
+    std::vector<std::pair<int,int>> aa_purchases;
+};
+
+// Statistiques issues des Alternate Advancements (AAs).
+struct AaStats {
+    std::map<std::string, int> stats; // stat_key → valeur totale
+    float nd_pct{};                   // % HP bonus de Natural Durability + Physical Enhancement
 };
 
 // ── NPC ───────────────────────────────────────────────────────────────
@@ -38,6 +46,36 @@ struct PlayerTotals {
     int str_v{}, sta{}, dex{}, agi{}, int_v{}, wis{}, cha{};
     int mr{}, fr{}, cr{}, dr{}, pr{};
     int haste{}, hp_regen{}, mana_regen{};
+};
+
+// Détail d'une stat pour les tooltips : raw avant cap, contributions par source.
+struct StatInfo {
+    int raw{};          // valeur brute avant cap
+    int base_val{};     // contribution base (race/classe/niveau)
+    // Contributions par item : (nom_item, valeur)
+    std::vector<std::pair<std::string,int>> item_sources;
+    int aa_val{};       // contribution AAs (total)
+    // Contributions par sort : (nom_sort, valeur)
+    std::vector<std::pair<std::string,int>> spell_sources;
+    // Lignes de formule optionnelles affichées en bas du tooltip
+    std::vector<std::pair<std::string,std::string>> formula;
+
+    int items_val() const {
+        int s = 0; for (auto& [n,v] : item_sources) s += v; return s;
+    }
+    int spells_val() const {
+        int s = 0; for (auto& [n,v] : spell_sources) s += v; return s;
+    }
+};
+
+struct PlayerTotalsExtra {
+    std::map<std::string, StatInfo> stats;
+    // Accès rapide — renvoie une StatInfo vide si la stat est inconnue
+    const StatInfo& get(const std::string& key) const {
+        static const StatInfo empty{};
+        auto it = stats.find(key);
+        return it != stats.end() ? it->second : empty;
+    }
 };
 
 // ── Résultats analyse combat ──────────────────────────────────────────

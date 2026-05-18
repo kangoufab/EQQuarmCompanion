@@ -29,13 +29,15 @@ private slots:
     void onCharacterChanged(int index);
     void onTabChanged(int index);
     void onStatsChanged(PlayerTotals totals);
+    void onBuffStatsChanged(PlayerTotals totals, PlayerTotalsExtra spellExtra);
     void openSettings();
 
 private:
     void loadCharacterFiles();
     void refreshAllTabs();
     void recalculateTotals();
-    void rebuildGlobalStatsBar(const PlayerTotals& totals);
+    void rebuildGlobalStatsBar(const PlayerTotals& totals,
+                                const PlayerTotalsExtra* extraOverride = nullptr);
 
     Config*       _config;
     NpcDatabase*  _npcDb;
@@ -53,5 +55,7 @@ private:
     std::vector<CharacterInfo>      _characters;
     CharacterInfo                   _currentChar;
     PlayerTotals                    _playerTotals;
+    PlayerTotalsExtra               _playerExtra;
+    AaStats                         _aaStats;
     std::map<std::string, ItemData> _equippedItems;
 };

@@ -1,4 +1,5 @@
 #include "ui/spells_tab.h"
+#include "ui/stats_bar.h"
 #include "core/config.h"
 #include "core/spell_stacking.h"
 #include "core/spell_stats.h"
@@ -8,6 +9,7 @@
 #undef slots  // Qt macro conflicts
 
 #include <QCheckBox>
+#include <QDebug>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -16,6 +18,7 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 #include <algorithm>
+#include <cstdlib>
 #include <set>
 
 // ── Constantes ────────────────────────────────────────────────────────────
@@ -125,10 +128,15 @@ void SpellsTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* baseTotals,
     _currentClassSpells.clear();
     _currentClass.clear();
 
-    if (_classList && _classList->count() > 0)
-        _classList->setCurrentRow(0); // triggers onClassSelected
-    else
+    if (_classList && _classList->count() > 0) {
+        int row = std::max(0, _classList->currentRow());
+        // setCurrentRow n'émet pas currentRowChanged si la row n'a pas changé,
+        // donc on appelle directement onClassSelected pour forcer le rechargement.
+        _classList->setCurrentRow(row);
+        onClassSelected(row);
+    } else {
         refreshStats();
+    }
 }
 
 // ── buildUi ───────────────────────────────────────────────────────────────
@@ -221,6 +229,7 @@ int SpellsTab::expansionMaxLevel() const {
 // ── onClassSelected ───────────────────────────────────────────────────────
 
 void SpellsTab::onClassSelected(int row) {
+    qDebug() << "[SpellsTab] onClassSelected row=" << row;
     if (row < 0 || row >= (int)BUFF_CASTER_CLASSES.size()) return;
     _currentClass = BUFF_CASTER_CLASSES[row];
     loadSpellsForClass(_currentClass);
@@ -230,11 +239,14 @@ void SpellsTab::onClassSelected(int row) {
 
 void SpellsTab::loadSpellsForClass(const std::string& className) {
     _currentClassSpells.clear();
-    if (!_itemDb) { rebuildRightPanel(); return; }
+    if (!_itemDb) { qDebug() << "[SpellsTab] itemDb null"; rebuildRightPanel(); return; }
 
     int maxLvl = expansionMaxLevel();
+    qDebug() << "[SpellsTab] loadSpellsForClass" << QString::fromStdString(className) << "maxLvl=" << maxLvl;
     auto spells = _itemDb->getBeneficialSpellsByClass(
         QString::fromStdString(className), maxLvl);
+
+    qDebug() << "[SpellsTab] got" << spells.size() << "spells from DB";
 
     for (auto& sd : spells) {
         // Exclure les sorts self-only (targettype==6) sauf si classe == classe perso
@@ -244,6 +256,7 @@ void SpellsTab::loadSpellsForClass(const std::string& className) {
         _currentClassSpells.push_back(sd);
     }
 
+    qDebug() << "[SpellsTab] after filter:" << _currentClassSpells.size() << "spells";
     rebuildRightPanel();
 }
 
@@ -279,9 +292,11 @@ void SpellsTab::rebuildRightPanel()
     std::vector<SpellData> activePool;
     for (auto& b : _activeBuffs) activePool.push_back(b.spell);
 
+    int tooltipLevel = (_charInfo && _charInfo->level > 0) ? _charInfo->level : expansionMaxLevel();
+
     for (const auto& spell : _currentClassSpells) {
         auto it = SPELL_CLASS_ID_UI.find(_currentClass);
-        int minLvl = (it != SPELL_CLASS_ID_UI.end() && it->second <= 16)
+        int minLvl = (it != SPELL_CLASS_ID_UI.end() && it->second <= 15)
                      ? spell.classes[it->second - 1] : 0;
 
         bool isSelected = selectedIds.count(spell.id);
@@ -292,6 +307,7 @@ void SpellsTab::rebuildRightPanel()
 
         auto* cb = new QCheckBox(label);
         cb->setChecked(isSelected);
+        cb->setToolTip(formatSpellTooltip(spell, tooltipLevel));
 
         if (isBlocked) {
             QString wname = winnerNames.count(spell.id) ? winnerNames[spell.id] : "un autre sort";
@@ -406,7 +422,17 @@ void SpellsTab::refreshStats()
 
     PlayerTotals totals = calculateTotalsWithSpells(
         *_charInfo, items, spellDicts, primaryItemtype);
-    emit statsChanged(totals);
+
+    // Construire l'extra pour les tooltips : spell_sources par stat
+    PlayerTotalsExtra spellExtra;
+    for (int i = 0; i < (int)effective.size(); ++i) {
+        for (auto& [k, v] : spellDicts[i]) {
+            if (v != 0)
+                spellExtra.stats[k].spell_sources.emplace_back(effective[i].name, v);
+        }
+    }
+
+    emit statsChanged(totals, spellExtra);
 }
 
 

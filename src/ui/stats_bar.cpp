@@ -1,15 +1,224 @@
 #include "ui/stats_bar.h"
+#include "core/spell_stats.h"
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QStringList>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <algorithm>
+#include <cstdlib>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
+
+// ── formatSpellTooltip ────────────────────────────────────────────────────
+
+QString formatSpellTooltip(const SpellData& spell, int level)
+{
+    static const std::map<int, const char*> SPA_DESC = {
+        {0,"HP"}, {1,"AC"}, {2,"ATK"}, {3,"Movement Speed"},
+        {4,"STR"}, {5,"DEX"}, {6,"AGI"}, {7,"STA"}, {8,"INT"}, {9,"WIS"},
+        {11,"Haste"},
+        {35,"Disease Counter"}, {36,"Poison Counter"},
+        {46,"Fire Resistance"}, {47,"Cold Resistance"},
+        {48,"Poison Resistance"}, {49,"Disease Resistance"}, {50,"Magic Resistance"},
+        {55,"Rune"}, {59,"Damage Shield"}, {69,"Max HP"},
+        {92,"Hate"}, {97,"Max Mana"}, {98,"Haste"}, {100,"HP Regen"},
+        {111,"All Resist"}, {116,"Curse Counter"},
+        {124,"Spell Damage"}, {125,"Healing"}, {126,"Spell Haste"},
+        {127,"Spell Haste"}, {128,"Spell Duration"}, {129,"Spell Range"},
+        {130,"Healing"}, {131,"Spell Mana Cost"}, {132,"Spell Mana Cost"},
+        {133,"Spell Damage"}, {159,"All Stats"},
+        {169,"Critical Hit Chance"}, {170,"Spell Critical Chance"},
+        {171,"Crippling Blow Chance"}, {172,"Avoidance"},
+        {173,"Riposte Chance"}, {174,"Dodge Chance"},
+        {175,"Parry Chance"}, {176,"Dual Wield Chance"},
+        {177,"Double Attack Chance"}, {182,"Hundred Hands Effect"},
+        {184,"Hit Chance"}, {185,"Damage Modifier"}, {188,"Block Chance"},
+        {189,"Endurance"}, {190,"Max Endurance"}, {196,"Strikethrough"},
+    };
+    static const std::map<int, const char*> SPA_BOOL = {
+        {12,"Invisibility"}, {13,"See Invisible"}, {14,"Water Breathing"},
+        {18,"Pacify"}, {22,"Charm"}, {23,"Fear"}, {27,"Dispel Magic"},
+        {28,"Invisible to Undead"}, {29,"Invisible to Animals"},
+        {31,"Mesmerize"}, {57,"Levitate"}, {61,"Identify"},
+        {64,"Spin"}, {65,"Infravision"}, {66,"Ultravision"},
+        {71,"Necro Pet"}, {74,"Feign Death"},
+    };
+    static const std::set<int> SPA_PCT = {
+        3, 98, 169, 170, 171, 172, 173, 174, 175, 176, 177, 182, 184, 185, 188, 196
+    };
+
+    QStringList parts;
+    for (int i = 0; i < 12; ++i) {
+        int spa     = spell.spa[i];
+        int base    = spell.effect_base_value[i];
+        int mx      = spell.effect_limit_value[i];
+        int formula = spell.effect_formula[i];
+
+        if (spa == 254) break;
+        if (spa == 10)  continue;
+
+        if (spa == 11) {
+            int val = level ? calcSpellEffectValue(base, mx, formula, level) : (mx ? std::min(base, mx) : base);
+            if (val != 0) parts << QString("Haste +%1%").arg(val - 100);
+        } else if (spa == 98) {
+            if (base != 0) parts << QString("Haste +%1%").arg(std::abs(base) - 100);
+        } else if (spa == 119) {
+            int val = level ? calcSpellEffectValue(base, mx, formula, level) : std::abs(base);
+            parts << QString("Haste V3 (overcap) +%1%").arg(val);
+        } else if (spa == 0) {
+            if (base > 0) {
+                int val = level ? calcSpellEffectValue(base, mx, formula, level) : (mx ? std::min(base, mx) : base);
+                parts << QString("Increase HP by +%1 per tick").arg(val);
+            } else if (base < 0) {
+                parts << QString("Decrease HP by %1").arg(std::abs(base));
+            }
+        } else if (spa == 15) {
+            if (base != 0) {
+                const char* verb = base > 0 ? "Increase" : "Decrease";
+                QString sfx = base > 0 ? " per tick" : "";
+                parts << QString("%1 Mana by %2%3").arg(verb).arg(std::abs(base)).arg(sfx);
+            }
+        } else if (spa == 21) {
+            if (base > 0) parts << QString("Stun for %1 sec").arg(base / 1000);
+        } else if (spa == 79) {
+            if (base != 0) {
+                const char* verb = base < 0 ? "Decrease" : "Increase";
+                int val = (mx != 0 && formula != 100) ? std::abs(mx) : std::abs(base);
+                parts << QString("%1 HP by %2").arg(verb).arg(val);
+            }
+        } else if (spa == 92) {
+            if (base != 0) {
+                const char* verb = base > 0 ? "Increase" : "Decrease";
+                parts << QString("%1 Hate by %2").arg(verb).arg(std::abs(base));
+            }
+        } else if (spa == 100) {
+            if (base != 0) parts << QString("Increase HP by +%1 per tick").arg(base);
+        } else if (spa >= 120 && spa <= 150) {
+            auto it = SPA_DESC.find(spa);
+            if (it != SPA_DESC.end() && base != 0) {
+                if (spa == 131 || spa == 132)
+                    parts << QString("Decrease %1 by %2%").arg(it->second).arg(std::abs(base));
+                else
+                    parts << QString("Increase %1 by %2%").arg(it->second).arg(std::abs(base));
+            }
+        } else {
+            auto boolIt = SPA_BOOL.find(spa);
+            if (boolIt != SPA_BOOL.end()) {
+                parts << QString(boolIt->second);
+            } else {
+                auto descIt = SPA_DESC.find(spa);
+                if (descIt != SPA_DESC.end() && base != 0) {
+                    const char* verb = base > 0 ? "Increase" : "Decrease";
+                    int val = (mx != 0 && formula != 100) ? std::abs(mx) : std::abs(base);
+                    QString sfx = SPA_PCT.count(spa) ? "%" : "";
+                    parts << QString("%1 %2 by %3%4").arg(verb).arg(descIt->second).arg(val).arg(sfx);
+                }
+            }
+        }
+    }
+
+    QString header = QString("<b>%1</b>").arg(QString::fromStdString(spell.name));
+    if (parts.isEmpty()) return header;
+    return header + "<br>" + parts.join("<br>");
+}
+
+// ── makeStatTooltip ───────────────────────────────────────────────────────
+
+static QString makeStatTooltip(const std::string& statKey,
+                                const std::string& statLabel,
+                                int cappedVal, int rawVal,
+                                std::optional<int> cap,
+                                const std::string& suffix,
+                                const StatInfo& info,
+                                const char* accent)
+{
+    // En-tête : nom + valeur / cap
+    QString sfxQ = QString::fromStdString(suffix);
+    QString valStr = QString("<span style='color:%1;font-weight:bold;font-size:12px;'>%2%3</span>")
+        .arg(accent).arg(cappedVal).arg(sfxQ);
+    if (cap.has_value())
+        valStr += QString("<span style='color:#555;'> / %1%2</span>").arg(*cap).arg(sfxQ);
+    if (rawVal != cappedVal)
+        valStr += QString(" <span style='color:#888;font-size:10px;'>(brut %1)</span>").arg(rawVal);
+
+    QString rows;
+    auto row = [&](const QString& label, const QString& val, const char* color) {
+        rows += QString("<tr><td style='padding-left:12px;color:#aaa;'>%1</td>"
+                        "<td align='right' style='color:%2;'>%3</td></tr>")
+                .arg(label).arg(color).arg(val);
+    };
+    auto sectionHeader = [&](const QString& title, const char* color) {
+        rows += QString("<tr><td colspan='2' style='color:%1;font-size:9px;"
+                        "font-weight:bold;padding-top:4px;'>─ %2</td></tr>")
+                .arg(color).arg(title);
+    };
+
+    if (info.base_val != 0) {
+        sectionHeader("BASE", "#64b5f6");
+        row("Race / Classe / Niveau",
+            QString("%1%2").arg(info.base_val).arg(sfxQ), "#64b5f6");
+    }
+    if (!info.item_sources.empty()) {
+        sectionHeader("ITEMS", "#81c784");
+        for (auto& [iname, ival] : info.item_sources) {
+            QString sign = ival >= 0 ? "+" : "";
+            row(QString::fromStdString(iname),
+                sign + QString::number(ival) + sfxQ, "#81c784");
+        }
+    }
+    if (info.aa_val != 0) {
+        sectionHeader("AA", "#ffc947");
+        row("Alternate Advancements", QString("+%1%2").arg(info.aa_val).arg(sfxQ), "#ffc947");
+    }
+    if (!info.spell_sources.empty()) {
+        sectionHeader("SORTS", "#ba68c8");
+        for (auto& [sname, sval] : info.spell_sources) {
+            QString sign = sval >= 0 ? "+" : "";
+            row(QString::fromStdString(sname),
+                sign + QString::number(sval) + sfxQ, "#ba68c8");
+        }
+    }
+    if (!info.formula.empty()) {
+        sectionHeader("FORMULE", "#ffb74d");
+
+        int spellTotal = 0;
+        for (auto& [n, v] : info.spell_sources) spellTotal += v;
+
+        for (int fi = 0; fi < (int)info.formula.size(); ++fi) {
+            auto& [lbl, val] = info.formula[fi];
+            bool isLast = (fi == (int)info.formula.size() - 1);
+
+            if (isLast && spellTotal != 0) {
+                // Ligne sorts avant le total
+                QString sign = spellTotal >= 0 ? "+" : "";
+                row("Sorts", sign + QString::number(spellTotal) + sfxQ, "#ffb74d");
+                // Ligne total mise à jour avec la valeur réelle affichée
+                row(QString::fromStdString(lbl),
+                    QString::number(cappedVal) + sfxQ, "#ffb74d");
+            } else {
+                row(QString::fromStdString(lbl),
+                    QString::fromStdString(val), "#ffb74d");
+            }
+        }
+    }
+
+    QString table = QString(
+        "<table cellspacing='0' cellpadding='1'>"
+        "<tr><td style='color:%1;font-weight:bold;font-size:12px;'>%2</td>"
+        "<td align='right' style='font-size:12px;'>%3</td></tr>"
+        "%4</table>")
+        .arg(accent)
+        .arg(QString::fromStdString(statLabel))
+        .arg(valStr)
+        .arg(rows);
+    return table;
+}
 
 // ── Constantes ────────────────────────────────────────────────────────────
 
@@ -90,11 +299,78 @@ static int getStatValS(const std::string& stat, const PlayerTotals& t) {
     return 0;
 }
 
+// ── Helpers effets worn/focus ─────────────────────────────────────────────
+
+static QWidget* makeEffectsWidget(const std::vector<EffectEntry>& effects,
+                                   const char* color,
+                                   const char* prefix,
+                                   const std::map<int, SpellData>& spellDetails,
+                                   int tooltipLevel)
+{
+    auto* w = new QWidget;
+    w->setStyleSheet("background: transparent;");
+    auto* layout = new QHBoxLayout(w);
+    layout->setContentsMargins(0, 2, 0, 0);
+    layout->setSpacing(2);
+
+    if (prefix && prefix[0]) {
+        auto* pl = new QLabel(QString::fromUtf8(prefix));
+        pl->setStyleSheet(
+            QString("color: %1; font-size: 9px; border: none; background: transparent;")
+            .arg(color));
+        layout->addWidget(pl);
+    }
+
+    for (int i = 0; i < (int)effects.size(); ++i) {
+        auto& [name, spellId, itemName] = effects[i];
+        auto* lbl = new QLabel(QString::fromStdString(name));
+        lbl->setStyleSheet(
+            QString("color: %1; font-size: 9px; font-style: italic; "
+                    "border: none; background: transparent;").arg(color));
+        if (spellId == -1) {
+            // Flowing Thought agrégé : itemName contient les sources séparées par '\n'
+            QString tip = QString("<b>Flowing Thought</b><br>"
+                                  "<span style='color:#aaa;'>Mana Regen +%1/tick</span>")
+                          .arg(name.size() > 17 ? QString::fromStdString(name).mid(17) : "?");
+            if (!itemName.empty()) {
+                tip += "<br><br>";
+                for (auto& src : QString::fromStdString(itemName).split('\n', Qt::SkipEmptyParts))
+                    tip += QString("<span style='color:#888;'>%1</span><br>").arg(src);
+            }
+            lbl->setToolTip(tip);
+        } else if (spellId > 0) {
+            auto it = spellDetails.find(spellId);
+            if (it != spellDetails.end()) {
+                QString tip = formatSpellTooltip(it->second, tooltipLevel);
+                if (!itemName.empty())
+                    tip = QString("<i style='color:#888;'>%1</i><br>")
+                          .arg(QString::fromStdString(itemName)) + tip;
+                lbl->setToolTip(tip);
+            }
+        }
+        layout->addWidget(lbl);
+        if (i < (int)effects.size() - 1) {
+            auto* sep = new QLabel(" \xc2\xb7 ");
+            sep->setStyleSheet(
+                QString("color: %1; font-size: 9px; border: none; background: transparent;")
+                .arg(color));
+            layout->addWidget(sep);
+        }
+    }
+    layout->addStretch();
+    return w;
+}
+
 // ── makePlayerStatsBar ────────────────────────────────────────────────────
 
-QFrame* makePlayerStatsBar(const PlayerTotals& totals,
-                            const std::string& className,
-                            const std::string& expansion)
+QFrame* makePlayerStatsBar(
+    const PlayerTotals& totals,
+    const std::string& className,
+    const std::string& expansion,
+    const PlayerTotalsExtra& extra,
+    const std::vector<EffectEntry>& wornEffects,
+    const std::vector<EffectEntry>& focusEffects,
+    const std::map<int, SpellData>& spellDetails)
 {
     // Catégories selon la classe
     std::vector<std::pair<std::string, std::vector<std::string>>> cats;
@@ -111,6 +387,14 @@ QFrame* makePlayerStatsBar(const PlayerTotals& totals,
                               [](const auto& p){ return p.first == "Defense"; });
     if (defIt != cats.end() && defIt != cats.begin())
         std::rotate(cats.begin(), defIt, defIt + 1);
+
+    // Catégorie cible pour les effects : préférer Sorts, sinon Defense
+    std::string effectsTarget;
+    for (const char* cn : {"Sorts", "Defense"}) {
+        auto it = std::find_if(cats.begin(), cats.end(),
+                               [cn](const auto& p){ return p.first == cn; });
+        if (it != cats.end()) { effectsTarget = cn; break; }
+    }
 
     // Caps d'expansion
     bool oldExp = (expansion == "Classic" || expansion == "Kunark" || expansion == "Velious");
@@ -159,10 +443,12 @@ QFrame* makePlayerStatsBar(const PlayerTotals& totals,
 
         for (auto& stat : catStats) {
             bool hasCap = isAttrS(stat) || isResistS(stat);
-            int cap     = isAttrS(stat) ? attrCap : (isResistS(stat) ? resistCap : 0);
-            int rawVal  = getStatValS(stat, totals);
-            int dispVal = hasCap ? std::min(rawVal, cap) : rawVal;
-            bool atCap  = hasCap && rawVal >= cap;
+            int capVal  = isAttrS(stat) ? attrCap : (isResistS(stat) ? resistCap : 0);
+            int dispVal = getStatValS(stat, totals);
+            int rawFromExtra = extra.get(stat).raw ? extra.get(stat).raw : dispVal;
+            // Pour les stats cappées, utiliser raw de l'extra si disponible
+            if (hasCap) dispVal = std::min(dispVal, capVal);
+            bool atCap  = hasCap && dispVal >= capVal;
 
             const char *tileBg, *tileFg;
             if (!hasCap)    { tileBg = "#1e2a1e"; tileFg = "#81c784"; }
@@ -179,10 +465,10 @@ QFrame* makePlayerStatsBar(const PlayerTotals& totals,
 
             auto slbIt = STAT_LABELS.find(stat);
             auto sufIt = STAT_SUFFIX.find(stat);
-            QString slabel = slbIt != STAT_LABELS.end()
-                ? QString::fromStdString(slbIt->second) : QString::fromStdString(stat);
-            QString suffix = sufIt != STAT_SUFFIX.end()
-                ? QString::fromStdString(sufIt->second) : QString();
+            std::string slabelStr = slbIt != STAT_LABELS.end() ? slbIt->second : stat;
+            std::string suffixStr = sufIt != STAT_SUFFIX.end() ? sufIt->second : "";
+            QString slabel = QString::fromStdString(slabelStr);
+            QString suffix = QString::fromStdString(suffixStr);
 
             auto* nameLbl = new QLabel(slabel);
             nameLbl->setStyleSheet(
@@ -197,16 +483,43 @@ QFrame* makePlayerStatsBar(const PlayerTotals& totals,
 
             tileL->addWidget(nameLbl);
             tileL->addWidget(valLbl);
+
+            // Tooltip sur la tuile
+            const StatInfo& si = extra.get(stat);
+            std::optional<int> capOpt = hasCap ? std::optional<int>(capVal) : std::nullopt;
+            int rawForTip = si.raw ? si.raw : dispVal;
+            tile->setToolTip(makeStatTooltip(stat, slabelStr, dispVal,
+                                             rawForTip, capOpt, suffixStr,
+                                             si, tileFg));
+
             tilesL->addWidget(tile);
         }
 
         panelL->addWidget(tilesW);
-        grid->addWidget(panel, row, col);
+
+        // Worn/focus effects dans la catégorie cible
+        if (!effectsTarget.empty() && catName == effectsTarget) {
+            if (!wornEffects.empty())
+                panelL->addWidget(makeEffectsWidget(wornEffects,  "#8888ff", "",        spellDetails, 0));
+            if (!focusEffects.empty())
+                panelL->addWidget(makeEffectsWidget(focusEffects, "#88cc88", "Focus: ", spellDetails, 0));
+        }
+
+        grid->addWidget(panel, row, col, Qt::AlignTop);
     }
 
     auto* gridW = new QWidget;
     gridW->setStyleSheet("background: transparent;");
     gridW->setLayout(grid);
     outer->addWidget(gridW);
+
+    // Fallback : si aucune catégorie cible n'est présente, on affiche sous le grid
+    if (effectsTarget.empty()) {
+        if (!wornEffects.empty())
+            outer->addWidget(makeEffectsWidget(wornEffects,  "#8888ff", "",        spellDetails, 0));
+        if (!focusEffects.empty())
+            outer->addWidget(makeEffectsWidget(focusEffects, "#88cc88", "Focus: ", spellDetails, 0));
+    }
+
     return frame;
 }
