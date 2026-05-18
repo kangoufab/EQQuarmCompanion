@@ -1,5 +1,4 @@
 #include "ui/spells_tab.h"
-#include "ui/stats_bar.h"
 #include "core/config.h"
 #include "core/spell_stacking.h"
 #include "core/spell_stats.h"
@@ -152,15 +151,6 @@ void SpellsTab::buildUi()
     auto* layout = new QVBoxLayout(container);
     layout->setContentsMargins(8, 8, 8, 8);
     layout->setSpacing(8);
-
-    // Bandeau stats en haut
-    {
-        _statsHolder = new QWidget;
-        _statsHolder->setStyleSheet("background: transparent;");
-        _statsLayout = new QVBoxLayout(_statsHolder);
-        _statsLayout->setContentsMargins(0, 0, 0, 0);
-        layout->addWidget(_statsHolder);
-    }
 
     // En-tête section sorts
     {
@@ -392,11 +382,6 @@ void SpellsTab::rebuildClassList()
 
 void SpellsTab::refreshStats()
 {
-    while (_statsLayout->count()) {
-        auto* child = _statsLayout->takeAt(0);
-        if (child->widget()) child->widget()->deleteLater();
-        delete child;
-    }
     if (!_charInfo || _charInfo->level <= 0) return;
 
     // Sorts effectifs (non bloqués)
@@ -412,7 +397,6 @@ void SpellsTab::refreshStats()
         spellDicts.push_back(spellToStatDict(sp, lvl));
     }
 
-    // Items équipés en vector
     std::vector<ItemData> items;
     int primaryItemtype = 0;
     for (auto& [slot, item] : _equippedItems) {
@@ -422,16 +406,7 @@ void SpellsTab::refreshStats()
 
     PlayerTotals totals = calculateTotalsWithSpells(
         *_charInfo, items, spellDicts, primaryItemtype);
-
-    QString lbl = _activeBuffs.empty()
-        ? "Stats actuelles"
-        : QString("Stats avec sorts (%1 sort%2)")
-              .arg((int)effective.size())
-              .arg(effective.size() > 1 ? "s" : "");
-
-    std::string cls = _charInfo ? _charInfo->class_name : "";
-    std::string exp = _config->get("current_expansion");
-    _statsLayout->addWidget(makePlayerStatsBar(totals, cls, exp));
+    emit statsChanged(totals);
 }
 
 

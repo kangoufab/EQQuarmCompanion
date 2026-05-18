@@ -27,6 +27,9 @@ public:
     void setCharacter(CharacterInfo* charInfo, PlayerTotals* baseTotals,
                       const std::map<std::string, ItemData>& equipped);
 
+signals:
+    void statsChanged(PlayerTotals totals);
+
 private slots:
     void onClassSelected(int row);
 
@@ -47,8 +50,6 @@ private:
     QListWidget*  _classList{nullptr};
     QWidget*      _rightInner{nullptr};
     QVBoxLayout*  _rightLayout{nullptr};
-    QWidget*      _statsHolder{nullptr};
-    QVBoxLayout*  _statsLayout{nullptr};
     QLabel*       _headerLabel{nullptr};
 
     std::vector<ActiveBuff>  _activeBuffs;

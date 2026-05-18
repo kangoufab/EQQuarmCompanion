@@ -6,6 +6,7 @@
 #include <QLabel>
 #include <QMainWindow>
 #include <QTabWidget>
+#include <QVBoxLayout>
 #include <map>
 #include <string>
 #include <vector>
@@ -26,18 +27,23 @@ public:
 
 private slots:
     void onCharacterChanged(int index);
+    void onTabChanged(int index);
+    void onStatsChanged(PlayerTotals totals);
     void openSettings();
 
 private:
     void loadCharacterFiles();
     void refreshAllTabs();
     void recalculateTotals();
+    void rebuildGlobalStatsBar(const PlayerTotals& totals);
 
     Config*       _config;
     NpcDatabase*  _npcDb;
     ItemDatabase* _itemDb;
 
     QComboBox*    _charSelector;
+    QLabel*       _charHeaderLabel{nullptr};
+    QVBoxLayout*  _globalStatsLayout{nullptr};
     QTabWidget*   _tabs;
     CharacterTab* _charTab;
     FightTab*     _fightTab;

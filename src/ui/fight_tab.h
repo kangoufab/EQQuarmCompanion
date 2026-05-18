@@ -45,7 +45,6 @@ private:
     PlayerTotals*  _totals{};
 
     class SearchComboBox* _searchCombo;
-    QVBoxLayout*          _statsLayout{nullptr};
     QScrollArea*          _leftScroll;
     QScrollArea*          _rightScroll;
     QWidget*              _itemSection{};

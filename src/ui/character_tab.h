@@ -10,7 +10,6 @@ class Config;
 class NpcDatabase;
 class ItemDatabase;
 class SearchComboBox;
-class QScrollArea;
 class QLabel;
 class QPushButton;
 class QVBoxLayout;
@@ -22,6 +21,9 @@ public:
     CharacterTab(Config*, NpcDatabase*, ItemDatabase*, QWidget* p = nullptr);
     void setCharacter(CharacterInfo*, PlayerTotals*,
                       const std::map<std::string, ItemData>&);
+
+signals:
+    void statsChanged(PlayerTotals totals);
 
 private slots:
     void onSearchPopup();
@@ -35,10 +37,9 @@ private:
                          const PlayerTotals* refTotals = nullptr);
     QFrame* makeItemCard(const ItemData* item, const ItemData* refItem,
                          const QString& title, bool showDeltas);
-    void refreshStats();
     void showComparison(const ItemData& newItem, const QString& slot,
                         const std::vector<QString>& allSlots = {});
-    void clearComparison();
+    void clearComparison(bool emitReset = true);
     std::vector<QString> detectSlots(const ItemData& item) const;
     bool canEquip(const ItemData& item) const;
     std::pair<int,int> expansionCaps() const;
@@ -53,8 +54,6 @@ private:
     PlayerTotals*   _totals{nullptr};
     std::map<std::string, ItemData> _equippedItems;
 
-    QLabel*         _lblHeader{nullptr};
-    QVBoxLayout*    _statsLayout{nullptr};
     SearchComboBox* _searchCombo{nullptr};
     QPushButton*    _clearBtn{nullptr};
     QWidget*        _comparisonArea{nullptr};

@@ -1,5 +1,4 @@
 #include "ui/fight_tab.h"
-#include "ui/stats_bar.h"
 #include "ui/ui_helpers.h"
 #include "ui/widgets.h"
 #include "core/config.h"
@@ -45,15 +44,6 @@ void FightTab::buildUi() {
     outer->setContentsMargins(8, 8, 8, 8);
     outer->setSpacing(6);
 
-    // Bandeau stats en haut
-    {
-        auto* holder = new QWidget;
-        holder->setStyleSheet("background: transparent;");
-        _statsLayout = new QVBoxLayout(holder);
-        _statsLayout->setContentsMargins(0, 0, 0, 0);
-        outer->addWidget(holder);
-    }
-
     _searchCombo = new SearchComboBox;
     _searchCombo->setFixedWidth(420);
     _searchCombo->lineEdit()->setPlaceholderText("Rechercher un NPC...");
@@ -89,19 +79,6 @@ void FightTab::buildUi() {
 
 void FightTab::setCharacter(CharacterInfo* ci, PlayerTotals* totals) {
     _charInfo = ci; _totals = totals;
-
-    // Reconstruire le bandeau stats
-    while (_statsLayout->count()) {
-        auto* child = _statsLayout->takeAt(0);
-        if (child->widget()) child->widget()->deleteLater();
-        delete child;
-    }
-    if (_totals && _charInfo && _charInfo->level > 0) {
-        std::string exp = _config->get("current_expansion");
-        _statsLayout->addWidget(
-            makePlayerStatsBar(*_totals, _charInfo->class_name, exp));
-    }
-
     if (_hasNpc) {
         _leftScroll->setWidget(buildLeftPanel(_currentNpc));
         _rightScroll->setWidget(buildRightPanel(_currentNpc));

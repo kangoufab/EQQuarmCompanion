@@ -181,7 +181,7 @@ void CharacterTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* totals,
     _charInfo      = charInfo;
     _totals        = totals;
     _equippedItems = equipped;
-    clearComparison(); // reconstruit le bandeau stats + nettoie la comparaison
+    clearComparison(false); // nettoie sans émettre (MainWindow gère le bandeau global)
 }
 
 // ── buildUi ───────────────────────────────────────────────────────────────
@@ -204,30 +204,6 @@ void CharacterTab::buildUi()
     auto* layout = new QVBoxLayout(container);
     layout->setContentsMargins(8, 8, 8, 8);
     layout->setSpacing(8);
-
-    // Header (classe + niveau)
-    {
-        auto* frame = new QFrame;
-        frame->setStyleSheet(
-            "QFrame { background: #1a2236; border-radius: 4px; border: 1px solid #3a4a6a; }");
-        auto* fl = new QVBoxLayout(frame);
-        fl->setContentsMargins(8, 6, 8, 6);
-        _lblHeader = new QLabel("\xe2\x80\x94");
-        _lblHeader->setStyleSheet(
-            "font-weight: bold; font-size: 12px; color: #e0e0e0; "
-            "border: none; background: transparent;");
-        fl->addWidget(_lblHeader);
-        layout->addWidget(frame);
-    }
-
-    // Bandeau stats unique (se met à jour avant/après)
-    {
-        auto* bw = new QWidget;
-        bw->setStyleSheet("background: transparent;");
-        _statsLayout = new QVBoxLayout(bw);
-        _statsLayout->setContentsMargins(0, 0, 0, 0);
-        layout->addWidget(bw);
-    }
 
     // Barre de recherche
     {
@@ -284,33 +260,6 @@ void CharacterTab::buildUi()
     }
 
     layout->addStretch();
-}
-
-// ── refreshStats ─────────────────────────────────────────────────────────
-
-void CharacterTab::refreshStats()
-{
-    // Header
-    if (_charInfo && !_charInfo->name.empty()) {
-        _lblHeader->setText(
-            QString::fromStdString(_charInfo->name) + "  —  " +
-            QString::fromStdString(_charInfo->class_name) +
-            "  niv. " + QString::number(_charInfo->level));
-    } else {
-        _lblHeader->setText(QString::fromUtf8("\xe2\x80\x94"));
-    }
-
-    // Reconstruire le bandeau stats unique ("Stats actuelles")
-    while (_statsLayout->count()) {
-        auto* child = _statsLayout->takeAt(0);
-        if (child->widget()) child->widget()->deleteLater();
-        delete child;
-    }
-    if (_totals && _charInfo && _charInfo->level > 0) {
-        auto [attrCap, resistCap] = expansionCaps();
-        _statsLayout->addWidget(
-            makeStatsBar("Stats actuelles", *_totals, attrCap, resistCap));
-    }
 }
 
 // ── makeStatsBar ─────────────────────────────────────────────────────────
@@ -653,7 +602,7 @@ void CharacterTab::onItemSelected(int index)
     auto eqSlots = detectSlots(item);
     if (eqSlots.empty()) return;
 
-    clearComparison();
+    clearComparison(false);
     showComparison(item, eqSlots[0], eqSlots);
 }
 
@@ -687,7 +636,7 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
                   "border-radius: 3px; color: #c0c0c0; padding: 2px 8px; font-size: 10px; }"
                   "QPushButton:hover { border-color: #64b5f6; color: #64b5f6; }");
             connect(btn, &QPushButton::clicked, [this, newItem, eqSlot, allSlots]() {
-                clearComparison();
+                clearComparison(false);
                 showComparison(newItem, eqSlot, allSlots);
             });
             slotL->addWidget(btn);
@@ -718,18 +667,8 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
             primType = pit->second.itemtype;
         PlayerTotals afterTotals = calculateTotals(*_charInfo, afterVec, primType);
 
-        // Mettre à jour le bandeau stats unique avec les totaux "après"
-        while (_statsLayout->count()) {
-            auto* child = _statsLayout->takeAt(0);
-            if (child->widget()) child->widget()->deleteLater();
-            delete child;
-        }
-        auto [attrCap, resistCap] = expansionCaps();
-        _statsLayout->addWidget(
-            makeStatsBar(
-                "Si " + QString::fromUtf8("\xc3\xa9") + "quip"
-                + QString::fromUtf8("\xc3\xa9") + " (" + slot + ")",
-                afterTotals, attrCap, resistCap, _totals));
+        // Notifier MainWindow des stats "après équipement"
+        emit statsChanged(afterTotals);
     }
 
     // Cartes de comparaison côte à côte
@@ -787,7 +726,7 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
 
 // ── clearComparison ───────────────────────────────────────────────────────
 
-void CharacterTab::clearComparison()
+void CharacterTab::clearComparison(bool emitReset)
 {
     while (_comparisonLayout->count()) {
         auto* child = _comparisonLayout->takeAt(0);
@@ -796,7 +735,8 @@ void CharacterTab::clearComparison()
     }
     _comparisonArea->setVisible(false);
     if (_clearBtn) _clearBtn->setEnabled(false);
-    refreshStats();
+    if (emitReset && _totals)
+        emit statsChanged(*_totals);
 }
 
 // ── detectSlots ──────────────────────────────────────────────────────────
