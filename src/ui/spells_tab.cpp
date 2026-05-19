@@ -79,28 +79,6 @@ static const std::map<std::string, std::set<std::string>> CLASS_CATS_UI = {
     {"Beastlord",    {"Melee","Defense","Sorts"}},
 };
 
-static int getStatVal(const std::string& stat, const PlayerTotals& t) {
-    if (stat=="astr")      return t.str_v;
-    if (stat=="asta")      return t.sta;
-    if (stat=="adex")      return t.dex;
-    if (stat=="aagi")      return t.agi;
-    if (stat=="aint")      return t.int_v;
-    if (stat=="awis")      return t.wis;
-    if (stat=="acha")      return t.cha;
-    if (stat=="hp")        return t.hp.capped;
-    if (stat=="mana")      return t.mana.capped;
-    if (stat=="ac")        return t.ac;
-    if (stat=="atk")       return t.atk;
-    if (stat=="haste")     return t.haste;
-    if (stat=="hp_regen")  return t.hp_regen;
-    if (stat=="mana_regen") return t.mana_regen;
-    if (stat=="mr")        return t.mr;
-    if (stat=="fr")        return t.fr;
-    if (stat=="cr")        return t.cr;
-    if (stat=="dr")        return t.dr;
-    if (stat=="pr")        return t.pr;
-    return 0;
-}
 
 static bool isAttr(const std::string& s)   {
     return s=="astr"||s=="asta"||s=="adex"||s=="aagi"||s=="awis"||s=="aint"||s=="acha";
@@ -131,6 +109,9 @@ void SpellsTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* baseTotals,
     _conflicts.clear();
     _currentClassSpells.clear();
     _currentClass.clear();
+
+    rebuildClassList();   // vide le panneau gauche et remet le compteur à 0
+    refreshStats();       // réémet les stats sans buffs pour le nouveau perso
 
     refreshSetsCombo();
 

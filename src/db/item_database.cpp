@@ -10,10 +10,17 @@
 #undef slots  // Qt macro — conflicts with field names in plain structs
 
 // ── AA effect → stat key (portée de item_database.py) ─────────────────────
+// Mapping effectid → clé stat pour les aa_effects.
+// Références : EQMacEmu common/spdat.h (IDs) + zone/bonuses.cpp (ApplyAABonuses).
+// SE_CombatStability(259) : raise softcap AC — non modélisé ici.
+// SE_RaiseStatCap(262)    : raise WIS/INT caps — mana indirect, non modélisé ici.
+// CalcMaxMana() n'utilise pas aabonuses.Mana donc aucun AA n'ajoute directement au pool.
 static const std::map<int, const char*> AA_EFFECT_TO_STAT = {
     {4,"astr"},{5,"adex"},{6,"aagi"},{7,"asta"},{8,"aint"},{9,"awis"},{10,"acha"},
     {46,"fr"},{47,"cr"},{48,"pr"},{49,"dr"},{50,"mr"},
-    {214,"hp"},{259,"ac"},{262,"mana"},
+    {0,"hp_regen"},   // SE_CurrentHP  → aabonuses.HPRegen (client_mods.cpp:171)
+    {15,"mana_regen"},// SE_CurrentMana → aabonuses.ManaRegen (client_mods.cpp:964)
+    {69,"hp"},        // SE_TotalHP    → aabonuses.HP (CalcMaxHP:252)
 };
 static constexpr int ND_SKILL_ID = 107;
 static constexpr int PE_SKILL_ID = 279;
@@ -230,8 +237,9 @@ AaStats ItemDatabase::getAaStats(const std::vector<std::pair<int,int>>& purchase
     QStringList idList;
     for (auto& [id, rank] : purchases) idList << QString::number(id);
     QSqlQuery q1(db);
-    q1.exec(QString("SELECT eqmacid, name, skill_id, max_level FROM altadv_vars"
-                    " WHERE eqmacid IN (%1)").arg(idList.join(',')));
+    if (!q1.exec(QString("SELECT eqmacid, name, skill_id, max_level FROM altadv_vars"
+                         " WHERE eqmacid IN (%1)").arg(idList.join(','))))
+        qWarning() << "[getAaStats] q1 failed:" << q1.lastError().text();
     struct AvEntry { std::string name; int skillId{}; int maxLevel{}; };
     std::map<int, AvEntry> avMap; // eqmacid → {name, skill_id, max_level}
     while (q1.next())
@@ -255,9 +263,10 @@ AaStats ItemDatabase::getAaStats(const std::vector<std::pair<int,int>>& purchase
     // ── 3. Une seule requête aa_effects avec aaid retourné ────────────────
     if (!aaidList.isEmpty()) {
         QSqlQuery q2(db);
-        q2.exec(QString("SELECT aaid, effectid, SUM(base1) AS total FROM aa_effects"
-                        " WHERE aaid IN (%1) GROUP BY aaid, effectid")
-                .arg(aaidList.join(',')));
+        if (!q2.exec(QString("SELECT aaid, effectid, SUM(base1) AS total FROM aa_effects"
+                             " WHERE aaid IN (%1) GROUP BY aaid, effectid")
+                     .arg(aaidList.join(','))))
+            qWarning() << "[getAaStats] q2 failed:" << q2.lastError().text();
         while (q2.next()) {
             int aaid     = q2.value(0).toInt();
             int effectid = q2.value(1).toInt();

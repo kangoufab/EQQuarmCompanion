@@ -3,6 +3,42 @@
 #include <algorithm>
 #include <set>
 
+// SPAs ignorés par le stacking — port de IsSPAIgnoredByStacking (buffstacking.cpp:61)
+// Ces effets ne causent jamais de conflit de stacking, quelle que soit leur valeur.
+static const std::set<int> IGNORED_SPAS = {
+    13,  // SE_SeeInvis
+    24,  // SE_Stamina (Invigor)
+    35,  // SE_DiseaseCounter
+    36,  // SE_PoisonCounter
+    57,  // SE_Levitate
+    65,  // SE_InfraVision
+    66,  // SE_UltraVision
+    79,  // SE_CurrentHPOnce
+    116, // SE_CurseCounter
+    124, // SE_ImprovedDamage
+    125, // SE_ImprovedHeal
+    126, // SE_SpellResistReduction
+    127, // SE_IncreaseSpellHaste
+    128, // SE_IncreaseSpellDuration
+    129, // SE_IncreaseRange
+    130, // SE_SpellHateMod
+    131, // SE_ReduceReagentCost
+    132, // SE_ReduceManaCost
+    133, // SE_FcStunTimeMod
+    134, // SE_LimitMaxLevel
+    135, // SE_LimitResist
+    136, // SE_LimitTarget
+    137, // SE_LimitEffect
+    138, // SE_LimitSpellType
+    139, // SE_LimitSpell
+    140, // SE_LimitMinDur
+    141, // SE_LimitInstant
+    142, // SE_LimitMinLevel
+    143, // SE_LimitCastTimeMin
+    144, // SE_LimitCastTimeMax
+    // 148/149/254 gérés séparément (Block/Overwrite/Blank)
+};
+
 // ── spellsStack (simplifié, pour analyse NPC) ──────────────────────────────
 
 static bool isBardSong(const SpellData& sp) {
@@ -15,6 +51,7 @@ bool spellsStack(const SpellData& a, const SpellData& b) {
     if (aBard != bBard) return true;
     for (int i = 0; i < 12; ++i) {
         if (a.spa[i] == 0 && b.spa[i] == 0) continue;
+        if (IGNORED_SPAS.count(a.spa[i])) continue;
         if (a.spa[i] == b.spa[i]) return false;
     }
     return true;
@@ -125,6 +162,12 @@ static std::optional<std::pair<int,int>> comparePair(
         if (spaA == 148 || spaA == 149 || spaB == 148 || spaB == 149) continue;
         if (controlled.count(i)) continue;
         if (spaA != spaB) continue;
+        if (IGNORED_SPAS.count(spaA)) continue; // SPA ignoré par le stacking serveur
+
+        // SE_CHA (10) avec base=0 est un "spacer" — buffstacking.cpp:657-666
+        // Si l'un ou l'autre a base_value=0, ignorer le slot (pas de conflit).
+        if (spaA == 10 && (a.effect_base_value[i] == 0 || b.effect_base_value[i] == 0))
+            continue;
 
         int valA = calcSlotValue(a, i, level);
         int valB = calcSlotValue(b, i, level);

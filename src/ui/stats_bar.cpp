@@ -1,5 +1,6 @@
 #include "ui/stats_bar.h"
 #include "core/spell_stats.h"
+#include "core/stats_calculator.h"
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -284,28 +285,6 @@ static bool isAttrS(const std::string& s) {
 static bool isResistS(const std::string& s) {
     return s=="mr"||s=="fr"||s=="cr"||s=="dr"||s=="pr";
 }
-static int getStatValS(const std::string& stat, const PlayerTotals& t) {
-    if (stat=="astr")      return t.str_v;
-    if (stat=="asta")      return t.sta;
-    if (stat=="adex")      return t.dex;
-    if (stat=="aagi")      return t.agi;
-    if (stat=="aint")      return t.int_v;
-    if (stat=="awis")      return t.wis;
-    if (stat=="acha")      return t.cha;
-    if (stat=="hp")        return t.hp.capped;
-    if (stat=="mana")      return t.mana.capped;
-    if (stat=="ac")        return t.ac;
-    if (stat=="atk")       return t.atk;
-    if (stat=="haste")     return t.haste;
-    if (stat=="hp_regen")  return t.hp_regen;
-    if (stat=="mana_regen") return t.mana_regen;
-    if (stat=="mr")        return t.mr;
-    if (stat=="fr")        return t.fr;
-    if (stat=="cr")        return t.cr;
-    if (stat=="dr")        return t.dr;
-    if (stat=="pr")        return t.pr;
-    return 0;
-}
 
 // ── Flow layout pour les effets (retour à la ligne sans couper un effet) ──
 
@@ -494,7 +473,7 @@ QFrame* makePlayerStatsBar(
         for (auto& stat : catStats) {
             bool hasCap = isAttrS(stat) || isResistS(stat);
             int capVal  = isAttrS(stat) ? attrCap : (isResistS(stat) ? resistCap : 0);
-            int dispVal = getStatValS(stat, totals);
+            int dispVal = playerTotalStat(stat, totals);
             int rawFromExtra = extra.get(stat).raw ? extra.get(stat).raw : dispVal;
             // Pour les stats cappées, utiliser raw de l'extra si disponible
             if (hasCap) dispVal = std::min(dispVal, capVal);

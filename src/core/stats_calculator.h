@@ -5,6 +5,9 @@
 #include <string_view>
 #include <vector>
 
+// Retourne la valeur d'une stat nommée ("hp", "ac", "astr", …) depuis les totaux.
+[[nodiscard]] int playerTotalStat(const std::string& stat, const PlayerTotals& t);
+
 // Calcule les totaux capped du joueur à partir de son équipement + AAs.
 // Si extra != nullptr, remplit aussi le détail par source (pour les tooltips).
 [[nodiscard]] PlayerTotals calculateTotals(
@@ -25,10 +28,8 @@
 // Applique les effets worn (procs, focus, etc.) à un item.
 void applyWornStats(ItemData& item, int level);
 
-// Caps EQ (valeurs globales EQMacEmu, paramètres réservés pour extension future).
-// hpCap   : RuleI::Character__ItemHPCap  = 2000, non dépendant de la classe.
-// manaCap : RuleI::Character__ItemManaCap = 2000, non dépendant de la classe.
-// attackCap : RuleI::Character__ItemATKCap = 250, non dépendant de la classe.
+// hpCap / manaCap : Quarm (EQMacEmu) n'a pas de cap items — retournent INT_MAX.
+// attackCap : RuleI::Character__ItemATKCap = 250.
 [[nodiscard]] int hpCap(std::string_view className, int level);
 [[nodiscard]] int manaCap(std::string_view className, int level);
 [[nodiscard]] int attackCap(std::string_view className, int level);

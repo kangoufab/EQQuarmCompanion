@@ -111,28 +111,6 @@ static const std::vector<std::pair<std::string, std::string>> DISPLAY_STATS = {
 
 // ── Helpers statiques ─────────────────────────────────────────────────────
 
-static int getStatValue(const std::string& stat, const PlayerTotals& t) {
-    if (stat == "astr")      return t.str_v;
-    if (stat == "asta")      return t.sta;
-    if (stat == "adex")      return t.dex;
-    if (stat == "aagi")      return t.agi;
-    if (stat == "aint")      return t.int_v;
-    if (stat == "awis")      return t.wis;
-    if (stat == "acha")      return t.cha;
-    if (stat == "hp")        return t.hp.capped;
-    if (stat == "mana")      return t.mana.capped;
-    if (stat == "ac")        return t.ac;
-    if (stat == "atk")       return t.atk;
-    if (stat == "haste")     return t.haste;
-    if (stat == "hp_regen")  return t.hp_regen;
-    if (stat == "mana_regen") return t.mana_regen;
-    if (stat == "mr")        return t.mr;
-    if (stat == "fr")        return t.fr;
-    if (stat == "cr")        return t.cr;
-    if (stat == "dr")        return t.dr;
-    if (stat == "pr")        return t.pr;
-    return 0;
-}
 
 static int getItemStat(const std::string& stat, const ItemData& item) {
     if (stat == "hp")        return item.hp;
@@ -339,7 +317,7 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
             bool hasCap = isAttrStat(stat) || isResistStat(stat);
             int cap = isAttrStat(stat) ? attrCap : (isResistStat(stat) ? resistCap : 0);
 
-            int rawVal     = getStatValue(stat, totals);
+            int rawVal     = playerTotalStat(stat, totals);
             int dispVal    = hasCap ? std::min(rawVal, cap) : rawVal;
             bool atCap     = hasCap && rawVal >= cap;
 
@@ -376,7 +354,7 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
             }
 
             if (refTotals) {
-                int refRaw  = getStatValue(stat, *refTotals);
+                int refRaw  = playerTotalStat(stat, *refTotals);
                 int refDisp = hasCap ? std::min(refRaw, cap) : refRaw;
                 int delta   = dispVal - refDisp;
                 if (delta > 0)
