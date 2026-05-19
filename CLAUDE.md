@@ -11,6 +11,10 @@ Companion app for Project Quarm (EverQuest emulator). Evaluates item upgrades an
 - **vcpkg**: `C:\vcpkg` — triplet `x64-mingw-dynamic`
 - **windeployqt**: `C:\Qt\6.11.1\mingw_64\bin\windeployqt.exe`
 
+## PowerShell
+
+**Toujours créer un fichier `.ps1` temporaire et l'exécuter, plutôt que de passer des commandes inline au PowerShell tool.** Cela vaut pour toutes les commandes PowerShell sans exception, pas seulement les longues. Écrire le script dans un fichier (ex. `$env:TEMP\run_xxx.ps1`), l'exécuter, puis le supprimer.
+
 ## Build
 
 Always use `.ps1` scripts to avoid the Windows 8191-char command-line limit. Never pass long cmake commands inline in PowerShell.

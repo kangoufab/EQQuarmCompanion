@@ -745,7 +745,7 @@ PlayerTotals calculateTotalsWithSpells(
         auto it = d.find(k); return it != d.end() ? it->second : 0;
     };
     int spellHpRegen = 0, spellManaRegen = 0;
-    int spellHp = 0, spellMana = 0, spellAcRaw = 0;
+    int spellHp = 0, spellMana = 0, spellAcRaw = 0, spellHasteV3 = 0;
     for (const auto& d : spellDicts) {
         spellHp      += getSpell(d, "hp");
         if (classHasMana) spellMana += getSpell(d, "mana");
@@ -763,7 +763,9 @@ PlayerTotals calculateTotalsWithSpells(
         t.cr         += getSpell(d, "cr");
         t.dr         += getSpell(d, "dr");
         t.pr         += getSpell(d, "pr");
-        t.haste       = std::max(t.haste, getSpell(d, "haste") + getSpell(d, "haste_v2") + getSpell(d, "haste_v3"));
+        // V1+V2 subject to normal cap; V3 (overhaste) applied after cap
+        t.haste       = std::max(t.haste, getSpell(d, "haste") + getSpell(d, "haste_v2"));
+        spellHasteV3  += getSpell(d, "haste_v3");
         spellHpRegen   += getSpell(d, "hp_regen");
         spellManaRegen += getSpell(d, "mana_regen");
     }
@@ -783,6 +785,11 @@ PlayerTotals calculateTotalsWithSpells(
     }
 
     t.haste = std::min(t.haste, hasteCapPct(ci.level));
+    // Overhaste (V3/SE_AttackSpeed3) added after cap — server cap: 25 for level 51+, 10 for 1-50
+    if (spellHasteV3 > 0) {
+        int overCap = (ci.level >= 51) ? 25 : 10;
+        t.haste += std::min(spellHasteV3, overCap);
+    }
 
     int totalSta = std::min(t.sta,   ATTRIBUTE_CAP);
     int totalAgi = std::min(t.agi,   ATTRIBUTE_CAP);
