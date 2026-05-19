@@ -9,12 +9,16 @@
 #undef slots  // Qt macro conflicts
 
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDebug>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QInputDialog>
 #include <QLabel>
 #include <QListWidget>
+#include <QMessageBox>
+#include <QPushButton>
 #include <QScrollArea>
 #include <QVBoxLayout>
 #include <algorithm>
@@ -85,7 +89,7 @@ static int getStatVal(const std::string& stat, const PlayerTotals& t) {
     if (stat=="acha")      return t.cha;
     if (stat=="hp")        return t.hp.capped;
     if (stat=="mana")      return t.mana.capped;
-    if (stat=="ac")        return t.mitigation;
+    if (stat=="ac")        return t.ac;
     if (stat=="atk")       return t.atk;
     if (stat=="haste")     return t.haste;
     if (stat=="hp_regen")  return t.hp_regen;
@@ -128,6 +132,8 @@ void SpellsTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* baseTotals,
     _currentClassSpells.clear();
     _currentClass.clear();
 
+    refreshSetsCombo();
+
     if (_classList && _classList->count() > 0) {
         int row = std::max(0, _classList->currentRow());
         // setCurrentRow n'émet pas currentRowChanged si la row n'a pas changé,
@@ -143,40 +149,122 @@ void SpellsTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* baseTotals,
 
 void SpellsTab::buildUi()
 {
+    setStyleSheet("background: #0f1624;");
     auto* outer = new QVBoxLayout(this);
-    outer->setContentsMargins(0, 0, 0, 0);
+    outer->setContentsMargins(8, 8, 8, 8);
+    outer->setSpacing(6);
 
-    auto* scroll = new QScrollArea;
-    scroll->setWidgetResizable(true);
-    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scroll->setStyleSheet("QScrollArea { border: none; background: transparent; }");
-    outer->addWidget(scroll);
-
-    auto* container = new QWidget;
-    container->setStyleSheet("background: #0f1624;");
-    scroll->setWidget(container);
-
-    auto* layout = new QVBoxLayout(container);
-    layout->setContentsMargins(8, 8, 8, 8);
-    layout->setSpacing(8);
-
-    // En-tête section sorts
+    // ── Barre de gestion des sets ─────────────────────────────────────────
     {
-        _headerLabel = new QLabel(QString::fromUtf8("Sorts b\xc3\xa9" "n\xc3\xa9" "fiques (0/%1)").arg(MAX_BUFF_SLOTS));
-        _headerLabel->setStyleSheet(
-            "font-size: 10px; color: #888; font-variant: small-caps; "
-            "border: none; background: transparent;");
+        auto* setsFrame = new QFrame;
+        setsFrame->setStyleSheet(
+            "QFrame { background: #1a2236; border-radius: 4px; border: 1px solid #3a4a6a; }");
+        auto* sh = new QHBoxLayout(setsFrame);
+        sh->setContentsMargins(8, 4, 8, 4);
+        sh->setSpacing(6);
+
+        auto* lbl = new QLabel(QString::fromUtf8("Sets :"));
+        lbl->setStyleSheet("font-size: 10px; color: #888; border: none; background: transparent;");
+        sh->addWidget(lbl);
+
+        _setsCombo = new QComboBox;
+        _setsCombo->setMinimumWidth(160);
+        _setsCombo->setStyleSheet(
+            "QComboBox { background: #141428; border: 1px solid #3a4a6a; "
+            "color: #c0c0c0; font-size: 10px; padding: 2px 6px; border-radius: 3px; }"
+            "QComboBox::drop-down { border: none; }"
+            "QComboBox QAbstractItemView { background: #1a1a2e; color: #c0c0c0; "
+            "selection-background-color: #3a4a6a; }");
+        sh->addWidget(_setsCombo);
+
+        auto makeBtn = [&](const char* text, const char* color) {
+            auto* btn = new QPushButton(QString::fromUtf8(text));
+            btn->setStyleSheet(
+                QString("QPushButton { background: #1e2a3e; border: 1px solid %1; "
+                        "color: %1; font-size: 10px; padding: 2px 10px; border-radius: 3px; }"
+                        "QPushButton:hover { background: %1; color: #0f1624; }"
+                        "QPushButton:disabled { border-color: #444; color: #444; }").arg(color));
+            return btn;
+        };
+
+        _loadBtn = makeBtn("Charger", "#64b5f6");
+        sh->addWidget(_loadBtn);
+
+        auto* saveBtn = makeBtn("Sauvegarder", "#81c784");
+        sh->addWidget(saveBtn);
+
+        _deleteBtn = makeBtn("Supprimer", "#e57373");
+        sh->addWidget(_deleteBtn);
+
+        sh->addStretch();
+        outer->addWidget(setsFrame);
+
+        connect(_loadBtn,  &QPushButton::clicked, this, &SpellsTab::onLoadSet);
+        connect(saveBtn,   &QPushButton::clicked, this, &SpellsTab::onSaveSet);
+        connect(_deleteBtn,&QPushButton::clicked, this, &SpellsTab::onDeleteSet);
+        connect(_setsCombo, qOverload<int>(&QComboBox::currentIndexChanged),
+                this, [this](int i) {
+                    bool has = i >= 0 && _setsCombo->count() > 0;
+                    _loadBtn->setEnabled(has);
+                    _deleteBtn->setEnabled(has);
+                });
+
+        refreshSetsCombo();
     }
 
-    // Section principale : liste classes + panel sorts
+    // ── Split principal : gauche (buffs actifs) + droite (browser) ─────────
+    auto* splitH = new QHBoxLayout;
+    splitH->setSpacing(6);
+    outer->addLayout(splitH, 1);
+
+    // ── GAUCHE : buffs actifs ─────────────────────────────────────────────
     {
-        auto* sectionFrame = new QFrame;
-        sectionFrame->setStyleSheet(
+        auto* leftFrame = new QFrame;
+        leftFrame->setFixedWidth(220);
+        leftFrame->setStyleSheet(
             "QFrame { background: #1a2236; border-radius: 4px; border: 1px solid #3a4a6a; }");
-        auto* sv = new QVBoxLayout(sectionFrame);
-        sv->setContentsMargins(6, 4, 6, 4);
-        sv->setSpacing(4);
-        sv->addWidget(_headerLabel);
+        auto* leftL = new QVBoxLayout(leftFrame);
+        leftL->setContentsMargins(6, 6, 6, 6);
+        leftL->setSpacing(4);
+
+        _headerLabel = new QLabel(
+            QString::fromUtf8("Buffs actifs (0/%1)").arg(MAX_BUFF_SLOTS));
+        _headerLabel->setStyleSheet(
+            "font-size: 10px; color: #64b5f6; font-variant: small-caps; font-weight: bold;"
+            "border: none; background: transparent;");
+        leftL->addWidget(_headerLabel);
+
+        auto* buffsScroll = new QScrollArea;
+        buffsScroll->setWidgetResizable(true);
+        buffsScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        buffsScroll->setStyleSheet(
+            "QScrollArea { border: 1px solid #2a3a5a; background: #141428; }");
+        _activeBuffsInner = new QWidget;
+        _activeBuffsInner->setStyleSheet("background: transparent;");
+        _activeBuffsLayout = new QVBoxLayout(_activeBuffsInner);
+        _activeBuffsLayout->setContentsMargins(4, 4, 4, 4);
+        _activeBuffsLayout->setSpacing(2);
+        _activeBuffsLayout->addStretch();
+        buffsScroll->setWidget(_activeBuffsInner);
+        leftL->addWidget(buffsScroll);
+
+        splitH->addWidget(leftFrame);
+    }
+
+    // ── DROITE : browser de sorts ─────────────────────────────────────────
+    {
+        auto* rightFrame = new QFrame;
+        rightFrame->setStyleSheet(
+            "QFrame { background: #1a2236; border-radius: 4px; border: 1px solid #3a4a6a; }");
+        auto* rightL = new QVBoxLayout(rightFrame);
+        rightL->setContentsMargins(6, 6, 6, 6);
+        rightL->setSpacing(4);
+
+        auto* sortsTitre = new QLabel(QString::fromUtf8("Sorts b\xc3\xa9n\xc3\xa9" "fiques"));
+        sortsTitre->setStyleSheet(
+            "font-size: 10px; color: #888; font-variant: small-caps;"
+            "border: none; background: transparent;");
+        rightL->addWidget(sortsTitre);
 
         auto* panels = new QHBoxLayout;
         panels->setSpacing(6);
@@ -192,7 +280,7 @@ void SpellsTab::buildUi()
             _classList->addItem(QString::fromStdString(cls));
         panels->addWidget(_classList);
 
-        // Panel droit (sorts)
+        // Panel sorts (checkboxes)
         auto* rightScroll = new QScrollArea;
         rightScroll->setWidgetResizable(true);
         rightScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -206,11 +294,9 @@ void SpellsTab::buildUi()
         rightScroll->setWidget(_rightInner);
         panels->addWidget(rightScroll);
 
-        sv->addLayout(panels);
-        layout->addWidget(sectionFrame);
+        rightL->addLayout(panels);
+        splitH->addWidget(rightFrame, 1);
     }
-
-    layout->addStretch();
 
     // Connexion après construction
     connect(_classList, &QListWidget::currentRowChanged,
@@ -373,10 +459,9 @@ void SpellsTab::rebuildRightPanel()
 void SpellsTab::rebuildClassList()
 {
     _headerLabel->setText(
-        QString::fromUtf8("Sorts b\xc3\xa9" "n\xc3\xa9" "fiques (%1/%2)")
+        QString::fromUtf8("Buffs actifs (%1/%2)")
             .arg((int)_activeBuffs.size()).arg(MAX_BUFF_SLOTS));
 
-    // Compte par classe
     std::map<std::string, int> countByClass;
     for (auto& b : _activeBuffs)
         countByClass[b.buffClass]++;
@@ -392,6 +477,92 @@ void SpellsTab::rebuildClassList()
                 : QString::fromStdString(cls));
     }
     _classList->blockSignals(false);
+
+    rebuildActiveBuffsList();
+}
+
+// ── rebuildActiveBuffsList ────────────────────────────────────────────────
+
+void SpellsTab::rebuildActiveBuffsList()
+{
+    if (!_activeBuffsLayout) return;
+
+    // Vider (sauf le stretch final)
+    while (_activeBuffsLayout->count() > 1) {
+        auto* child = _activeBuffsLayout->takeAt(0);
+        if (child->widget()) child->widget()->deleteLater();
+        delete child;
+    }
+
+    // Tri : ordre classe dans BUFF_CASTER_CLASSES, puis level DESC, puis nom ASC
+    auto classOrder = [](const std::string& cls) {
+        for (int i = 0; i < (int)BUFF_CASTER_CLASSES.size(); ++i)
+            if (BUFF_CASTER_CLASSES[i] == cls) return i;
+        return (int)BUFF_CASTER_CLASSES.size();
+    };
+    std::vector<const ActiveBuff*> sorted;
+    sorted.reserve(_activeBuffs.size());
+    for (auto& b : _activeBuffs) sorted.push_back(&b);
+    std::sort(sorted.begin(), sorted.end(), [&](const ActiveBuff* a, const ActiveBuff* b) {
+        int oa = classOrder(a->buffClass), ob = classOrder(b->buffClass);
+        if (oa != ob) return oa < ob;
+        if (a->minLevel != b->minLevel) return a->minLevel > b->minLevel; // DESC
+        return a->spell.name < b->spell.name;
+    });
+
+    for (auto* bp : sorted) {
+        auto& b = *bp;
+        bool blocked = _conflicts.count(b.spell.id) > 0;
+
+        auto* row = new QWidget;
+        row->setStyleSheet("background: transparent;");
+        auto* rl = new QHBoxLayout(row);
+        rl->setContentsMargins(2, 1, 2, 1);
+        rl->setSpacing(4);
+
+        // Nom du sort
+        auto* nameLbl = new QLabel(QString::fromStdString(b.spell.name));
+        nameLbl->setStyleSheet(
+            blocked
+            ? "font-size: 9px; color: #aa4444; text-decoration: line-through; "
+              "border: none; background: transparent;"
+            : "font-size: 9px; color: #c0c0c0; border: none; background: transparent;");
+        nameLbl->setToolTip(formatSpellTooltip(b.spell,
+            _charInfo ? _charInfo->level : expansionMaxLevel()));
+        rl->addWidget(nameLbl, 1);
+
+        // Classe source (petit, grisé)
+        auto* clsLbl = new QLabel(QString::fromStdString(b.buffClass).left(3));
+        clsLbl->setStyleSheet(
+            "font-size: 8px; color: #555; border: none; background: transparent;");
+        rl->addWidget(clsLbl);
+
+        // Bouton ×
+        auto* removeBtn = new QPushButton("\xc3\x97");
+        removeBtn->setFixedSize(16, 16);
+        removeBtn->setStyleSheet(
+            "QPushButton { background: #2a1a1a; border: 1px solid #5a3a3a; "
+            "color: #e57373; font-size: 9px; border-radius: 3px; padding: 0; }"
+            "QPushButton:hover { background: #5a3a3a; }");
+        SpellData spellCopy = b.spell;
+        connect(removeBtn, &QPushButton::clicked, this, [this, spellCopy] {
+            _activeBuffs.erase(
+                std::remove_if(_activeBuffs.begin(), _activeBuffs.end(),
+                               [&](const ActiveBuff& ab){ return ab.spell.id == spellCopy.id; }),
+                _activeBuffs.end());
+            std::vector<SpellData> all;
+            for (auto& ab : _activeBuffs) all.push_back(ab.spell);
+            auto sr = checkStacking(all, _charInfo ? _charInfo->level : 0);
+            _conflicts = sr.conflicts;
+            rebuildClassList();
+            rebuildRightPanel();
+            refreshStats();
+        });
+        rl->addWidget(removeBtn);
+
+        // Insérer avant le stretch
+        _activeBuffsLayout->insertWidget(_activeBuffsLayout->count() - 1, row);
+    }
 }
 
 // ── refreshStats ──────────────────────────────────────────────────────────
@@ -435,4 +606,125 @@ void SpellsTab::refreshStats()
     emit statsChanged(totals, spellExtra);
 }
 
+// ── Gestion des sets de buffs ─────────────────────────────────────────────
+
+void SpellsTab::refreshSetsCombo()
+{
+    if (!_setsCombo) return;
+    _setsCombo->blockSignals(true);
+    _setsCombo->clear();
+
+    if (_charInfo && !_charInfo->name.empty()) {
+        auto sets = _config->getCharacterJson(_charInfo->name, "buff_sets");
+        if (sets.is_array()) {
+            for (auto& s : sets)
+                _setsCombo->addItem(QString::fromStdString(s.value("name", "?")));
+        }
+    }
+
+    bool has = _setsCombo->count() > 0;
+    if (_loadBtn)   _loadBtn->setEnabled(has);
+    if (_deleteBtn) _deleteBtn->setEnabled(has);
+    _setsCombo->blockSignals(false);
+}
+
+void SpellsTab::onSaveSet()
+{
+    if (!_charInfo || _charInfo->name.empty()) return;
+
+    bool ok;
+    QString defaultName = _setsCombo->currentText();
+    QString name = QInputDialog::getText(
+        this, QString::fromUtf8("Sauvegarder le set"),
+        QString::fromUtf8("Nom du set :"),
+        QLineEdit::Normal, defaultName, &ok);
+    if (!ok || name.trimmed().isEmpty()) return;
+    name = name.trimmed();
+
+    // Sérialiser les buffs actifs
+    nlohmann::json buffsJson = nlohmann::json::array();
+    for (auto& b : _activeBuffs)
+        buffsJson.push_back({{"spell_id",  b.spell.id},
+                             {"class",     b.buffClass},
+                             {"min_level", b.minLevel}});
+
+    // Récupérer ou créer le tableau pour CE personnage
+    auto sets = _config->getCharacterJson(_charInfo->name, "buff_sets");
+    if (!sets.is_array()) sets = nlohmann::json::array();
+
+    std::string sname = name.toStdString();
+    bool found = false;
+    for (auto& s : sets) {
+        if (s.value("name", "") == sname) {
+            s["buffs"] = buffsJson;
+            found = true; break;
+        }
+    }
+    if (!found)
+        sets.push_back({{"name", sname}, {"buffs", buffsJson}});
+
+    _config->setCharacterJson(_charInfo->name, "buff_sets", sets);
+    _config->save();
+    refreshSetsCombo();
+
+    int idx = _setsCombo->findText(name);
+    if (idx >= 0) _setsCombo->setCurrentIndex(idx);
+}
+
+void SpellsTab::onLoadSet()
+{
+    if (!_charInfo || _charInfo->name.empty()) return;
+    int idx = _setsCombo->currentIndex();
+    if (idx < 0) return;
+
+    auto sets = _config->getCharacterJson(_charInfo->name, "buff_sets");
+    if (!sets.is_array() || idx >= (int)sets.size()) return;
+    auto& set = sets[idx];
+    if (!set.contains("buffs") || !set["buffs"].is_array()) return;
+
+    _activeBuffs.clear();
+    for (auto& entry : set["buffs"]) {
+        int spellId   = entry.value("spell_id",  0);
+        std::string cls = entry.value("class",   "");
+        int minLvl    = entry.value("min_level", 0);
+        if (spellId <= 0) continue;
+
+        auto sd = _itemDb->getSpellById(spellId);
+        if (!sd) continue;
+
+        _activeBuffs.push_back({*sd, cls, minLvl});
+    }
+
+    // Recalculer conflits
+    std::vector<SpellData> allSpells;
+    for (auto& b : _activeBuffs) allSpells.push_back(b.spell);
+    auto sr = checkStacking(allSpells, _charInfo ? _charInfo->level : 0);
+    _conflicts = sr.conflicts;
+
+    rebuildClassList();
+    rebuildRightPanel();
+    refreshStats();
+}
+
+void SpellsTab::onDeleteSet()
+{
+    if (!_charInfo || _charInfo->name.empty()) return;
+    int idx = _setsCombo->currentIndex();
+    if (idx < 0) return;
+
+    auto sets = _config->getCharacterJson(_charInfo->name, "buff_sets");
+    if (!sets.is_array() || idx >= (int)sets.size()) return;
+
+    QString name = QString::fromStdString(sets[idx].value("name", "?"));
+    auto ret = QMessageBox::question(
+        this, QString::fromUtf8("Supprimer"),
+        QString::fromUtf8("Supprimer le set « %1 » ?").arg(name),
+        QMessageBox::Yes | QMessageBox::No);
+    if (ret != QMessageBox::Yes) return;
+
+    sets.erase(idx);
+    _config->setCharacterJson(_charInfo->name, "buff_sets", sets);
+    _config->save();
+    refreshSetsCombo();
+}
 

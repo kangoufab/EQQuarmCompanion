@@ -7,8 +7,10 @@
 
 class Config;
 class ItemDatabase;
+class QComboBox;
 class QLabel;
 class QListWidget;
+class QPushButton;
 class QVBoxLayout;
 class QScrollArea;
 class QFrame;
@@ -32,6 +34,9 @@ signals:
 
 private slots:
     void onClassSelected(int row);
+    void onSaveSet();
+    void onLoadSet();
+    void onDeleteSet();
 
 private:
     void buildUi();
@@ -39,6 +44,8 @@ private:
     void rebuildRightPanel();
     void rebuildClassList();
     void refreshStats();
+    void refreshSetsCombo();
+    void rebuildActiveBuffsList();
     int  expansionMaxLevel() const;
 
     Config*        _config;
@@ -51,6 +58,13 @@ private:
     QWidget*      _rightInner{nullptr};
     QVBoxLayout*  _rightLayout{nullptr};
     QLabel*       _headerLabel{nullptr};
+    QComboBox*    _setsCombo{nullptr};
+    QPushButton*  _loadBtn{nullptr};
+    QPushButton*  _deleteBtn{nullptr};
+
+    // Panneau gauche : liste des buffs actifs
+    QWidget*      _activeBuffsInner{nullptr};
+    QVBoxLayout*  _activeBuffsLayout{nullptr};
 
     std::vector<ActiveBuff>  _activeBuffs;
     std::map<int, int>       _conflicts;       // loser_id → winner_id

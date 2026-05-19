@@ -226,37 +226,51 @@ AaStats ItemDatabase::getAaStats(const std::vector<std::pair<int,int>>& purchase
 
     auto& db = DbConnection::instance().db();
 
-    // ── 1. altadv_vars : eqmacid → {skill_id, max_level} ─────────────────
+    // ── 1. altadv_vars : eqmacid → {name, skill_id, max_level} ────────────
     QStringList idList;
     for (auto& [id, rank] : purchases) idList << QString::number(id);
     QSqlQuery q1(db);
-    q1.exec(QString("SELECT eqmacid, skill_id, max_level FROM altadv_vars"
+    q1.exec(QString("SELECT eqmacid, name, skill_id, max_level FROM altadv_vars"
                     " WHERE eqmacid IN (%1)").arg(idList.join(',')));
-    std::map<int, std::pair<int,int>> avMap; // eqmacid → {skill_id, max_level}
+    struct AvEntry { std::string name; int skillId{}; int maxLevel{}; };
+    std::map<int, AvEntry> avMap; // eqmacid → {name, skill_id, max_level}
     while (q1.next())
-        avMap[q1.value(0).toInt()] = {q1.value(1).toInt(), q1.value(2).toInt()};
+        avMap[q1.value(0).toInt()] = {q1.value(1).toString().toStdString(),
+                                      q1.value(2).toInt(), q1.value(3).toInt()};
+    // q1 est terminé — ne plus l'utiliser
 
-    // ── 2. Calculer les aaid pour chaque achat ────────────────────────────
+    // ── 2. Calculer les aaid et construire aaidToName ─────────────────────
+    std::map<int, std::string> aaidToName; // aaid → aa_name
     QStringList aaidList;
     for (auto& [eqmacid, rank] : purchases) {
         auto it = avMap.find(eqmacid);
         if (it == avMap.end()) continue;
-        auto [skillId, maxLevel] = it->second;
+        auto& [aaName, skillId, maxLevel] = it->second;
         int effectiveRank = std::min(rank, maxLevel);
-        aaidList << QString::number(skillId + effectiveRank - 1);
+        int aaid = skillId + effectiveRank - 1;
+        aaidToName[aaid] = aaName;
+        aaidList << QString::number(aaid);
     }
 
-    // ── 3. aa_effects : SUM(base1) par effectid ───────────────────────────
+    // ── 3. Une seule requête aa_effects avec aaid retourné ────────────────
     if (!aaidList.isEmpty()) {
         QSqlQuery q2(db);
-        q2.exec(QString("SELECT effectid, SUM(base1) AS total FROM aa_effects"
-                        " WHERE aaid IN (%1) GROUP BY effectid").arg(aaidList.join(',')));
+        q2.exec(QString("SELECT aaid, effectid, SUM(base1) AS total FROM aa_effects"
+                        " WHERE aaid IN (%1) GROUP BY aaid, effectid")
+                .arg(aaidList.join(',')));
         while (q2.next()) {
-            int effectid = q2.value(0).toInt();
-            int total    = q2.value(1).toInt();
-            auto it = AA_EFFECT_TO_STAT.find(effectid);
-            if (it != AA_EFFECT_TO_STAT.end())
-                result.stats[it->second] += total;
+            int aaid     = q2.value(0).toInt();
+            int effectid = q2.value(1).toInt();
+            int total    = q2.value(2).toInt();
+            if (total == 0) continue; // placeholder (ex: Natural Durability base1=0)
+            auto sit = AA_EFFECT_TO_STAT.find(effectid);
+            if (sit != AA_EFFECT_TO_STAT.end()) {
+                const char* statKey = sit->second;
+                result.stats[statKey] += total;
+                auto nit = aaidToName.find(aaid);
+                if (nit != aaidToName.end())
+                    result.sources[statKey].emplace_back(nit->second, total);
+            }
         }
     }
 

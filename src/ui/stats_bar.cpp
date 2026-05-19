@@ -3,6 +3,10 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QLayout>
+#include <QLayoutItem>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QLabel>
 #include <QStringList>
 #include <QVBoxLayout>
@@ -172,9 +176,13 @@ static QString makeStatTooltip(const std::string& statKey,
                 sign + QString::number(ival) + sfxQ, "#81c784");
         }
     }
-    if (info.aa_val != 0) {
+    if (!info.aa_sources.empty()) {
         sectionHeader("AA", "#ffc947");
-        row("Alternate Advancements", QString("+%1%2").arg(info.aa_val).arg(sfxQ), "#ffc947");
+        for (auto& [aaname, aval] : info.aa_sources) {
+            QString sign = aval >= 0 ? "+" : "";
+            row(QString::fromStdString(aaname),
+                sign + QString::number(aval) + sfxQ, "#ffc947");
+        }
     }
     if (!info.spell_sources.empty()) {
         sectionHeader("SORTS", "#ba68c8");
@@ -286,7 +294,7 @@ static int getStatValS(const std::string& stat, const PlayerTotals& t) {
     if (stat=="acha")      return t.cha;
     if (stat=="hp")        return t.hp.capped;
     if (stat=="mana")      return t.mana.capped;
-    if (stat=="ac")        return t.mitigation;
+    if (stat=="ac")        return t.ac;
     if (stat=="atk")       return t.atk;
     if (stat=="haste")     return t.haste;
     if (stat=="hp_regen")  return t.hp_regen;
@@ -299,6 +307,53 @@ static int getStatValS(const std::string& stat, const PlayerTotals& t) {
     return 0;
 }
 
+// ── Flow layout pour les effets (retour à la ligne sans couper un effet) ──
+
+class EffectsFlowLayout : public QLayout {
+public:
+    EffectsFlowLayout(QWidget* parent, int hSpacing = 4, int vSpacing = 2)
+        : QLayout(parent), _hSpace(hSpacing), _vSpace(vSpacing) {}
+    ~EffectsFlowLayout() override { qDeleteAll(_items); }
+
+    void addItem(QLayoutItem* item) override { _items.append(item); }
+    int  count() const override { return _items.size(); }
+    QLayoutItem* itemAt(int i) const override { return _items.value(i); }
+    QLayoutItem* takeAt(int i) override {
+        return (i >= 0 && i < _items.size()) ? _items.takeAt(i) : nullptr;
+    }
+    Qt::Orientations expandingDirections() const override { return {}; }
+    bool hasHeightForWidth() const override { return true; }
+    int  heightForWidth(int w) const override { return doLayout(QRect(0,0,w,0), true); }
+    QSize minimumSize() const override {
+        QSize s;
+        for (auto* it : _items) s = s.expandedTo(it->minimumSize());
+        auto m = contentsMargins();
+        return s + QSize(m.left() + m.right(), m.top() + m.bottom());
+    }
+    QSize sizeHint() const override { return minimumSize(); }
+    void setGeometry(const QRect& r) override { QLayout::setGeometry(r); doLayout(r, false); }
+
+private:
+    int doLayout(const QRect& rect, bool testOnly) const {
+        auto m = contentsMargins();
+        QRect eff = rect.adjusted(m.left(), m.top(), -m.right(), -m.bottom());
+        int x = eff.x(), y = eff.y(), lineH = 0;
+        for (auto* it : _items) {
+            QSize sh = it->sizeHint();
+            int nextX = x + sh.width();
+            if (nextX > eff.right() + 1 && lineH > 0) {
+                x = eff.x(); y += lineH + _vSpace; lineH = 0;
+            }
+            if (!testOnly) it->setGeometry(QRect(QPoint(x, y), sh));
+            x += sh.width() + _hSpace;
+            lineH = qMax(lineH, sh.height());
+        }
+        return y + lineH - rect.y() + m.bottom();
+    }
+    QList<QLayoutItem*> _items;
+    int _hSpace, _vSpace;
+};
+
 // ── Helpers effets worn/focus ─────────────────────────────────────────────
 
 static QWidget* makeEffectsWidget(const std::vector<EffectEntry>& effects,
@@ -309,9 +364,8 @@ static QWidget* makeEffectsWidget(const std::vector<EffectEntry>& effects,
 {
     auto* w = new QWidget;
     w->setStyleSheet("background: transparent;");
-    auto* layout = new QHBoxLayout(w);
+    auto* layout = new EffectsFlowLayout(w, 4, 2);
     layout->setContentsMargins(0, 2, 0, 0);
-    layout->setSpacing(2);
 
     if (prefix && prefix[0]) {
         auto* pl = new QLabel(QString::fromUtf8(prefix));
@@ -323,7 +377,10 @@ static QWidget* makeEffectsWidget(const std::vector<EffectEntry>& effects,
 
     for (int i = 0; i < (int)effects.size(); ++i) {
         auto& [name, spellId, itemName] = effects[i];
-        auto* lbl = new QLabel(QString::fromStdString(name));
+        // Séparateur · fusionné dans le label pour ne pas être coupé en bout de ligne
+        QString text = QString::fromStdString(name);
+        if (i < (int)effects.size() - 1) text += " \xc2\xb7";
+        auto* lbl = new QLabel(text);
         lbl->setStyleSheet(
             QString("color: %1; font-size: 9px; font-style: italic; "
                     "border: none; background: transparent;").arg(color));
@@ -349,15 +406,7 @@ static QWidget* makeEffectsWidget(const std::vector<EffectEntry>& effects,
             }
         }
         layout->addWidget(lbl);
-        if (i < (int)effects.size() - 1) {
-            auto* sep = new QLabel(" \xc2\xb7 ");
-            sep->setStyleSheet(
-                QString("color: %1; font-size: 9px; border: none; background: transparent;")
-                .arg(color));
-            layout->addWidget(sep);
-        }
     }
-    layout->addStretch();
     return w;
 }
 
@@ -407,13 +456,14 @@ QFrame* makePlayerStatsBar(
     outer->setContentsMargins(0, 4, 0, 4);
     outer->setSpacing(4);
 
-    auto* grid = new QGridLayout;
-    grid->setSpacing(6);
-    grid->setContentsMargins(0, 0, 0, 0);
+    auto* scrollContent = new QWidget;
+    scrollContent->setStyleSheet("background: transparent;");
+    auto* hbox = new QHBoxLayout(scrollContent);
+    hbox->setSpacing(6);
+    hbox->setContentsMargins(0, 0, 0, 0);
 
     for (int idx = 0; idx < (int)cats.size(); ++idx) {
         auto& [catName, catStats] = cats[idx];
-        int row = idx / 2, col = idx % 2;
 
         auto colIt = CAT_COLORS.find(catName);
         if (colIt == CAT_COLORS.end()) continue;
@@ -505,13 +555,30 @@ QFrame* makePlayerStatsBar(
                 panelL->addWidget(makeEffectsWidget(focusEffects, "#88cc88", "Focus: ", spellDetails, 0));
         }
 
-        grid->addWidget(panel, row, col, Qt::AlignTop);
+        panelL->addStretch();
+        hbox->addWidget(panel, 0, Qt::AlignTop);
     }
+    hbox->addStretch();
 
-    auto* gridW = new QWidget;
-    gridW->setStyleSheet("background: transparent;");
-    gridW->setLayout(grid);
-    outer->addWidget(gridW);
+    auto* scrollArea = new QScrollArea;
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setStyleSheet(
+        "QScrollArea { background: transparent; border: none; }"
+        "QScrollBar:horizontal {"
+        "  height: 6px; background: #0a0f1a;"
+        "  border-radius: 3px; margin: 0px;"
+        "}"
+        "QScrollBar::handle:horizontal {"
+        "  background: #3a4a6a; border-radius: 3px; min-width: 20px;"
+        "}"
+        "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {"
+        "  width: 0px;"
+        "}");
+    scrollArea->setWidget(scrollContent);
+    outer->addWidget(scrollArea);
 
     // Fallback : si aucune catégorie cible n'est présente, on affiche sous le grid
     if (effectsTarget.empty()) {

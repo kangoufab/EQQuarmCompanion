@@ -121,7 +121,7 @@ static int getStatValue(const std::string& stat, const PlayerTotals& t) {
     if (stat == "acha")      return t.cha;
     if (stat == "hp")        return t.hp.capped;
     if (stat == "mana")      return t.mana.capped;
-    if (stat == "ac")        return t.mitigation;
+    if (stat == "ac")        return t.ac;
     if (stat == "atk")       return t.atk;
     if (stat == "haste")     return t.haste;
     if (stat == "hp_regen")  return t.hp_regen;
@@ -574,9 +574,11 @@ QFrame* CharacterTab::makeItemCard(const ItemData* item, const ItemData* refItem
 
 void CharacterTab::onSearchPopup()
 {
-    QString query = _searchCombo->lineEdit()->text().trimmed();
+    QString rawQuery = _searchCombo->lineEdit()->text();
+    QString query    = rawQuery.trimmed();
     if (query.length() < 2) return;
 
+    int cursor = _searchCombo->lineEdit()->cursorPosition();
     auto results = _itemDb->searchItems(query, 50);
     _searchResults.clear();
     _searchCombo->blockSignals(true);
@@ -588,7 +590,8 @@ void CharacterTab::onSearchPopup()
         _searchCombo->addItem(QString::fromStdString(item.name));
     }
 
-    _searchCombo->lineEdit()->setText(query);
+    _searchCombo->lineEdit()->setText(rawQuery);
+    _searchCombo->lineEdit()->setCursorPosition(cursor);
     _searchCombo->blockSignals(false);
 }
 
@@ -667,8 +670,8 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
             primType = pit->second.itemtype;
         PlayerTotals afterTotals = calculateTotals(*_charInfo, afterVec, primType);
 
-        // Notifier MainWindow des stats "après équipement"
-        emit statsChanged(afterTotals);
+        // Notifier MainWindow des stats "après équipement" avec les items correspondants
+        emit statsChanged(afterTotals, afterEquipped);
     }
 
     // Cartes de comparaison côte à côte
@@ -736,7 +739,7 @@ void CharacterTab::clearComparison(bool emitReset)
     _comparisonArea->setVisible(false);
     if (_clearBtn) _clearBtn->setEnabled(false);
     if (emitReset && _totals)
-        emit statsChanged(*_totals);
+        emit statsChanged(*_totals, _equippedItems);
 }
 
 // ── detectSlots ──────────────────────────────────────────────────────────
@@ -1019,7 +1022,7 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
         rows += valRow("Mitigation (\xc3\x97" "4/3 hors casters)",
                        QString::number(totals.mitigation),                          "#ffb74d", true);
         rows += valRow("Affich\xc3\xa9" " = (avoid + mit) \xc3\x97 1000/847",
-                       QString::number(totals.mitigation),                          "#ffb74d", true);
+                       QString::number(totals.ac),                                  "#ffb74d", true);
 
     } else if (stat == "haste") {
         // Max-wins : trouver le gagnant

@@ -23,7 +23,7 @@ public:
                       const std::map<std::string, ItemData>&);
 
 signals:
-    void statsChanged(PlayerTotals totals);
+    void statsChanged(PlayerTotals totals, std::map<std::string, ItemData> equippedItems);
 
 private slots:
     void onSearchPopup();

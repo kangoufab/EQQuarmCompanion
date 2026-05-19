@@ -29,6 +29,11 @@ std::string Config::get(std::string_view key) const {
     return it->is_string() ? it->get<std::string>() : it->dump();
 }
 
+nlohmann::json Config::getJson(std::string_view key) const {
+    auto it = _data.find(key);
+    return (it != _data.end()) ? *it : nlohmann::json{};
+}
+
 void Config::set(std::string_view key, nlohmann::json value) {
     _data[std::string(key)] = std::move(value);
 }
@@ -84,4 +89,16 @@ std::string Config::getCharacterClass(std::string_view charName) const {
 void Config::setCharacterClass(std::string_view charName,
                                 std::string_view className) {
     _data["characters"][std::string(charName)]["class"] = std::string(className);
+}
+
+nlohmann::json Config::getCharacterJson(std::string_view charName,
+                                         std::string_view key) const {
+    try {
+        return _data.at("characters").at(std::string(charName)).at(std::string(key));
+    } catch (const std::exception&) { return nlohmann::json{}; }
+}
+
+void Config::setCharacterJson(std::string_view charName, std::string_view key,
+                               nlohmann::json value) {
+    _data["characters"][std::string(charName)][std::string(key)] = std::move(value);
 }

@@ -33,3 +33,21 @@ void DbConnection::disconnect() {
 
 bool DbConnection::isConnected() const { return _db.isOpen(); }
 QSqlDatabase& DbConnection::db() { return _db; }
+
+bool DbConnection::testConnection(const DbConfig& cfg) {
+    static const QString TEST_CONN = "test_conn";
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QMYSQL", TEST_CONN);
+        db.setHostName(QString::fromStdString(cfg.host));
+        db.setPort(cfg.port);
+        db.setDatabaseName(QString::fromStdString(cfg.database));
+        db.setUserName(QString::fromStdString(cfg.user));
+        db.setPassword(QString::fromStdString(cfg.password));
+        bool ok = db.open();
+        if (ok) db.close();
+    }
+    bool result = QSqlDatabase::database(TEST_CONN).isValid()
+               && !QSqlDatabase::database(TEST_CONN).lastError().isValid();
+    QSqlDatabase::removeDatabase(TEST_CONN);
+    return result;
+}

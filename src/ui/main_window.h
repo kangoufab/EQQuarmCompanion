@@ -28,7 +28,7 @@ public:
 private slots:
     void onCharacterChanged(int index);
     void onTabChanged(int index);
-    void onStatsChanged(PlayerTotals totals);
+    void onStatsChanged(PlayerTotals totals, std::map<std::string, ItemData> equippedItems);
     void onBuffStatsChanged(PlayerTotals totals, PlayerTotalsExtra spellExtra);
     void openSettings();
 
@@ -37,7 +37,8 @@ private:
     void refreshAllTabs();
     void recalculateTotals();
     void rebuildGlobalStatsBar(const PlayerTotals& totals,
-                                const PlayerTotalsExtra* extraOverride = nullptr);
+                                const PlayerTotalsExtra* extraOverride = nullptr,
+                                const std::map<std::string, ItemData>* itemsOverride = nullptr);
 
     Config*       _config;
     NpcDatabase*  _npcDb;

@@ -1,14 +1,13 @@
 #include "ui/widgets.h"
+#include <QLineEdit>
 
 SearchComboBox::SearchComboBox(QWidget* parent) : QComboBox(parent) {
     setEditable(true);
     setInsertPolicy(QComboBox::NoInsert);
-}
-
-void SearchComboBox::keyPressEvent(QKeyEvent* event) {
-    QComboBox::keyPressEvent(event);
-    if (event->key() != Qt::Key_Return && event->key() != Qt::Key_Escape)
+    // textEdited fires for all user input (including spaces) without QComboBox interception
+    connect(lineEdit(), &QLineEdit::textEdited, this, [this](const QString&) {
         emit popup_requested();
+    });
 }
 
 void SearchComboBox::showPopup() {

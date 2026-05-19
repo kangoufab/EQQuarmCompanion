@@ -1,6 +1,5 @@
 #pragma once
 #include <QComboBox>
-#include <QKeyEvent>
 
 class SearchComboBox : public QComboBox {
     Q_OBJECT
@@ -11,6 +10,5 @@ signals:
     void popup_requested();
 
 protected:
-    void keyPressEvent(QKeyEvent* event) override;
     void showPopup() override;
 };

@@ -10,6 +10,9 @@ public:
     bool connect(const DbConfig& cfg);
     void disconnect();
 
+    // Ouvre une connexion temporaire pour tester les paramètres sans perturber la connexion active
+    static bool testConnection(const DbConfig& cfg);
+
     [[nodiscard]] bool isConnected() const;
     [[nodiscard]] QSqlDatabase& db();
 

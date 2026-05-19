@@ -23,6 +23,8 @@ struct CharacterInfo {
 // Statistiques issues des Alternate Advancements (AAs).
 struct AaStats {
     std::map<std::string, int> stats; // stat_key → valeur totale
+    // Détail par AA et par stat : stat_key → [(nom_aa, valeur), ...]
+    std::map<std::string, std::vector<std::pair<std::string,int>>> sources;
     float nd_pct{};                   // % HP bonus de Natural Durability + Physical Enhancement
 };
 
@@ -42,7 +44,7 @@ struct StatRange { int base{}, capped{}; };
 
 struct PlayerTotals {
     StatRange hp, mana;
-    int atk{}, mitigation{};
+    int atk{}, mitigation{}, ac{};
     int str_v{}, sta{}, dex{}, agi{}, int_v{}, wis{}, cha{};
     int mr{}, fr{}, cr{}, dr{}, pr{};
     int haste{}, hp_regen{}, mana_regen{};
@@ -54,7 +56,9 @@ struct StatInfo {
     int base_val{};     // contribution base (race/classe/niveau)
     // Contributions par item : (nom_item, valeur)
     std::vector<std::pair<std::string,int>> item_sources;
-    int aa_val{};       // contribution AAs (total)
+    int aa_val{};       // contribution AAs (total, conservé pour compatibilité)
+    // Contributions par AA individuel : (nom_aa, valeur)
+    std::vector<std::pair<std::string,int>> aa_sources;
     // Contributions par sort : (nom_sort, valeur)
     std::vector<std::pair<std::string,int>> spell_sources;
     // Lignes de formule optionnelles affichées en bas du tooltip

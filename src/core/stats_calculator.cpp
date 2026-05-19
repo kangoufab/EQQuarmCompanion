@@ -203,22 +203,11 @@ static int classLevelFactor(std::string_view cls, int level) {
     return 260;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// HP cap = formule base HP sans items (limite raisonnable) portée depuis
-// la formule Python : level_hp * sta / 300 + level_hp.
-// En pratique le serveur n'a pas de cap fixe sur les item HP.
-// Le test HpCapApplied vérifie que 10000 est réduit → on cap à 2000 (PoP).
-// D'après EQMacEmu : cap item HP = 2000 (RuleI Character, ItemHPCap).
-// ═══════════════════════════════════════════════════════════════════════════
-int hpCap(std::string_view /*cls*/, int /*level*/) {
-    // EQMacEmu RuleI::Character__ItemHPCap — valeur globale, non dépendante de la classe
-    return 2000;
-}
-
-int manaCap(std::string_view /*cls*/, int /*level*/) {
-    // EQMacEmu RuleI::Character__ItemManaCap — valeur globale, non dépendante de la classe
-    return 2000;
-}
+// Quarm server (EQMacEmu) n'a PAS de cap sur les HP ou Mana items.
+// itembonuses.HP et itembonuses.Mana sont sommés sans cap dans bonuses.cpp.
+// Ces fonctions retournent INT_MAX pour ne pas cappér en pratique.
+int hpCap(std::string_view /*cls*/, int /*level*/)   { return INT_MAX; }
+int manaCap(std::string_view /*cls*/, int /*level*/) { return INT_MAX; }
 
 int attackCap(std::string_view /*cls*/, int /*level*/) {
     // RuleI(Character, ItemATKCap) = 250
@@ -287,14 +276,45 @@ static int defenseSkillMax(std::string_view cls) {
 // Retourne (displayed_ac, mitigation, avoidance)
 // ═══════════════════════════════════════════════════════════════════════════
 struct AcResult { int displayed, mitigation, avoidance; };
-static AcResult calcDisplayedAc(std::string_view cls, int level, int totalAgi, int itemAc) {
+// spellAc doit être passé séparément : le serveur divise l'AC sort par 4 (casters: /3)
+// APRÈS le scaling 4/3 et l'anti-twink, contrairement à l'item AC.
+static AcResult calcDisplayedAc(std::string_view cls, int level, int totalAgi,
+                                 int itemAc, int spellAc = 0, int race = 0) {
+    bool pureCaster = isPureCaster(cls);
     int defSkill  = std::min(level, 60) * defenseSkillMax(cls) / 60;
     int avoidance = std::max(1, defSkill * 400 / 225 + agiAvoidance(totalAgi, level));
+
+    // Item AC ×4/3 pour non-casters (attack.cpp GetMitigation ligne ~4922)
     int mitigation = itemAc;
-    if (!isPureCaster(cls))
+    if (!pureCaster)
         mitigation = 4 * mitigation / 3;
+
+    // Anti-twink cap (ignoré si ignoreCap=true pour CalcAC affichée, mais le serveur
+    // passe ignoreCap=true dans CalcAC → on l'applique quand même pour la cohérence)
     if (level < 50 && mitigation > level * 6 + 25)
         mitigation = level * 6 + 25;
+
+    // Iksar racial AC (attack.cpp lignes 5094-5108)
+    if (race == RACE_IKSAR) {
+        if (level < 10)       mitigation += 10;
+        else if (level > 35)  mitigation += 35;
+        else                  mitigation += level;
+    }
+
+    // Contribution defense skill → mitigation (attack.cpp lignes 5113-5124)
+    if (defSkill > 0)
+        mitigation += pureCaster ? defSkill / 2 : defSkill / 3;
+
+    // Spell AC divisé (attack.cpp lignes 5126-5131)
+    if (spellAc > 0)
+        mitigation += pureCaster ? spellAc / 3 : spellAc / 4;
+
+    // AGI/20 → mitigation (attack.cpp ligne 5133-5134)
+    if (totalAgi > 70)
+        mitigation += totalAgi / 20;
+
+    if (mitigation < 0) mitigation = 0;
+
     int displayed = (avoidance + mitigation) * 1000 / 847;
     return {displayed, mitigation, avoidance};
 }
@@ -415,7 +435,9 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
         t.agi   += aaAgi;  t.int_v += aaInt;  t.wis += aaWis;  t.cha += aaCha;
         t.mr    += aaMr;   t.fr    += aaFr;   t.cr  += aaCr;
         t.dr    += aaDr;   t.pr    += aaPr;
-        itemHp  += aaHp;   if (classHasMana) itemMana += aaMana;  rawAc += aaAc;
+        // aaHp/aaMana NON ajoutés à itemHp/itemMana : ils contournent le cap items
+        // et ne sont pas soumis au multiplicateur Natural Durability (client_mods.cpp:252)
+        if (classHasMana) itemMana += aaMana;  rawAc += aaAc;
     }
 
     // HP Regen : base (niveau/race) + items cappés à 30 (L≤60)
@@ -435,27 +457,22 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
     int totalSta = std::min(t.sta, ATTRIBUTE_CAP);
     int totalAgi = std::min(t.agi, ATTRIBUTE_CAP);
 
-    // HP (avec Natural Durability % si présent)
+    // HP : baseHp + itemHp (pas de cap) + ND sur (base+items) + aaHp + 5 fixe
+    // Référence : client_mods.cpp CalcMaxHP lignes 205-252
     int baseHp   = calcBaseHp(ci.class_name, ci.level, totalSta);
-    int itemHpCapped = std::min(itemHp, hpCap(ci.class_name, ci.level));
     int ndBonus  = 0;
     if (aa && aa->nd_pct > 0.0f)
-        ndBonus = static_cast<int>((baseHp + itemHpCapped) * aa->nd_pct / 100.0f);
-    int hpCapped = baseHp + itemHpCapped + ndBonus;
-    t.hp.base   = baseHp + itemHp + ndBonus;
-    t.hp.capped = hpCapped;
-    t.hp.base   = t.hp.capped;
+        ndBonus = static_cast<int>((baseHp + itemHp) * aa->nd_pct / 100.0f);
+    t.hp.base = t.hp.capped = baseHp + itemHp + ndBonus + aaHp + 5;
 
-    // Mana
+    // Mana : baseMana + itemMana (pas de cap) + aaMana
     int baseMana = 0;
     if (classHasMana) {
         char ct = casterType(ci.class_name);
         int wi = (ct == 'I') ? std::min(t.int_v, ATTRIBUTE_CAP)
                              : std::min(t.wis,   ATTRIBUTE_CAP);
         baseMana = calcBaseMana("", ci.level, wi);
-        t.mana.base   = baseMana + itemMana;
-        t.mana.capped = baseMana + std::min(itemMana, manaCap(ci.class_name, ci.level));
-        t.mana.base   = t.mana.capped;
+        t.mana.base = t.mana.capped = baseMana + itemMana;
     }
 
     // ATK
@@ -465,15 +482,23 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
                                   itemAtkRaw, primaryItemtype);
     }
 
-    // AC
+    // AC : itemAc + aaAc dans rawAc, spellAc=0 ici (pas de sorts dans calculateTotals)
     {
-        auto acResult = calcDisplayedAc(ci.class_name, ci.level, totalAgi, rawAc);
+        auto acResult = calcDisplayedAc(ci.class_name, ci.level, totalAgi, rawAc, 0, ci.race);
         t.mitigation = acResult.mitigation;
+        t.ac         = acResult.displayed;
     }
 
     // ── Remplissage de PlayerTotalsExtra ────────────────────────────────
     if (extra) {
         auto& s = extra->stats;
+
+        // Helper : copie les contributions par AA depuis AaStats::sources
+        auto addAaSources = [&](StatInfo& si, const char* key) {
+            if (!aa) return;
+            auto it = aa->sources.find(key);
+            if (it != aa->sources.end()) si.aa_sources = it->second;
+        };
 
         // Construction des item_sources pour chaque stat
         struct StatKey { const char* key; int ItemData::* field; };
@@ -494,13 +519,13 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
             s[key] = si; // base_val et raw fixés explicitement ci-dessous
         }
         // Correct base_val per attribute
-        s["astr"].base_val = ci.base_str; s["astr"].aa_val = aaStr; s["astr"].raw = ci.base_str + itemStr + aaStr;
-        s["asta"].base_val = ci.base_sta; s["asta"].aa_val = aaSta; s["asta"].raw = ci.base_sta + itemSta + aaSta;
-        s["adex"].base_val = ci.base_dex; s["adex"].aa_val = aaDex; s["adex"].raw = ci.base_dex + itemDex + aaDex;
-        s["aagi"].base_val = ci.base_agi; s["aagi"].aa_val = aaAgi; s["aagi"].raw = ci.base_agi + itemAgi + aaAgi;
-        s["aint"].base_val = ci.base_int; s["aint"].aa_val = aaInt; s["aint"].raw = ci.base_int + itemInt + aaInt;
-        s["awis"].base_val = ci.base_wis; s["awis"].aa_val = aaWis; s["awis"].raw = ci.base_wis + itemWis + aaWis;
-        s["acha"].base_val = ci.base_cha; s["acha"].aa_val = aaCha; s["acha"].raw = ci.base_cha + itemCha + aaCha;
+        s["astr"].base_val=ci.base_str; s["astr"].aa_val=aaStr; s["astr"].raw=ci.base_str+itemStr+aaStr; addAaSources(s["astr"],"astr");
+        s["asta"].base_val=ci.base_sta; s["asta"].aa_val=aaSta; s["asta"].raw=ci.base_sta+itemSta+aaSta; addAaSources(s["asta"],"asta");
+        s["adex"].base_val=ci.base_dex; s["adex"].aa_val=aaDex; s["adex"].raw=ci.base_dex+itemDex+aaDex; addAaSources(s["adex"],"adex");
+        s["aagi"].base_val=ci.base_agi; s["aagi"].aa_val=aaAgi; s["aagi"].raw=ci.base_agi+itemAgi+aaAgi; addAaSources(s["aagi"],"aagi");
+        s["aint"].base_val=ci.base_int; s["aint"].aa_val=aaInt; s["aint"].raw=ci.base_int+itemInt+aaInt; addAaSources(s["aint"],"aint");
+        s["awis"].base_val=ci.base_wis; s["awis"].aa_val=aaWis; s["awis"].raw=ci.base_wis+itemWis+aaWis; addAaSources(s["awis"],"awis");
+        s["acha"].base_val=ci.base_cha; s["acha"].aa_val=aaCha; s["acha"].raw=ci.base_cha+itemCha+aaCha; addAaSources(s["acha"],"acha");
 
         const int baseResistArr[5] = {br.mr, br.fr, br.cr, br.dr, br.pr};
         const int itemResistArr[5] = {itemMr, itemFr, itemCr, itemDr, itemPr};
@@ -513,6 +538,7 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
             si.raw = baseResistArr[ri] + itemResistArr[ri] + aaResistArr[ri];
             for (const auto& item : items)
                 if (item.*fld != 0) si.item_sources.push_back({item.name, item.*fld});
+            addAaSources(si, key);
             s[key] = si;
             ++ri;
         }
@@ -538,17 +564,19 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
             si.raw = t.hp.capped;
             si.base_val = baseHp;
             si.aa_val   = aaHp + ndBonus;
+            addAaSources(si, "hp");
             for (const auto& item : items)
                 if (item.hp != 0) si.item_sources.push_back({item.name, item.hp});
             si.formula.push_back({"Base " + ci.class_name + " L" + std::to_string(ci.level)
                 + " (STA " + std::to_string(std::min(ci.base_sta + itemSta, 255)) + ")",
                 std::to_string(baseHp)});
-            if (itemHp > hpCap(ci.class_name, ci.level))
-                si.formula.push_back({"Items HP (cap 2000)", std::to_string(itemHp) + " → " + std::to_string(itemHpCapped)});
             if (ndBonus > 0) {
                 float ndp = aa ? aa->nd_pct : 0.0f;
                 si.formula.push_back({"Natural Durability (" + std::to_string((int)ndp) + "%)", "+" + std::to_string(ndBonus)});
             }
+            if (aaHp > 0)
+                si.formula.push_back({"AAs HP", "+" + std::to_string(aaHp)});
+            si.formula.push_back({"+5 fixe (CalcMaxHP)", "+5"});
             si.formula.push_back({"Total", std::to_string(t.hp.capped)});
             s["hp"] = si;
         }
@@ -561,8 +589,6 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
             for (const auto& item : items)
                 if (item.mana != 0) si.item_sources.push_back({item.name, item.mana});
             si.formula.push_back({"Base mana L" + std::to_string(ci.level), std::to_string(baseMana)});
-            if (itemMana > manaCap(ci.class_name, ci.level))
-                si.formula.push_back({"Items Mana (cap 2000)", std::to_string(itemMana) + " → " + std::to_string(manaCap(ci.class_name, ci.level))});
             si.formula.push_back({"Total", std::to_string(t.mana.capped)});
             s["mana"] = si;
         }
@@ -619,14 +645,19 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
 
         // AC
         {
-            auto acResult = calcDisplayedAc(ci.class_name, ci.level, totalAgi, rawAc);
+            auto acResult = calcDisplayedAc(ci.class_name, ci.level, totalAgi, rawAc, 0, ci.race);
+            bool pureCast = isPureCaster(ci.class_name);
+            int defSkill  = std::min(ci.level, 60) * defenseSkillMax(ci.class_name) / 60;
             StatInfo si;
-            si.raw = t.mitigation;
+            si.raw = acResult.displayed;
             for (const auto& item : items)
                 if (item.ac != 0) si.item_sources.push_back({item.name, item.ac});
-            si.formula.push_back({"Items AC brut", std::to_string(rawAc)});
-            si.formula.push_back({"Mitigation" + std::string(isPureCaster(ci.class_name) ? "" : " (×4/3)"),
+            si.formula.push_back({"Items+AAs AC", std::to_string(rawAc)});
+            si.formula.push_back({"Mitigation" + std::string(pureCast ? "" : " (×4/3)"),
                 std::to_string(acResult.mitigation)});
+            si.formula.push_back({"Défense (skill " + std::to_string(defSkill) + "/"
+                + std::string(pureCast ? "2" : "3") + ")",
+                "+" + std::to_string(pureCast ? defSkill/2 : defSkill/3)});
             si.formula.push_back({"Avoidance (défense + AGI " + std::to_string(totalAgi) + ")",
                 std::to_string(acResult.avoidance)});
             si.formula.push_back({"Affiché (×1000/847)", std::to_string(acResult.displayed)});
@@ -666,11 +697,12 @@ PlayerTotals calculateTotalsWithSpells(
 
     int itemAtkRaw = 0, rawAc = 0;
     int itemHpRegenRaw = 0, itemManaRegenRaw = 0;
+    int itemHpRaw = 0, itemManaRaw = 0;
     const bool classHasMana = hasMana(ci.class_name);
 
     for (const auto& item : items) {
-        t.hp.base    += item.hp;
-        if (classHasMana) t.mana.base += item.mana;
+        itemHpRaw        += item.hp;
+        if (classHasMana) itemManaRaw += item.mana;
         itemAtkRaw       += item.atk;
         rawAc            += item.ac;
         t.str_v          += item.astr;
@@ -695,11 +727,12 @@ PlayerTotals calculateTotalsWithSpells(
         auto it = d.find(k); return it != d.end() ? it->second : 0;
     };
     int spellHpRegen = 0, spellManaRegen = 0;
+    int spellHp = 0, spellMana = 0, spellAcRaw = 0;
     for (const auto& d : spellDicts) {
-        t.hp.base    += getSpell(d, "hp");
-        if (classHasMana) t.mana.base += getSpell(d, "mana");
+        spellHp      += getSpell(d, "hp");
+        if (classHasMana) spellMana += getSpell(d, "mana");
         itemAtkRaw   += getSpell(d, "atk");
-        rawAc        += getSpell(d, "ac");
+        spellAcRaw   += getSpell(d, "ac"); // séparé de rawAc : divisé par 4 côté serveur
         t.str_v      += getSpell(d, "astr");
         t.sta        += getSpell(d, "asta");
         t.dex        += getSpell(d, "adex");
@@ -736,21 +769,19 @@ PlayerTotals calculateTotalsWithSpells(
     int totalSta = std::min(t.sta,   ATTRIBUTE_CAP);
     int totalAgi = std::min(t.agi,   ATTRIBUTE_CAP);
 
+    // HP : pas de cap items, +5 fixe, sorts ajoutés après base+items
     {
-        int itemHpRaw = t.hp.base;
-        int baseHp    = calcBaseHp(ci.class_name, ci.level, totalSta);
-        t.hp.base     = baseHp + itemHpRaw;
-        t.hp.capped   = baseHp + std::min(itemHpRaw, hpCap(ci.class_name, ci.level));
+        int baseHp = calcBaseHp(ci.class_name, ci.level, totalSta);
+        t.hp.base = t.hp.capped = baseHp + itemHpRaw + spellHp + 5;
     }
 
+    // Mana : pas de cap items
     if (classHasMana) {
         char ct = casterType(ci.class_name);
         int wi = (ct == 'I') ? std::min(t.int_v, ATTRIBUTE_CAP)
                              : std::min(t.wis,   ATTRIBUTE_CAP);
-        int itemManaRaw = t.mana.base;
-        int baseMana    = calcBaseMana("", ci.level, wi);
-        t.mana.base     = baseMana + itemManaRaw;
-        t.mana.capped   = baseMana + std::min(itemManaRaw, manaCap(ci.class_name, ci.level));
+        int baseMana = calcBaseMana("", ci.level, wi);
+        t.mana.base = t.mana.capped = baseMana + itemManaRaw + spellMana;
     }
 
     {
@@ -760,8 +791,10 @@ PlayerTotals calculateTotalsWithSpells(
     }
 
     {
-        auto acResult = calcDisplayedAc(ci.class_name, ci.level, totalAgi, rawAc);
+        auto acResult = calcDisplayedAc(ci.class_name, ci.level, totalAgi,
+                                        rawAc, spellAcRaw, ci.race);
         t.mitigation = acResult.mitigation;
+        t.ac         = acResult.displayed;
     }
 
     return t;

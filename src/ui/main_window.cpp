@@ -165,7 +165,8 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
 // ── Stats bar globale ─────────────────────────────────────────────────────
 
 void MainWindow::rebuildGlobalStatsBar(const PlayerTotals& totals,
-                                        const PlayerTotalsExtra* extraOverride) {
+                                        const PlayerTotalsExtra* extraOverride,
+                                        const std::map<std::string, ItemData>* itemsOverride) {
     while (_globalStatsLayout->count()) {
         auto* child = _globalStatsLayout->takeAt(0);
         if (child->widget()) child->widget()->deleteLater();
@@ -173,8 +174,9 @@ void MainWindow::rebuildGlobalStatsBar(const PlayerTotals& totals,
     }
     if (_currentChar.level > 0) {
         const PlayerTotalsExtra& extra = extraOverride ? *extraOverride : _playerExtra;
-        auto worn  = collectWornEffects(_equippedItems);
-        auto focus = collectFocusEffects(_equippedItems);
+        const auto& items = itemsOverride ? *itemsOverride : _equippedItems;
+        auto worn  = collectWornEffects(items);
+        auto focus = collectFocusEffects(items);
         auto spellDetails = loadSpellDetails(worn, focus, _itemDb);
         _globalStatsLayout->addWidget(
             makePlayerStatsBar(totals, _currentChar.class_name,
@@ -183,8 +185,8 @@ void MainWindow::rebuildGlobalStatsBar(const PlayerTotals& totals,
     }
 }
 
-void MainWindow::onStatsChanged(PlayerTotals totals) {
-    rebuildGlobalStatsBar(totals);
+void MainWindow::onStatsChanged(PlayerTotals totals, std::map<std::string, ItemData> equippedItems) {
+    rebuildGlobalStatsBar(totals, nullptr, &equippedItems);
 }
 
 void MainWindow::onBuffStatsChanged(PlayerTotals totals, PlayerTotalsExtra spellExtra) {
