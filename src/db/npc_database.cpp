@@ -144,8 +144,9 @@ QList<SpellData> NpcDatabase::getNpcSpells(int npcSpellsId) {
     q.prepare(
         "SELECT sn.id, sn.name, sn.resisttype AS resist_type,"
         " sn.ResistDiff AS resist_diff, sn.no_partial_resist,"
-        " nse.type AS spell_type, nse.recast_delay,"
-        " sn.targettype, sn.aoerange, sn.cast_time, sn.recast_time,"
+        " nse.type AS spell_type,"
+        " CASE WHEN nse.recast_delay > 0 THEN nse.recast_delay ELSE sn.recast_time END AS recast_delay,"
+        " sn.targettype, sn.aoerange, sn.cast_time,"
         " sn.buffduration, sn.buffdurationformula,"
         " sn.effectid1, sn.effect_base_value1,"
         " sn.effectid2, sn.effect_base_value2,"

@@ -116,9 +116,11 @@ float spellIncomingDps(
             landChance = 1.f - resistChance / 200.f;
         }
 
-        float castSec  = spell.cast_time   > 0 ? spell.cast_time   / 1000.f : 6.f;
-        float recastSec = spell.recast_delay > 0 ? spell.recast_delay / 1000.f : 0.f;
-        float cycleSec  = std::max(0.1f, castSec + recastSec);
+        // cast_time = 0 pour la plupart des sorts NPC (instants).
+        // recast_delay est résolu en DB : nse.recast_delay si > 0, sinon sn.recast_time.
+        float castSec   = spell.cast_time   > 0 ? spell.cast_time   / 1000.f : 0.f;
+        float recastSec = spell.recast_delay > 0 ? spell.recast_delay / 1000.f : 6.f;
+        float cycleSec  = std::max(1.f, castSec + recastSec);
 
         if (nukeDmg > 0.f)
             totalDps += nukeDmg / cycleSec * landChance;
