@@ -249,12 +249,25 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
     vl->addWidget(gridW);
 
     if (totalVal < 0) {
-        auto* totLbl = new QLabel(
-            QString("<span style='color:#555555'>Total cumulable : </span>"
-                    "<b><span style='color:#81c784'>%1</span></b>").arg(totalVal));
-        totLbl->setTextFormat(Qt::RichText);
-        totLbl->setStyleSheet("background:transparent;border:none;font-size:11px;padding-top:4px;");
-        vl->addWidget(totLbl);
+        auto* sep = new QFrame;
+        sep->setFrameShape(QFrame::HLine);
+        sep->setStyleSheet("color:#2a2a3a;");
+        vl->addWidget(sep);
+
+        auto* totRow = new QHBoxLayout;
+        totRow->setContentsMargins(0, 2, 0, 0);
+        auto* totLblKey = new QLabel(QString("Debuff total (%1)").arg(resist.c_str()));
+        totLblKey->setStyleSheet(QString("color:%1;font-size:11px;background:transparent;border:none;")
+                                 .arg(color));
+        auto* totLblVal = new QLabel(QString("<b>%1</b>").arg(totalVal));
+        totLblVal->setTextFormat(Qt::RichText);
+        totLblVal->setStyleSheet("color:#81c784;font-size:18px;background:transparent;border:none;");
+        totRow->addWidget(totLblKey);
+        totRow->addStretch();
+        totRow->addWidget(totLblVal);
+        auto* totW = new QWidget; totW->setStyleSheet("background:transparent;");
+        totW->setLayout(totRow);
+        vl->addWidget(totW);
     }
 
     return frame;
