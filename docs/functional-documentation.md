@@ -2,7 +2,7 @@
 
 **Serveur :** Project Quarm (EQMacEmu, base Planes of Power)  
 **Référence serveur :** `common/emu_constants.h`, `zone/client_mods.cpp`, `zone/attack.cpp`, `zone/buffstacking.cpp`, `zone/mob.cpp`  
-**Mis à jour :** 2026-05-20
+**Mis à jour :** 2026-05-20 (révision 2)
 
 ---
 
@@ -24,12 +24,14 @@
     - [Offense NPC](#122-offense-npc-getoffense)
     - [To-Hit NPC](#123-to-hit-npc-gettohit)
     - [Avoidance joueur](#124-avoidance-joueur)
-    - [Hit chance & DPS entrant estimé](#125-hit-chance--dps-entrant-estimé)
+    - [Hit chance & DPS mêlée entrant](#125-hit-chance--dps-mêlée-entrant)
     - [Mitigation en %](#126-mitigation-en-)
     - [Taux de résistance joueur vs NPC](#127-taux-de-résistance-joueur-vs-npc)
     - [Slow land %](#128-slow-land-)
     - [Résistance sort joueur](#129-résistance-sort-joueur)
     - [Special Abilities](#1210-special-abilities)
+    - [DPS sorts NPC](#1211-dps-sorts-npc)
+    - [Type et effets des sorts NPC](#1212-type-et-effets-des-sorts-npc)
 13. [Onglet Infos — Debuffs résistance](#13-onglet-infos--debuffs-résistance)
 14. [Stacking des buffs](#14-stacking-des-buffs)
 
@@ -611,6 +613,8 @@ total = (mainAtk + offAtk) × (1.0 + flurry_pct / 100.0)
 total_attacks = (attack_count + da + triple + offAtk) × flurry_mult
 ```
 
+> **`attack_count = -1` en DB** : signifie "défaut = 1 attaque" (mob_ai.cpp:1184 — `n_atk <= 1 → single Attack()`). Notre code utilise `max(1, attack_count)`.
+
 ---
 
 ### 12.2 Offense NPC (GetOffense)
@@ -680,23 +684,30 @@ else:
 
 ---
 
-### 12.5 Hit chance & DPS entrant estimé
+### 12.5 Hit chance & DPS mêlée entrant
 
 ```
 delaySec = max(0.1, npc.attack_delay / 10.0)    ← attack_delay en 1/10s
 
-// Roll moyen sur la plage min_hit..max_hit
-den      = npcOffense + max(1, playerMitigation)
-expRoll  = min(20, max(1, npcOffense × 20 / den))
-di       = (max_hit > min_hit) ? (max_hit − min_hit) / 19.0 : 0
-effHit   = max(1, min_hit + (expRoll − 1) × di)
+// Roll moyen issu de Mob::RollD20(offense, mitigation) — attack.cpp:369
+// E[roll] = 1 + 10 × (3×offense − mitigation + 10) / (offense + mitigation + 10)
+expRollF = clamp(1 + 10 × (3×npcOff − mit + 10) / (npcOff + mit + 10), 1, 20)
 
-// DPS de base (sans discipline)
-baseDPS  = effHit × total_attacks × hitChance / delaySec
+di       = (max_hit > min_hit) ? (max_hit − min_hit) / 19.0 : 0
+effHit   = max(1, min_hit + (expRollF − 1) × di)
+
+// DPS moyen / min / max
+baseDPS      = effHit       × total_attacks × hitChance / delaySec
+minDPS       = min_hit      × total_attacks × hitChance / delaySec   ← roll=1
+maxDPS       = max_hit      × total_attacks × hitChance / delaySec   ← roll=20
 
 // Avec discipline
 DPS_final = baseDPS × discMult
+min_dps   = minDPS  × discMult
+max_dps   = maxDPS  × discMult
 ```
+
+> La formule `expRollF` remplace l'ancienne `off×20/(off+mit)` — elle correspond à l'espérance réelle du dé biaisé `RollD20` du serveur (biais en faveur de l'attaquant quand offense > mitigation).
 
 ---
 
@@ -838,6 +849,71 @@ IDs hors table : affichés comme `SA#n` (gris).
 
 ---
 
+### 12.11 DPS sorts NPC
+
+`spellIncomingDps(npcSpells, player, playerLevel, npcLevel)` — `src/core/spell_stats.cpp`.
+
+Pour chaque sort NPC :
+
+```
+// Dégâts
+SPA 0  (SE_CurrentHP) avec base < 0 :
+    si buffdurationformula > 0 et buffduration > 0 → DoT : dégâts par tick
+    sinon                                           → Nuke : dégâts directs
+
+SPA 79 (SE_CurrentHPOnce) avec base < 0 → Nuke : dégâts directs
+
+// Recast effectif (résolu en DB)
+recast_delay = nse.recast_delay > 0 ? nse.recast_delay : sn.recast_time  (ms)
+castSec   = sn.cast_time / 1000   (0 pour la plupart des sorts NPC)
+recastSec = recast_delay / 1000   (fallback 6s si absent)
+cycleSec  = max(1, castSec + recastSec)
+
+// Chance d'atterrissage
+levelMod    = (playerLevel − npcLevel) × 2
+check       = playerRes + levelMod        ← playerRes selon resist_type
+resistChance = max(4, min(198, check × 3 / 2))
+landChance  = 1 − resistChance / 200
+
+// Contribution DPS
+DPS_nuke = nukeDmg   / cycleSec × landChance
+DPS_dot  = dotPerTick / 6.0     × landChance   ← steady-state, 1 tick EQ = 6s
+```
+
+Le DPS total sorts est ajouté au DPS mêlée dans chaque cellule de la table DPS×slow.
+
+---
+
+### 12.12 Type et effets des sorts NPC
+
+`effectiveSpellType(spell)` détermine le type à partir des SPAs :
+
+| SPAs détectés | Type retourné |
+|---------------|---------------|
+| SPA 0, base<0, sans durée | `nuke` |
+| SPA 0, base<0, avec durée | `dot` |
+| SPA 79, base<0 | `nuke` |
+| SPA 0, base>0 | `heal` |
+| SPA 11, base<100 | `slow` |
+| SPA 11, base≥100 | `haste` |
+| SPA 21 | `stun` |
+| SPA 22 | `charm` |
+| SPA 23 | `fear` |
+| SPA 27 | `dispel` |
+| SPA 31 | `mez` |
+| SPA 50, base<0 | `snare` |
+| SPA 96 | `root` |
+| SPA 99, base<100 | `slow` |
+| spell_type=0 sinon | `debuff` |
+| spell_type=1 sinon | `buff` |
+
+`formatSpellSummary(spell, npcLevel)` produit une ligne d'effets lisibles, ex. :
+`Dmg 850 · Slow -40% · MR -50 · Stun 3s`
+
+Les valeurs sont calculées au niveau du NPC via `calcSpellEffectValue`.
+
+---
+
 ## 13. Onglet Infos — Debuffs résistance
 
 ### Structure
@@ -865,10 +941,12 @@ L'onglet affiche les meilleurs debuffs de résistance disponibles pour le groupe
 | tuyen_cr | Tuyen Gel/Glace | CR | oui | 744, 3373 |
 | tuyen_pr | Tuyen Venin | PR | oui | 3566, 3370 |
 | tuyen_dr | Tuyen Fléau | DR | oui | 3567, 3363 |
-| bard_mr2 | Bard MR (slows) | MR | oui | 725, 741, 750, 868 |
+| bard_mr2 | Bard MR (slows) | MR | oui | 725, 750 |
 | bard_mr4 | Denon ⚠ | MR | oui | 1764 |
-| bard_mr5 | Song of Twilight | MR | oui | 1753 |
 | bard_mr6 | Fufil's Chant | MR | oui | 707 |
+
+> **Songs retirés (Mesmerize — SPA 31, inutilisables sur boss) :**
+> 741 Crission's Pixie Strike, 868 Sionachie's Dreams, 1753 Song of Twilight.
 
 ### Conflits de stacking (cross-conflicts)
 
@@ -884,10 +962,12 @@ L'onglet affiche les meilleurs debuffs de résistance disponibles pour le groupe
 |---------|---------------|
 | 29, 110, 111, 112, 433, 526, 527, 676, 677, 1511, 1512, 1513, 1699, 1704, 1772 | 0 (Classic) |
 | 1577, 1578, 1600, 1702 | 1 (Luclin) |
-| 1437 | 2 (PoP) |
+| 1437, **1716** | 2 (PoP) |
 | 2518 | 3 (Gates of Discord) |
 
 Autres bard songs : pas dans la table → disponibles à toutes les expansions.
+
+> **1716 Scent of Terris** : disponible uniquement à partir de Planes of Power (niveau 52 Necromancien).
 
 ### Algorithme bestInGroup
 
@@ -917,13 +997,25 @@ Les groupes non-bard et bard sont cumulables mais distincts.
 **Bard :**
 | Résist | Ordre |
 |--------|-------|
-| MR | occl_multi → bard_mr2 → bard_mr4 → bard_mr5 → bard_mr6 |
+| MR | occl_multi → bard_mr2 → bard_mr4 → bard_mr6 |
 | FR | occl_multi → tuyen_fr |
 | CR | occl_multi → tuyen_cr |
 | PR | tuyen_pr |
 | DR | tuyen_dr |
 
-Le total affiché en bas de chaque colonne est la somme des meilleurs sorts non-bard + bard pour cette résistance, en tenant compte des conflits.
+### Groupes bloqués masqués
+
+Si un groupe est en conflit avec un groupe plus fort/large ET que ce dernier est actif (a un meilleur sort disponible), le groupe bloqué est entièrement masqué de l'affichage (pas de ligne rouge, juste absent).
+
+| Groupe masqué | Condition |
+|---------------|-----------|
+| `druid_fr` | si `scent` actif |
+| `fire_aoe` | si `malo` actif |
+| `bard_mr4` | si `occl_multi` actif |
+
+### Total debuff par résistance
+
+Le total cumulable (somme des meilleurs sorts non-bard + bard actifs) est affiché en bas de chaque section résistance, en grand (18px vert), avec séparateur horizontal et libellé `Debuff total (MR/FR/…)`.
 
 ---
 
