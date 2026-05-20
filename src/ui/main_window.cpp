@@ -7,8 +7,10 @@
 #include "ui/stats_bar.h"
 #include "core/config.h"
 #include "core/stats_calculator.h"
+#include "db/db_connection.h"
 #include "db/npc_database.h"
 #include "db/item_database.h"
+#include <QtSql/QSqlQuery>
 #include <filesystem>
 #include <map>
 #include <string>
@@ -104,6 +106,19 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
     auto* settingsBtn = new QPushButton(QString::fromUtf8("\xe2\x9a\x99"));
     settingsBtn->setFlat(true);
     toolbar->addWidget(settingsBtn);
+
+    // Badge connexion DB
+    _dbBadge = new QLabel;
+    _dbBadge->setTextFormat(Qt::RichText);
+    toolbar->addSeparator();
+    toolbar->addWidget(_dbBadge);
+    updateDbBadge(DbConnection::instance().isConnected());
+
+    // Timer de vérification DB (10 s)
+    _dbTimer = new QTimer(this);
+    _dbTimer->setInterval(10000);
+    connect(_dbTimer, &QTimer::timeout, this, &MainWindow::checkDbStatus);
+    _dbTimer->start();
 
     connect(_charSelector, qOverload<int>(&QComboBox::currentIndexChanged),
             this, &MainWindow::onCharacterChanged);
@@ -276,6 +291,35 @@ void MainWindow::refreshAllTabs() {
 
 void MainWindow::openSettings() {
     SettingsDialog dlg(_config, this);
-    if (dlg.exec() == QDialog::Accepted)
+    if (dlg.exec() == QDialog::Accepted) {
+        checkDbStatus();
         loadCharacterFiles();
+    }
+}
+
+void MainWindow::updateDbBadge(bool connected) {
+    if (connected) {
+        _dbBadge->setText(
+            "<span style='color:#81c784;font-size:13px;font-weight:bold;'>&#9679; DB</span>");
+        _dbBadge->setToolTip("Base de données connectée");
+    } else {
+        _dbBadge->setText(
+            "<span style='color:#e57373;font-size:13px;font-weight:bold;'>&#9679; DB hors ligne</span>");
+        _dbBadge->setToolTip(QString::fromUtf8(
+            "Base de données non connectée\nV\xc3\xa9rifier les param\xc3\xa8tres dans \xe2\x9a\x99"));
+    }
+}
+
+void MainWindow::checkDbStatus() {
+    bool alive = false;
+    if (DbConnection::instance().isConnected()) {
+        QSqlQuery q(DbConnection::instance().db());
+        alive = q.exec("SELECT 1");
+    }
+    if (!alive) {
+        auto dbCfg = _config->getDbConfig();
+        alive = DbConnection::instance().connect(dbCfg);
+        if (alive) loadCharacterFiles();
+    }
+    updateDbBadge(alive);
 }

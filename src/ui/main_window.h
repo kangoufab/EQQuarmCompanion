@@ -6,6 +6,7 @@
 #include <QLabel>
 #include <QMainWindow>
 #include <QTabWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <map>
 #include <string>
@@ -30,6 +31,7 @@ private slots:
     void onStatsChanged(PlayerTotals totals, std::map<std::string, ItemData> equippedItems);
     void onBuffStatsChanged(PlayerTotals totals, PlayerTotalsExtra spellExtra);
     void openSettings();
+    void checkDbStatus();
 
 private:
     void loadCharacterFiles();
@@ -38,12 +40,15 @@ private:
     void rebuildGlobalStatsBar(const PlayerTotals& totals,
                                 const PlayerTotalsExtra* extraOverride = nullptr,
                                 const std::map<std::string, ItemData>* itemsOverride = nullptr);
+    void updateDbBadge(bool connected);
 
     Config*       _config;
     NpcDatabase*  _npcDb;
     ItemDatabase* _itemDb;
 
     QComboBox*    _charSelector;
+    QLabel*       _dbBadge{nullptr};
+    QTimer*       _dbTimer{nullptr};
     QLabel*       _charHeaderLabel{nullptr};
     QVBoxLayout*  _globalStatsLayout{nullptr};
     QTabWidget*   _tabs;
