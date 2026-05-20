@@ -168,13 +168,29 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
     std::map<std::string, const InfoGroup*> groupById;
     for (auto& g : getInfoGroups()) groupById[g.id] = &g;
 
+    // Pre-pass: which groups have a best spell?
+    std::set<std::string> activeGroups;
+    for (const auto& gid : groupOrder) {
+        auto git = groupById.find(gid);
+        if (git == groupById.end()) continue;
+        const InfoGroup& grp = *git->second;
+        if (bestInGroup(grp.spell_ids, resist.c_str(), cap, grp.is_bard, expIdx))
+            activeGroups.insert(gid);
+    }
+    // Groups blocked by a stronger/broader active group
+    auto& conflicts = getCrossConflicts();
+    std::set<std::string> blockedGroups;
+    for (auto& [bid, cpair] : conflicts)
+        if (activeGroups.count(bid) && activeGroups.count(cpair.first))
+            blockedGroups.insert(bid);
+
     int rowI = 0;
     int totalVal = 0;
     std::set<std::string> seenGroups;
-    auto& conflicts = getCrossConflicts();
 
     for (const auto& gid : groupOrder) {
         if (seenGroups.count(gid)) continue;
+        if (blockedGroups.count(gid)) continue;
         auto git = groupById.find(gid);
         if (git == groupById.end()) continue;
         seenGroups.insert(gid);
@@ -190,8 +206,6 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
 
         // Group name
         const char* grpColor = grp.is_bard ? "#9cbe9c" : "#aaaaaa";
-        auto cit = conflicts.find(gid);
-        if (cit != conflicts.end()) grpColor = "#ef5350";
         auto* grpLbl = new QLabel(QString("<span style='color:%1'>%2</span>")
                                   .arg(grpColor).arg(grp.label));
         grpLbl->setTextFormat(Qt::RichText);
@@ -227,24 +241,7 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
         ttLbl->setStyleSheet(QString("background:%1;border:none;font-size:10px;padding:1px 2px;").arg(rowBg));
         grid->addWidget(ttLbl, r, 4);
 
-        // Cross-conflict warning
-        if (cit != conflicts.end()) {
-            ++r; ++rowI;
-            auto* wLbl = new QLabel(QString("<span style='color:#555555;font-size:8px'>⚠ %1</span>")
-                                    .arg(QString::fromStdString(cit->second.second)));
-            wLbl->setTextFormat(Qt::RichText);
-            wLbl->setStyleSheet("background:transparent;border:none;padding:0 2px 0 12px;");
-            grid->addWidget(wLbl, r, 1, 1, 3);
-        }
-
-        // Accumulate total (excluding conflicting/replaced groups)
-        if (gid != "fire_aoe" && gid != "druid_fr" && gid != "bard_mr4") {
-            totalVal += val;
-        } else if (gid == "fire_aoe" && !seenGroups.count("malo")) {
-            totalVal += val;
-        } else if (gid == "druid_fr" && !seenGroups.count("scent")) {
-            totalVal += val;
-        }
+        totalVal += val;
 
         ++rowI;
     }
