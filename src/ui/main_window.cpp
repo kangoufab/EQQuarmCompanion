@@ -184,8 +184,7 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
 
 void MainWindow::rebuildGlobalStatsBar(const PlayerTotals& totals,
                                         const PlayerTotalsExtra* extraOverride,
-                                        const std::map<std::string, ItemData>* itemsOverride,
-                                        const PlayerTotals* baseTotals) {
+                                        const std::map<std::string, ItemData>* itemsOverride) {
     while (_globalStatsLayout->count()) {
         auto* child = _globalStatsLayout->takeAt(0);
         if (child->widget()) child->widget()->deleteLater();
@@ -200,7 +199,7 @@ void MainWindow::rebuildGlobalStatsBar(const PlayerTotals& totals,
         _globalStatsLayout->addWidget(
             makePlayerStatsBar(totals, _currentChar.class_name,
                                _config->get("current_expansion"),
-                               extra, worn, focus, spellDetails, baseTotals));
+                               extra, worn, focus, spellDetails));
     }
 }
 
@@ -214,8 +213,7 @@ void MainWindow::onBuffStatsChanged(PlayerTotals totals, PlayerTotalsExtra spell
     for (auto& [k, si] : spellExtra.stats)
         if (!si.spell_sources.empty())
             merged.stats[k].spell_sources = si.spell_sources;
-    // Passer _playerTotals comme base pour afficher les deltas dus aux buffs
-    rebuildGlobalStatsBar(totals, &merged, nullptr, &_playerTotals);
+    rebuildGlobalStatsBar(totals, &merged);
 }
 
 // ── Chargement des personnages ────────────────────────────────────────────
