@@ -85,7 +85,7 @@ struct PlayerTotalsExtra {
 // ── Résultats analyse combat ──────────────────────────────────────────
 
 struct IncomingDamageResult {
-    float avg_hit{}, est_dps{}, mitigation_pct{}, disc_mult{1.f};
+    float avg_hit{}, est_dps{}, min_dps{}, max_dps{}, mitigation_pct{}, disc_mult{1.f};
     int   npc_offense{}, player_mit{}, exp_roll{};
     std::string disc_note;
 };

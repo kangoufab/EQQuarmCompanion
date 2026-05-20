@@ -181,6 +181,13 @@ IncomingDamageResult incomingDamage(const NpcData& npc,
     float baseDps = effHit * attacks * baseHC / delaySec;
     r.est_dps     = baseDps * discMult;
 
+    // Min DPS : roll = 1, hit = min_hit
+    float minHit = (r.avg_hit > 0.f) ? std::max(1.f, static_cast<float>(npc.min_hit)) : 0.f;
+    // Max DPS : roll = 20, hit = max_hit
+    float maxHit = (r.avg_hit > 0.f) ? static_cast<float>(npc.max_hit) : 0.f;
+    r.min_dps = minHit * attacks * baseHC / delaySec * discMult;
+    r.max_dps = maxHit * attacks * baseHC / delaySec * discMult;
+
     return r;
 }
 
