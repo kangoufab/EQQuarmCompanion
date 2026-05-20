@@ -26,4 +26,5 @@ QFrame* makePlayerStatsBar(
     const PlayerTotalsExtra& extra                              = {},
     const std::vector<EffectEntry>& wornEffects                = {},
     const std::vector<EffectEntry>& focusEffects               = {},
-    const std::map<int, SpellData>& spellDetails               = {});
+    const std::map<int, SpellData>& spellDetails               = {},
+    const PlayerTotals* baseTotals                             = nullptr);

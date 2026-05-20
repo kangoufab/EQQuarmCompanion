@@ -39,7 +39,8 @@ private:
     void recalculateTotals();
     void rebuildGlobalStatsBar(const PlayerTotals& totals,
                                 const PlayerTotalsExtra* extraOverride = nullptr,
-                                const std::map<std::string, ItemData>* itemsOverride = nullptr);
+                                const std::map<std::string, ItemData>* itemsOverride = nullptr,
+                                const PlayerTotals* baseTotals = nullptr);
     void updateDbBadge(bool connected);
 
     Config*       _config;

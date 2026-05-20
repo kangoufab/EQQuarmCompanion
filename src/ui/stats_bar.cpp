@@ -398,7 +398,8 @@ QFrame* makePlayerStatsBar(
     const PlayerTotalsExtra& extra,
     const std::vector<EffectEntry>& wornEffects,
     const std::vector<EffectEntry>& focusEffects,
-    const std::map<int, SpellData>& spellDetails)
+    const std::map<int, SpellData>& spellDetails,
+    const PlayerTotals* baseTotals)
 {
     // Catégories selon la classe
     std::vector<std::pair<std::string, std::vector<std::string>>> cats;
@@ -504,10 +505,25 @@ QFrame* makePlayerStatsBar(
                 "font-size: 14px; color: #888888; border: none; background: transparent;");
             nameLbl->setAlignment(Qt::AlignCenter);
 
-            auto* valLbl = new QLabel(QString::number(dispVal) + suffix);
-            valLbl->setStyleSheet(
-                QString("font-size: 13px; font-weight: bold; color: %1; "
-                        "border: none; background: transparent;").arg(tileFg));
+            // Delta buffs : +X vert ou -X rouge affiché à côté de la valeur
+            QString deltaStr;
+            if (baseTotals) {
+                int baseVal = playerTotalStat(stat, *baseTotals);
+                if (hasCap) baseVal = std::min(baseVal, capVal);
+                int delta = dispVal - baseVal;
+                if (delta > 0)
+                    deltaStr = QString(" <span style='color:#81c784;font-size:11px;"
+                                       "font-weight:normal;'>+%1</span>").arg(delta);
+                else if (delta < 0)
+                    deltaStr = QString(" <span style='color:#e57373;font-size:11px;"
+                                       "font-weight:normal;'>%1</span>").arg(delta);
+            }
+
+            auto* valLbl = new QLabel;
+            valLbl->setTextFormat(Qt::RichText);
+            valLbl->setText(
+                QString("<span style='font-size:13px;font-weight:bold;color:%1;'>%2%3</span>%4")
+                    .arg(tileFg).arg(dispVal).arg(suffix).arg(deltaStr));
             valLbl->setAlignment(Qt::AlignCenter);
 
             tileL->addWidget(nameLbl);
