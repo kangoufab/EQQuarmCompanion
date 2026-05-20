@@ -1,111 +1,263 @@
 #include "ui/infos_tab.h"
 #include "ui/infos_data.h"
+#include "ui/infos_spell_data.h"
 #include "ui/ui_helpers.h"
 #include "core/config.h"
 #include <nlohmann/json.hpp>
+#include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QScrollArea>
 #include <QVBoxLayout>
+#include <set>
 
-InfosTab::InfosTab(Config* cfg, QWidget* parent)
-    : QWidget(parent), _config(cfg)
-{
+static const std::map<std::string, const char*> kResistColors = {
+    {"MR","#ba68c8"},{"FR","#ef5350"},{"CR","#64b5f6"},{"PR","#81c784"},{"DR","#ffb74d"},
+};
+static const std::map<std::string, const char*> kResistNames = {
+    {"MR","Magic Resist"},{"FR","Fire Resist"},{"CR","Cold Resist"},
+    {"PR","Poison Resist"},{"DR","Disease Resist"},
+};
+static const std::map<std::string, std::pair<const char*,const char*>> kResistThemes = {
+    {"MR",{"#241a2a","#4a3a5a"}},{"FR",{"#2a1a1a","#5a3a3a"}},
+    {"CR",{"#1a2236","#3a4a6a"}},{"PR",{"#1a2a1e","#3a5a4a"}},{"DR",{"#2a241a","#5a4a3a"}},
+};
+
+// ── Constructor ───────────────────────────────────────────────────────────────
+
+InfosTab::InfosTab(Config* cfg, QWidget* parent) : QWidget(parent), _config(cfg) {
     auto* outer = new QVBoxLayout(this);
     outer->setContentsMargins(8, 8, 8, 8);
     outer->setSpacing(6);
 
+    // Header row
     auto* hdr = new QHBoxLayout;
-    hdr->addWidget(new QLabel("Expansion :"));
-    _expSelector = new QComboBox;
-    for (const auto& [exp, _] : kExpCaps)
-        _expSelector->addItem(QString::fromStdString(exp));
-
-    QString savedExp = QString::fromStdString(cfg->get("current_expansion"));
-    int idx = _expSelector->findText(savedExp);
-    if (idx >= 0) _expSelector->setCurrentIndex(idx);
-
-    hdr->addWidget(_expSelector);
+    auto* title = new QLabel("Debuffs de Résistances — combinaisons optimales par extension");
+    title->setStyleSheet("font-size:13px;font-weight:bold;color:#e0e0e0;");
+    hdr->addWidget(title);
     hdr->addStretch();
+    _expCombo = new QComboBox;
+    for (const auto& [exp, _] : kExpIndex)
+        _expCombo->addItem(QString::fromStdString(exp));
+    QString saved = QString::fromStdString(cfg->get("current_expansion"));
+    if (saved.isEmpty()) saved = "Luclin";
+    int idx = _expCombo->findText(saved);
+    if (idx < 0) idx = _expCombo->findText("Luclin");
+    if (idx >= 0) _expCombo->setCurrentIndex(idx);
+    _expCombo->setFixedWidth(160);
+    hdr->addWidget(_expCombo);
     outer->addLayout(hdr);
 
-    _content = new QScrollArea;
-    _content->setWidgetResizable(true);
-    _content->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    outer->addWidget(_content, 1);
+    // Legend
+    auto* legend = new QLabel(
+        "<span style='color:#9cbe9c'>■ Bard songs</span>"
+        " <span style='color:#555555'>— stackent toujours avec les debuffs non-bard"
+        " (buffstacking.cpp: caster bard → goto STACK_OK)</span>");
+    legend->setTextFormat(Qt::RichText);
+    legend->setStyleSheet("font-size:9px;background:transparent;border:none;padding:0;");
+    outer->addWidget(legend);
 
-    connect(_expSelector, &QComboBox::currentTextChanged,
-            this, &InfosTab::onExpansionChanged);
+    // Scroll area with 2-column content
+    auto* scroll = new QScrollArea;
+    scroll->setWidgetResizable(true);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    outer->addWidget(scroll, 1);
 
-    onExpansionChanged(_expSelector->currentText());
+    _contentWidget = new QWidget;
+    _contentLayout = new QHBoxLayout(_contentWidget);
+    _contentLayout->setContentsMargins(4, 4, 4, 4);
+    _contentLayout->setSpacing(10);
+    _contentLayout->setAlignment(Qt::AlignTop);
+    scroll->setWidget(_contentWidget);
+
+    connect(_expCombo, &QComboBox::currentIndexChanged, this, &InfosTab::onExpansionChanged);
+    refreshContent();
 }
 
-void InfosTab::onExpansionChanged(const QString& expansion) {
-    _config->set("current_expansion", nlohmann::json(expansion.toStdString()));
+void InfosTab::onExpansionChanged() {
+    std::string exp = _expCombo->currentText().toStdString();
+    _config->set("current_expansion", nlohmann::json(exp));
     _config->save();
-    _content->setWidget(buildExpansionPage(expansion));
+    refreshContent();
 }
 
-QWidget* InfosTab::buildExpansionPage(const QString& expansion) {
-    auto* page = new QWidget;
-    auto* vl   = new QVBoxLayout(page);
-    vl->setContentsMargins(6, 6, 6, 6);
-    vl->setSpacing(8);
-    vl->setAlignment(Qt::AlignTop);
+void InfosTab::refreshContent() {
+    while (_contentLayout->count()) {
+        auto* item = _contentLayout->takeAt(0);
+        if (item->widget()) item->widget()->deleteLater();
+        delete item;
+    }
 
-    // Header — debuffs disponibles dans cette expansion
-    auto debuffs = getResistDebuffs(expansion.toStdString());
-    if (!debuffs.empty()) {
-        auto [fDebuffs, flDebuffs] = sectionFrame("#ef5350");
-        flDebuffs->addWidget(sectionLabel("Debuffs resist max disponibles", "#ef5350"));
-        std::vector<std::pair<QString,QString>> pairs;
-        for (const auto& [r, v] : debuffs) {
-            pairs.push_back({QString::fromStdString(r),
-                             QString::number(v)});
+    std::string exp = _expCombo->currentText().toStdString();
+    auto capIt = kExpIndex.find(exp);
+    int expIdx = (capIt != kExpIndex.end()) ? capIt->second : 3;
+    auto capIt2 = kExpCaps.find(exp);
+    int cap = (capIt2 != kExpCaps.end()) ? capIt2->second : 60;
+
+    auto* leftW  = new QWidget; auto* leftV  = new QVBoxLayout(leftW);
+    auto* rightW = new QWidget; auto* rightV = new QVBoxLayout(rightW);
+    leftV->setSpacing(10);  leftV->setAlignment(Qt::AlignTop);
+    rightV->setSpacing(10); rightV->setAlignment(Qt::AlignTop);
+
+    // Order: MR+CR on left, FR+PR+DR on right
+    const char* resistOrder[] = {"MR","CR","FR","PR","DR"};
+    for (int i = 0; i < 5; ++i) {
+        auto* section = buildResistSection(resistOrder[i], cap, expIdx);
+        (i < 2 ? leftV : rightV)->addWidget(section);
+    }
+
+    _contentLayout->addWidget(leftW, 1);
+    _contentLayout->addWidget(rightW, 1);
+}
+
+// ── Resist section ────────────────────────────────────────────────────────────
+
+QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int expIdx) {
+    auto colorIt = kResistColors.find(resist);
+    auto nameIt  = kResistNames.find(resist);
+    auto themeIt = kResistThemes.find(resist);
+    const char* color  = colorIt  != kResistColors.end() ? colorIt->second  : "#888888";
+    const char* rname  = nameIt   != kResistNames.end()  ? nameIt->second   : resist.c_str();
+    auto [bg, border]  = themeIt  != kResistThemes.end() ? themeIt->second
+                                                          : std::pair<const char*,const char*>{"#1a1a2e","#3a3a5a"};
+
+    auto* frame = new QFrame;
+    frame->setStyleSheet(QString("QFrame{background:%1;border-radius:4px;border:1px solid %2;}")
+                         .arg(bg).arg(border));
+    auto* vl = new QVBoxLayout(frame);
+    vl->setContentsMargins(8, 6, 8, 8);
+    vl->setSpacing(4);
+
+    auto* titleLbl = new QLabel(QString("%1 (%2)").arg(rname).arg(resist.c_str()));
+    titleLbl->setStyleSheet(QString(
+        "font-size:10px;color:%1;font-variant:small-caps;"
+        "font-weight:bold;border:none;background:transparent;").arg(color));
+    vl->addWidget(titleLbl);
+
+    // Grid
+    auto* gridW = new QWidget; gridW->setStyleSheet("background:transparent;");
+    auto* grid  = new QGridLayout(gridW);
+    grid->setContentsMargins(0, 2, 0, 0);
+    grid->setHorizontalSpacing(10);
+    grid->setVerticalSpacing(2);
+
+    // Column headers
+    const char* headers[] = {"Groupe","Meilleur sort","Classes","Val.","Cible"};
+    int colWidths[]       = {90,      220,              130,      40,    55};
+    for (int ci = 0; ci < 5; ++ci) {
+        auto* lbl = new QLabel(QString("<span style='color:#444444'>%1</span>").arg(headers[ci]));
+        lbl->setTextFormat(Qt::RichText);
+        lbl->setStyleSheet("background:transparent;border:none;font-size:9px;");
+        lbl->setMinimumWidth(colWidths[ci]);
+        grid->addWidget(lbl, 0, ci);
+    }
+
+    // Collect group order
+    std::vector<std::string> groupOrder;
+    auto& rgOrder = getResistGroupOrder();
+    auto& rgBard  = getResistBardGroups();
+    {
+        auto nbit = rgOrder.find(resist);
+        if (nbit != rgOrder.end()) groupOrder.insert(groupOrder.end(), nbit->second.begin(), nbit->second.end());
+        auto bit  = rgBard.find(resist);
+        if (bit  != rgBard.end())  groupOrder.insert(groupOrder.end(), bit->second.begin(),  bit->second.end());
+    }
+
+    // Build group lookup
+    std::map<std::string, const InfoGroup*> groupById;
+    for (auto& g : getInfoGroups()) groupById[g.id] = &g;
+
+    int rowI = 0;
+    int totalVal = 0;
+    std::set<std::string> seenGroups;
+    auto& conflicts = getCrossConflicts();
+
+    for (const auto& gid : groupOrder) {
+        if (seenGroups.count(gid)) continue;
+        auto git = groupById.find(gid);
+        if (git == groupById.end()) continue;
+        seenGroups.insert(gid);
+        const InfoGroup& grp = *git->second;
+
+        const InfoSpell* best = bestInGroup(grp.spell_ids, resist.c_str(), cap, grp.is_bard, expIdx);
+        if (!best) continue;
+
+        int val = spellResistVal(*best, resist.c_str(), cap);
+
+        int r = rowI + 1;
+        QString rowBg = (rowI % 2 == 0) ? "#18181e" : "transparent";
+
+        // Group name
+        const char* grpColor = grp.is_bard ? "#9cbe9c" : "#aaaaaa";
+        auto cit = conflicts.find(gid);
+        if (cit != conflicts.end()) grpColor = "#ef5350";
+        auto* grpLbl = new QLabel(QString("<span style='color:%1'>%2</span>")
+                                  .arg(grpColor).arg(grp.label));
+        grpLbl->setTextFormat(Qt::RichText);
+        grpLbl->setStyleSheet(QString("background:%1;border:none;font-size:9px;padding:1px 2px;").arg(rowBg));
+        grid->addWidget(grpLbl, r, 0);
+
+        // Spell name
+        const char* nameColor = grp.is_bard ? "#b8d8b8" : "#e0e0e0";
+        auto* nameLbl = new QLabel(QString("<span style='color:%1'>%2</span>")
+                                   .arg(nameColor).arg(best->name));
+        nameLbl->setTextFormat(Qt::RichText);
+        nameLbl->setStyleSheet(QString("background:%1;border:none;font-size:10px;padding:1px 2px;").arg(rowBg));
+        grid->addWidget(nameLbl, r, 1);
+
+        // Classes
+        auto* clsLbl = new QLabel(QString("<span style='color:#777777'>%1</span>")
+                                  .arg(QString::fromStdString(classesStr(*best))));
+        clsLbl->setTextFormat(Qt::RichText);
+        clsLbl->setStyleSheet(QString("background:%1;border:none;font-size:10px;padding:1px 2px;").arg(rowBg));
+        grid->addWidget(clsLbl, r, 2);
+
+        // Value
+        const char* vc = val <= -40 ? "#81c784" : val <= -20 ? "#ffb74d" : "#aaaaaa";
+        auto* valLbl = new QLabel(QString("<b><span style='color:%1'>%2</span></b>").arg(vc).arg(val));
+        valLbl->setTextFormat(Qt::RichText);
+        valLbl->setStyleSheet(QString("background:%1;border:none;font-size:10px;padding:1px 2px;").arg(rowBg));
+        grid->addWidget(valLbl, r, 3);
+
+        // Target type
+        auto* ttLbl = new QLabel(QString("<span style='color:#666666'>%1</span>")
+                                 .arg(targetLabel(best->targettype)));
+        ttLbl->setTextFormat(Qt::RichText);
+        ttLbl->setStyleSheet(QString("background:%1;border:none;font-size:10px;padding:1px 2px;").arg(rowBg));
+        grid->addWidget(ttLbl, r, 4);
+
+        // Cross-conflict warning
+        if (cit != conflicts.end()) {
+            ++r; ++rowI;
+            auto* wLbl = new QLabel(QString("<span style='color:#555555;font-size:8px'>⚠ %1</span>")
+                                    .arg(QString::fromStdString(cit->second.second)));
+            wLbl->setTextFormat(Qt::RichText);
+            wLbl->setStyleSheet("background:transparent;border:none;padding:0 2px 0 12px;");
+            grid->addWidget(wLbl, r, 1, 1, 3);
         }
-        flDebuffs->addWidget(gridWidget(pairs, 5));
-        vl->addWidget(fDebuffs);
+
+        // Accumulate total (excluding conflicting/replaced groups)
+        if (gid != "fire_aoe" && gid != "druid_fr" && gid != "bard_mr4") {
+            totalVal += val;
+        } else if (gid == "fire_aoe" && !seenGroups.count("malo")) {
+            totalVal += val;
+        } else if (gid == "druid_fr" && !seenGroups.count("scent")) {
+            totalVal += val;
+        }
+
+        ++rowI;
     }
 
-    // Groupes par type de résistance
-    for (const char* resistType : {"MR", "FR", "CR", "PR", "DR"})
-        vl->addWidget(buildResistGroup(resistType, expansion));
+    vl->addWidget(gridW);
 
-    vl->addStretch();
-    return page;
-}
-
-QWidget* InfosTab::buildResistGroup(const QString& resistType,
-                                     const QString& expansion)
-{
-    auto [frame, fl] = sectionFrame("#64b5f6");
-    fl->addWidget(sectionLabel(resistType + " Debuffs", "#64b5f6"));
-
-    auto it = kResistGroups.find(resistType.toStdString());
-    if (it == kResistGroups.end()) return frame;
-
-    auto debuffs = getResistDebuffs(expansion.toStdString());
-    int debuffVal = 0;
-    auto dIt = debuffs.find(resistType.toStdString());
-    if (dIt != debuffs.end()) debuffVal = dIt->second;
-
-    for (const auto& group : it->second) {
-        // Afficher le groupe avec les IDs de sorts disponibles
-        QString spellNames;
-        for (int id : group.spell_ids)
-            spellNames += QString::number(id) + " ";
-
-        auto* lbl = new QLabel(
-            QString("  %1 [%2]").arg(QString::fromStdString(group.label)).arg(spellNames.trimmed()));
-        lbl->setStyleSheet("color:#888888;background:transparent;font-size:10px;");
-        fl->addWidget(lbl);
-    }
-
-    if (debuffVal != 0) {
-        auto* total = new QLabel(
-            QString("  Total: <span style='color:#ef5350'>%1</span>").arg(debuffVal));
-        total->setTextFormat(Qt::RichText);
-        total->setStyleSheet("background:transparent;font-size:10px;");
-        fl->addWidget(total);
+    if (totalVal < 0) {
+        auto* totLbl = new QLabel(
+            QString("<span style='color:#555555'>Total cumulable : </span>"
+                    "<b><span style='color:#81c784'>%1</span></b>").arg(totalVal));
+        totLbl->setTextFormat(Qt::RichText);
+        totLbl->setStyleSheet("background:transparent;border:none;font-size:9px;padding-top:3px;");
+        vl->addWidget(totLbl);
     }
 
     return frame;

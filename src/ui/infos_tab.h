@@ -1,7 +1,9 @@
 #pragma once
 #include <QComboBox>
+#include <QHBoxLayout>
 #include <QScrollArea>
 #include <QWidget>
+#include <string>
 
 class Config;
 
@@ -11,13 +13,14 @@ public:
     explicit InfosTab(Config* config, QWidget* parent = nullptr);
 
 private slots:
-    void onExpansionChanged(const QString& expansion);
+    void onExpansionChanged();
 
 private:
-    QWidget* buildExpansionPage(const QString& expansion);
-    QWidget* buildResistGroup(const QString& resistType, const QString& expansion);
+    void refreshContent();
+    QWidget* buildResistSection(const std::string& resist, int cap, int expIdx);
 
     Config*      _config;
-    QComboBox*   _expSelector;
-    QScrollArea* _content;
+    QComboBox*   _expCombo;
+    QHBoxLayout* _contentLayout{};
+    QWidget*     _contentWidget{};
 };
