@@ -157,7 +157,6 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
     // Signaux des onglets
     connect(_charTab,   &CharacterTab::statsChanged, this, &MainWindow::onStatsChanged);
     connect(_spellsTab, &SpellsTab::statsChanged,    this, &MainWindow::onBuffStatsChanged);
-    connect(_tabs, &QTabWidget::currentChanged,      this, &MainWindow::onTabChanged);
 
     loadCharacterFiles();
 }
@@ -196,10 +195,6 @@ void MainWindow::onBuffStatsChanged(PlayerTotals totals, PlayerTotalsExtra spell
         if (!si.spell_sources.empty())
             merged.stats[k].spell_sources = si.spell_sources;
     rebuildGlobalStatsBar(totals, &merged);
-}
-
-void MainWindow::onTabChanged(int /*index*/) {
-    rebuildGlobalStatsBar(_playerTotals);
 }
 
 // ── Chargement des personnages ────────────────────────────────────────────

@@ -383,7 +383,11 @@ void FightTab::onSearchDone() {
 
 void FightTab::onNpcSelected(int index) {
     if (index < 0 || index >= static_cast<int>(_searchResults.size())) return;
-    _currentNpc = _searchResults[index];
+    const NpcData& partial = _searchResults[index];
+    auto full = _npcDb->getNpcById(partial.id);
+    if (!full) return;
+    full->zone_long_name = partial.zone_long_name;  // preserve zone from search
+    _currentNpc = std::move(*full);
     _hasNpc = true;
     _leftScroll->setWidget(buildLeftPanel(_currentNpc));
     _rightScroll->setWidget(buildRightPanel(_currentNpc));

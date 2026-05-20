@@ -27,7 +27,6 @@ public:
 
 private slots:
     void onCharacterChanged(int index);
-    void onTabChanged(int index);
     void onStatsChanged(PlayerTotals totals, std::map<std::string, ItemData> equippedItems);
     void onBuffStatsChanged(PlayerTotals totals, PlayerTotalsExtra spellExtra);
     void openSettings();
