@@ -60,39 +60,70 @@ float spellValue(const SpellData& sp, int level) {
 // Retourne le DPS moyen des sorts NPC entrants contre le joueur.
 // Version stub : calcule la somme des dégâts par sort divisée par le cast time.
 // Retourne 0 si la liste est vide.
+// - Nukes (SPA 0 sans durée, SPA 79) : dps = damage / cycle_time
+// - DoTs  (SPA 0 avec durée)         : dps = damage_per_tick / 6s (steady-state)
+// - Applique la chance d'atterrissage via le check résistance (même formule que slowLandPct)
 float spellIncomingDps(
     const std::vector<SpellData>& npcSpells,
-    const PlayerTotals& /*player*/,
-    int /*playerLevel*/, int npcLevel)
+    const PlayerTotals& player,
+    int playerLevel, int npcLevel)
 {
     if (npcSpells.empty()) return 0.f;
 
     float totalDps = 0.f;
     for (const auto& spell : npcSpells) {
-        float spellDamage = 0.f;
+        float nukeDmg   = 0.f;  // dégâts directs totaux du sort
+        float dotPerTick = 0.f; // dégâts par tick (DoT)
+
         for (int i = 0; i < 12; ++i) {
-            // SPA 0 = SE_CurrentHP (dégâts directs si valeur négative)
-            if (spell.spa[i] == 0 && spell.effect_base_value[i] < 0) {
-                int val = calcSpellEffectValue(
-                    spell.effect_base_value[i],
-                    spell.effect_limit_value[i],
-                    spell.effect_formula[i],
-                    npcLevel);
-                spellDamage += static_cast<float>(-val);
+            int spa = spell.spa[i];
+            if (spa == 254) break;
+            int base = spell.effect_base_value[i];
+            int mx   = spell.effect_limit_value[i];
+            int form = spell.effect_formula[i] ? spell.effect_formula[i] : 100;
+            int val  = calcSpellEffectValue(base, mx, form, npcLevel);
+            if (val >= 0) continue;
+
+            if (spa == 0) {
+                // SE_CurrentHP : DoT si le sort a une durée, nuke sinon
+                if (spell.buffdurationformula > 0 && spell.buffduration > 0)
+                    dotPerTick += static_cast<float>(-val);
+                else
+                    nukeDmg += static_cast<float>(-val);
+            } else if (spa == 79) {
+                // SE_CurrentHPOnce : dégâts directs
+                nukeDmg += static_cast<float>(-val);
             }
         }
-        // cast_time en millisecondes ; éviter division par zéro
-        float castTimeSec = (spell.cast_time > 0)
-            ? static_cast<float>(spell.cast_time) / 1000.f
-            : 6.f; // défaut 6s si non renseigné
-        // recast_delay en millisecondes
-        float recastSec = (spell.recast_delay > 0)
-            ? static_cast<float>(spell.recast_delay) / 1000.f
-            : 0.f;
-        float cycleSec = castTimeSec + recastSec;
-        if (cycleSec > 0.f && spellDamage > 0.f) {
-            totalDps += spellDamage / cycleSec;
+
+        if (nukeDmg == 0.f && dotPerTick == 0.f) continue;
+
+        // Chance d'atterrissage : formule identique à slowLandPct
+        float landChance = 1.f;
+        if (spell.resist_type > 0) {
+            int playerRes = 0;
+            switch (spell.resist_type) {
+                case 1: playerRes = player.mr; break;
+                case 2: playerRes = player.fr; break;
+                case 3: playerRes = player.cr; break;
+                case 4: playerRes = player.pr; break;
+                case 5: playerRes = player.dr; break;
+            }
+            int levelMod    = (playerLevel - npcLevel) * 2;
+            int check       = playerRes + levelMod;
+            int resistChance = std::max(4, std::min(198, check * 3 / 2));
+            // resistChance/200 = probabilité de résister → landChance = inverse
+            landChance = 1.f - resistChance / 200.f;
         }
+
+        float castSec  = spell.cast_time   > 0 ? spell.cast_time   / 1000.f : 6.f;
+        float recastSec = spell.recast_delay > 0 ? spell.recast_delay / 1000.f : 0.f;
+        float cycleSec  = std::max(0.1f, castSec + recastSec);
+
+        if (nukeDmg > 0.f)
+            totalDps += nukeDmg / cycleSec * landChance;
+        if (dotPerTick > 0.f)
+            totalDps += dotPerTick / 6.f * landChance;  // 1 tick EQ = 6 secondes
     }
     return totalDps;
 }
