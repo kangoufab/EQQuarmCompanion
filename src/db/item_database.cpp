@@ -121,14 +121,20 @@ static ItemData rowToItemData(QSqlQuery& q) {
     item.focuseffect_name = q.value("focuseffect_name").toString().toStdString();
     item.proceffect_name  = q.value("proceffect_name").toString().toStdString();
 
-    // Worn effects — formula 100 = fixed value, others = level-scaled (use base as approx)
-    auto resolveWorn = [&](const char* baseCol) -> int {
-        return q.value(baseCol).toInt(); // base value is sufficient for lv60 display
-    };
-    item.atk       = resolveWorn("atk_base");
-    item.haste     = resolveWorn("haste_base");
-    item.hp_regen  = resolveWorn("hp_regen_base");
-    item.mana_regen = resolveWorn("mana_regen_base");
+    item.wornlevel          = q.value("wornlevel").toInt();
+    item.atk_base           = q.value("atk_base").toInt();
+    item.atk_formula        = q.value("atk_formula").toInt();
+    item.atk_max            = q.value("atk_max").toInt();
+    item.haste_base         = q.value("haste_base").toInt();
+    item.haste_formula      = q.value("haste_formula").toInt();
+    item.haste_max          = q.value("haste_max").toInt();
+    item.hp_regen_base      = q.value("hp_regen_base").toInt();
+    item.hp_regen_formula   = q.value("hp_regen_formula").toInt();
+    item.hp_regen_max       = q.value("hp_regen_max").toInt();
+    item.mana_regen_base    = q.value("mana_regen_base").toInt();
+    item.mana_regen_formula = q.value("mana_regen_formula").toInt();
+    item.mana_regen_max     = q.value("mana_regen_max").toInt();
+    // atk/haste/hp_regen/mana_regen start at 0 — applyWornStats() fills them
 
     return item;
 }

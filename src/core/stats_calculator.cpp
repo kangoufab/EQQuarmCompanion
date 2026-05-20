@@ -1,4 +1,5 @@
 #include "core/stats_calculator.h"
+#include "core/spell_stats.h"
 #include <algorithm>
 #include <map>
 #include <string>
@@ -852,12 +853,22 @@ int playerTotalStat(const std::string& stat, const PlayerTotals& t) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// applyWornStats — si worneffect == 0, ne rien faire.
-// Les effets worn réels (focus, procs HP, etc.) sont portés depuis
-// item_database.py::apply_worn_stats(); stub minimal pour l'instant.
+// applyWornStats — calcule atk/haste/hp_regen/mana_regen depuis les formules
+// worn de l'item. Port de apply_worn_stats() (item_database.py).
+// wornlevel : niveau de scale du sort worn (si 0, utilise level du perso).
+// haste     : EQ stocke 115 pour +15% → on soustrait 100 (offset = -100).
 // ═══════════════════════════════════════════════════════════════════════════
-void applyWornStats(ItemData& item, int /*level*/) {
+void applyWornStats(ItemData& item, int level) {
     if (item.worneffect == 0) return;
-    // TODO: porter la résolution des effets worn depuis item_database.py
-    // (nécessite l'accès à la DB des sorts — hors scope du module core).
+    int lvl = (item.wornlevel > 0) ? item.wornlevel : level;
+
+    auto resolve = [&](int base, int max, int formula, int offset) -> int {
+        if (base == 0) return 0;
+        return std::max(0, calcSpellEffectValue(base, max, formula, lvl) + offset);
+    };
+
+    item.atk        = resolve(item.atk_base,        item.atk_max,        item.atk_formula,        0);
+    item.haste      = resolve(item.haste_base,       item.haste_max,      item.haste_formula,    -100);
+    item.hp_regen   = resolve(item.hp_regen_base,    item.hp_regen_max,   item.hp_regen_formula,    0);
+    item.mana_regen = resolve(item.mana_regen_base,  item.mana_regen_max, item.mana_regen_formula,  0);
 }

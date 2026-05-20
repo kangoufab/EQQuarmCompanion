@@ -6,6 +6,7 @@
 #include "ui/settings_dialog.h"
 #include "ui/stats_bar.h"
 #include "core/config.h"
+#include "core/stats_calculator.h"
 #include "db/npc_database.h"
 #include "db/item_database.h"
 #include <filesystem>
@@ -228,8 +229,10 @@ void MainWindow::onCharacterChanged(int index) {
 
     for (const auto& [slot, itemId] : _currentChar.equipped) {
         auto item = _itemDb->getItemById(itemId);
-        if (item)
+        if (item) {
+            applyWornStats(*item, _currentChar.level);
             _equippedItems[slot] = *item;
+        }
     }
 
     _aaStats = _itemDb->getAaStats(_currentChar.aa_purchases);

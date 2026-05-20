@@ -131,6 +131,12 @@ struct ItemData {
     int worneffect{}, focuseffect{}, proceffect{};
     std::string name, lore;
     std::string worneffect_name, focuseffect_name, proceffect_name;
+    // Raw worn-effect formula data — filled by DB, consumed by applyWornStats()
+    int wornlevel{};
+    int atk_base{}, atk_formula{100}, atk_max{};
+    int haste_base{}, haste_formula{100}, haste_max{};
+    int hp_regen_base{}, hp_regen_formula{100}, hp_regen_max{};
+    int mana_regen_base{}, mana_regen_formula{100}, mana_regen_max{};
 };
 
 struct LootItem { int item_id{}, item_slots{}; float chance{}; std::string name; };

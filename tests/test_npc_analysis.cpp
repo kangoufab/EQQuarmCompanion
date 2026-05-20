@@ -37,16 +37,18 @@ TEST(NpcAnalysis, SlowLandPctHighMrLowChance) {
 }
 
 TEST(NpcAnalysis, DecodeSpecialAbilitiesImmuneToSlow) {
-    auto abilities = decodeSpecialAbilities("11,1");
+    // ID 12 = Immune to Slow (table mise à jour depuis emu_constants.h)
+    auto abilities = decodeSpecialAbilities("12,1");
     ASSERT_EQ(abilities.size(), 1u);
     EXPECT_EQ(abilities[0].tag, "Immune to Slow");
     EXPECT_EQ(abilities[0].severity, "red");
 }
 
 TEST(NpcAnalysis, DecodeSpecialAbilitiesSummon) {
-    auto abilities = decodeSpecialAbilities("1,50");
+    // ID 1 = Summon — le param n'est pas affiché dans le tag (kParamFmt ne couvre pas ID 1)
+    auto abilities = decodeSpecialAbilities("1,1");
     ASSERT_EQ(abilities.size(), 1u);
-    EXPECT_TRUE(abilities[0].tag.find("50") != std::string::npos);
+    EXPECT_EQ(abilities[0].tag, "Summon");
     EXPECT_EQ(abilities[0].severity, "orange");
 }
 

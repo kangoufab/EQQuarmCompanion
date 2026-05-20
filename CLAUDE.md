@@ -94,12 +94,8 @@ Qt's AUTOMOC scans files listed in `add_library()`/`add_executable()`. Any QObje
 | `src/core/spell_stacking.h/cpp` | spellsStack() — bard vs non-bard logic |
 | `src/ui/fight_tab.h/cpp` | 2D DPS×slow table with CH rotation per cell |
 | `src/ui/infos_tab.h/cpp` | Expansion selector + resist debuff groups |
-| `src/ui/spells_tab.h/cpp` | **Placeholder** — needs full implementation from spec |
-
-## Incomplete Features
-
-- **SpellsTab**: currently shows placeholder text. Full implementation spec at `docs/specs/2026-05-02-spells-tab-design.md`.
-- **InfosTab `buildResistGroup`**: shows group labels only. Best-spell selection logic from Python `infos_tab.py` not yet ported.
+| `src/ui/spells_tab.h/cpp` | Onglet Buffs — class list, checkboxes, stacking, sets save/load |
+| `src/ui/infos_spell_data.h` | Données statiques sorts debuff + bestInGroup() + spellResistVal() |
 
 ## Config File
 

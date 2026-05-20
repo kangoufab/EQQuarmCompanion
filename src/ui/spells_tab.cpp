@@ -331,47 +331,54 @@ void SpellsTab::loadSpellsForClass(const std::string& className) {
 
 void SpellsTab::rebuildRightPanel()
 {
-    // Vider le panel
     while (_rightLayout->count()) {
         auto* child = _rightLayout->takeAt(0);
         if (child->widget()) child->widget()->deleteLater();
         delete child;
     }
 
-    int charLevel = _charInfo ? _charInfo->level : 0;
-    int atCap = (int)_activeBuffs.size() >= MAX_BUFF_SLOTS;
+    int charLevel    = _charInfo ? _charInfo->level : 0;
+    int tooltipLevel = charLevel > 0 ? charLevel : expansionMaxLevel();
+    int atCap        = (int)_activeBuffs.size() >= MAX_BUFF_SLOTS;
 
-    // IDs des buffs actifs
     std::set<int> selectedIds;
     for (auto& b : _activeBuffs) selectedIds.insert(b.spell.id);
 
-    // Map loser_id → winner name pour le tooltip
     std::map<int, QString> winnerNames;
-    for (auto& [loserId, winnerId] : _conflicts) {
+    for (auto& [loserId, winnerId] : _conflicts)
         for (auto& b : _activeBuffs)
-            if (b.spell.id == winnerId) {
-                winnerNames[loserId] = QString::fromStdString(b.spell.name);
-                break;
-            }
-    }
+            if (b.spell.id == winnerId) { winnerNames[loserId] = QString::fromStdString(b.spell.name); break; }
 
-    // Pool de sorts actifs pour findConflictInPool
     std::vector<SpellData> activePool;
     for (auto& b : _activeBuffs) activePool.push_back(b.spell);
 
-    int tooltipLevel = (_charInfo && _charInfo->level > 0) ? _charInfo->level : expansionMaxLevel();
+    auto it = SPELL_CLASS_ID_UI.find(_currentClass);
 
-    for (const auto& spell : _currentClassSpells) {
-        auto it = SPELL_CLASS_ID_UI.find(_currentClass);
+    // ── Groupement par catégorie (STAT_CATS) ──────────────────────────────
+    // Détermine la catégorie primaire d'un sort selon les stats qu'il affecte.
+    auto spellCategory = [&](const SpellData& sp) -> std::string {
+        auto sd = spellToStatDict(sp, tooltipLevel);
+        for (auto& [catName, keys] : STAT_CATS)
+            for (auto& k : keys)
+                if (sd.count(k) && sd.at(k) != 0) return catName;
+        return "Autres";
+    };
+
+    // Grouper les sorts
+    std::map<std::string, std::vector<const SpellData*>> grouped;
+    static const std::vector<std::string> CAT_ORDER = {"Melee","Range","Defense","Sorts","Autres"};
+    for (auto& sp : _currentClassSpells)
+        grouped[spellCategory(sp)].push_back(&sp);
+
+    // ── Créer une checkbox pour un sort ──────────────────────────────────
+    auto makeCheckbox = [&](const SpellData& spell) {
         int minLvl = (it != SPELL_CLASS_ID_UI.end() && it->second <= 15)
                      ? spell.classes[it->second - 1] : 0;
-
         bool isSelected = selectedIds.count(spell.id);
         bool isBlocked  = _conflicts.count(spell.id);
 
         QString label = QString::fromStdString(spell.name)
                         + QString(" (Niv. %1)").arg(minLvl);
-
         auto* cb = new QCheckBox(label);
         cb->setChecked(isSelected);
         cb->setToolTip(formatSpellTooltip(spell, tooltipLevel));
@@ -382,7 +389,6 @@ void SpellsTab::rebuildRightPanel()
             cb->setToolTip(QString("Bloqu\xc3\xa9 par %1").arg(wname));
             cb->setEnabled(false);
         } else if (!isSelected) {
-            // Prévisualiser le conflit si on l'ajoute
             auto conflict = findConflictInPool(spell, activePool, charLevel);
             if (conflict) {
                 QString wname;
@@ -400,38 +406,57 @@ void SpellsTab::rebuildRightPanel()
             cb->setEnabled(true);
         }
 
-        // Capturer les variables par valeur pour les lambdas
         SpellData spellCopy = spell;
         std::string cls = _currentClass;
-        int ml = minLvl;
-        connect(cb, &QCheckBox::toggled, this, [this, spellCopy, cls, ml](bool checked) {
+        connect(cb, &QCheckBox::toggled, this, [this, spellCopy, cls, minLvl](bool checked) {
             if (checked) {
                 if ((int)_activeBuffs.size() >= MAX_BUFF_SLOTS) return;
                 if (std::any_of(_activeBuffs.begin(), _activeBuffs.end(),
                                 [&](const ActiveBuff& b) { return b.spell.id == spellCopy.id; }))
                     return;
-                _activeBuffs.push_back({spellCopy, cls, ml});
+                _activeBuffs.push_back({spellCopy, cls, minLvl});
             } else {
                 _activeBuffs.erase(
                     std::remove_if(_activeBuffs.begin(), _activeBuffs.end(),
                                    [&](const ActiveBuff& b){ return b.spell.id == spellCopy.id; }),
                     _activeBuffs.end());
             }
-            // Recalculer les conflits globaux
             std::vector<SpellData> allSpells;
             for (auto& b : _activeBuffs) allSpells.push_back(b.spell);
             auto sr = checkStacking(allSpells, _charInfo ? _charInfo->level : 0);
             _conflicts = sr.conflicts;
-
             rebuildClassList();
             rebuildRightPanel();
             refreshStats();
         });
+        return cb;
+    };
 
-        _rightLayout->addWidget(cb);
+    // ── Affichage par catégorie ───────────────────────────────────────────
+    for (const auto& catName : CAT_ORDER) {
+        auto git = grouped.find(catName);
+        if (git == grouped.end() || git->second.empty()) continue;
+
+        const char* catLabel = catName.c_str();
+        auto lblIt = CAT_LABELS_UI.find(catName);
+        if (lblIt != CAT_LABELS_UI.end()) catLabel = lblIt->second;
+
+        // Couleur de l'en-tête selon la catégorie
+        const char* accent = "#888888";
+        auto colIt = CAT_COLORS_UI.find(catName);
+        if (colIt != CAT_COLORS_UI.end()) accent = colIt->second.accent;
+
+        auto* hdr = new QLabel(QString::fromUtf8(catLabel));
+        hdr->setStyleSheet(
+            QString("font-size:11px; color:%1; font-variant:small-caps; font-weight:bold;"
+                    " background:#1a1a2e; border:none; padding:2px 4px; margin-top:4px;")
+                .arg(accent));
+        _rightLayout->addWidget(hdr);
+
+        for (const auto* sp : git->second)
+            _rightLayout->addWidget(makeCheckbox(*sp));
     }
 
-    // Stretch
     _rightLayout->addStretch();
 }
 
