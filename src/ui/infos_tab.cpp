@@ -34,7 +34,7 @@ InfosTab::InfosTab(Config* cfg, QWidget* parent) : QWidget(parent), _config(cfg)
     // Header row
     auto* hdr = new QHBoxLayout;
     auto* title = new QLabel("Debuffs de Résistances — combinaisons optimales par extension");
-    title->setStyleSheet("font-size:13px;font-weight:bold;color:#e0e0e0;");
+    title->setStyleSheet("font-size:15px;font-weight:bold;color:#e0e0e0;");
     hdr->addWidget(title);
     hdr->addStretch();
     _expCombo = new QComboBox;
@@ -55,7 +55,7 @@ InfosTab::InfosTab(Config* cfg, QWidget* parent) : QWidget(parent), _config(cfg)
         " <span style='color:#555555'>— stackent toujours avec les debuffs non-bard"
         " (buffstacking.cpp: caster bard → goto STACK_OK)</span>");
     legend->setTextFormat(Qt::RichText);
-    legend->setStyleSheet("font-size:9px;background:transparent;border:none;padding:0;");
+    legend->setStyleSheet("font-size:11px;background:transparent;border:none;padding:0;");
     outer->addWidget(legend);
 
     // Scroll area with 2-column content
@@ -131,7 +131,7 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
 
     auto* titleLbl = new QLabel(QString("%1 (%2)").arg(rname).arg(resist.c_str()));
     titleLbl->setStyleSheet(QString(
-        "font-size:10px;color:%1;font-variant:small-caps;"
+        "font-size:13px;color:%1;font-variant:small-caps;"
         "font-weight:bold;border:none;background:transparent;").arg(color));
     vl->addWidget(titleLbl);
 
@@ -139,16 +139,16 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
     auto* gridW = new QWidget; gridW->setStyleSheet("background:transparent;");
     auto* grid  = new QGridLayout(gridW);
     grid->setContentsMargins(0, 2, 0, 0);
-    grid->setHorizontalSpacing(10);
-    grid->setVerticalSpacing(2);
+    grid->setHorizontalSpacing(12);
+    grid->setVerticalSpacing(3);
 
     // Column headers
     const char* headers[] = {"Groupe","Meilleur sort","Classes","Val.","Cible"};
-    int colWidths[]       = {90,      220,              130,      40,    55};
+    int colWidths[]       = {110,     250,              155,      48,    65};
     for (int ci = 0; ci < 5; ++ci) {
         auto* lbl = new QLabel(QString("<span style='color:#444444'>%1</span>").arg(headers[ci]));
         lbl->setTextFormat(Qt::RichText);
-        lbl->setStyleSheet("background:transparent;border:none;font-size:9px;");
+        lbl->setStyleSheet("background:transparent;border:none;font-size:11px;");
         lbl->setMinimumWidth(colWidths[ci]);
         grid->addWidget(lbl, 0, ci);
     }
@@ -209,7 +209,7 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
         auto* grpLbl = new QLabel(QString("<span style='color:%1'>%2</span>")
                                   .arg(grpColor).arg(grp.label));
         grpLbl->setTextFormat(Qt::RichText);
-        grpLbl->setStyleSheet(QString("background:%1;border:none;font-size:9px;padding:1px 2px;").arg(rowBg));
+        grpLbl->setStyleSheet(QString("background:%1;border:none;font-size:11px;padding:2px 3px;").arg(rowBg));
         grid->addWidget(grpLbl, r, 0);
 
         // Spell name
@@ -217,28 +217,28 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
         auto* nameLbl = new QLabel(QString("<span style='color:%1'>%2</span>")
                                    .arg(nameColor).arg(best->name));
         nameLbl->setTextFormat(Qt::RichText);
-        nameLbl->setStyleSheet(QString("background:%1;border:none;font-size:10px;padding:1px 2px;").arg(rowBg));
+        nameLbl->setStyleSheet(QString("background:%1;border:none;font-size:12px;padding:2px 3px;").arg(rowBg));
         grid->addWidget(nameLbl, r, 1);
 
         // Classes
         auto* clsLbl = new QLabel(QString("<span style='color:#777777'>%1</span>")
                                   .arg(QString::fromStdString(classesStr(*best))));
         clsLbl->setTextFormat(Qt::RichText);
-        clsLbl->setStyleSheet(QString("background:%1;border:none;font-size:10px;padding:1px 2px;").arg(rowBg));
+        clsLbl->setStyleSheet(QString("background:%1;border:none;font-size:11px;padding:2px 3px;").arg(rowBg));
         grid->addWidget(clsLbl, r, 2);
 
         // Value
         const char* vc = val <= -40 ? "#81c784" : val <= -20 ? "#ffb74d" : "#aaaaaa";
         auto* valLbl = new QLabel(QString("<b><span style='color:%1'>%2</span></b>").arg(vc).arg(val));
         valLbl->setTextFormat(Qt::RichText);
-        valLbl->setStyleSheet(QString("background:%1;border:none;font-size:10px;padding:1px 2px;").arg(rowBg));
+        valLbl->setStyleSheet(QString("background:%1;border:none;font-size:12px;padding:2px 3px;").arg(rowBg));
         grid->addWidget(valLbl, r, 3);
 
         // Target type
         auto* ttLbl = new QLabel(QString("<span style='color:#666666'>%1</span>")
                                  .arg(targetLabel(best->targettype)));
         ttLbl->setTextFormat(Qt::RichText);
-        ttLbl->setStyleSheet(QString("background:%1;border:none;font-size:10px;padding:1px 2px;").arg(rowBg));
+        ttLbl->setStyleSheet(QString("background:%1;border:none;font-size:11px;padding:2px 3px;").arg(rowBg));
         grid->addWidget(ttLbl, r, 4);
 
         totalVal += val;
@@ -253,7 +253,7 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
             QString("<span style='color:#555555'>Total cumulable : </span>"
                     "<b><span style='color:#81c784'>%1</span></b>").arg(totalVal));
         totLbl->setTextFormat(Qt::RichText);
-        totLbl->setStyleSheet("background:transparent;border:none;font-size:9px;padding-top:3px;");
+        totLbl->setStyleSheet("background:transparent;border:none;font-size:11px;padding-top:4px;");
         vl->addWidget(totLbl);
     }
 
