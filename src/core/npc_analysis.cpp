@@ -145,16 +145,20 @@ IncomingDamageResult incomingDamage(const NpcData& npc,
     int mit = player.mitigation;
     r.player_mit = mit;
 
-    // Expected d20 roll → effective hit within min-max
-    int   den     = npcOff + std::max(1, mit);
-    int   expRoll = (den > 0) ? std::min(20, std::max(1, npcOff * 20 / den)) : 10;
+    // Expected d20 roll from Mob::RollD20(offense, mitigation) — attack.cpp:369
+    // E[roll] = 1 + 10 * (3*off - mit + 10) / (off + mit + 10)
+    // (derived from E[atkRoll - defRoll] = (off - mit)/2, avg = (off+mit+10)/2)
+    float d20Den   = static_cast<float>(npcOff + mit + 10);
+    float expRollF = (d20Den > 0.f)
+                     ? std::min(20.f, std::max(1.f, 1.f + 10.f * (3.f*npcOff - mit + 10.f) / d20Den))
+                     : 10.f;
     float di      = (npc.max_hit > npc.min_hit)
                     ? static_cast<float>(npc.max_hit - npc.min_hit) / 19.f : 0.f;
     float effHit  = (r.avg_hit > 0.f)
-                    ? std::max(1.f, npc.min_hit + (expRoll - 1) * di) : 0.f;
+                    ? std::max(1.f, npc.min_hit + (expRollF - 1.f) * di) : 0.f;
     float mitRatio = (r.avg_hit > 0.f) ? std::max(0.f, 1.f - effHit / r.avg_hit) : 0.f;
     r.mitigation_pct = mitRatio * 100.f;
-    r.exp_roll = expRoll;
+    r.exp_roll = static_cast<int>(std::round(expRollF));
 
     // Base avoidance score from class/level + AGI
     int baseAv  = (level > 0) ? playerAvoidanceScore(className, level, player.agi) : 300;
