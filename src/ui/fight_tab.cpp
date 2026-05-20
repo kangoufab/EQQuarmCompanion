@@ -768,9 +768,16 @@ QWidget* FightTab::buildDpsSlowTable(
                 }
             }
 
+            float minTotal = dmg.min_dps * (atkSpeed / 100.f) + spDps;
+            float maxTotal = dmg.max_dps * (atkSpeed / 100.f) + spDps;
+            QString rangeStr = (minTotal > 0.f && maxTotal > minTotal)
+                ? QString("<br><span style='color:#555555;font-size:12px'>[%1–%2/s]</span>")
+                    .arg(minTotal, 0, 'f', 0).arg(maxTotal, 0, 'f', 0)
+                : QString();
+
             auto* cell = new QLabel(
-                QString("<span style='color:%1'>~%2/s</span><span style='color:%3'> · %4</span>%5")
-                .arg(dpsC).arg(total, 0, 'f', 0).arg(sc).arg(survStr).arg(chLine));
+                QString("<span style='color:%1'>~%2/s</span><span style='color:%3'> · %4</span>%5%6")
+                .arg(dpsC).arg(total, 0, 'f', 0).arg(sc).arg(survStr).arg(chLine).arg(rangeStr));
             cell->setTextFormat(Qt::RichText); cell->setAlignment(Qt::AlignCenter);
             cell->setStyleSheet("background:transparent;font-size:14px;");
             g->addWidget(cell, ri + 1, ci + 1);
