@@ -583,6 +583,14 @@ void SpellsTab::refreshStats()
         if (!_conflicts.count(b.spell.id))
             effective.push_back(b.spell);
 
+    // Sans buffs actifs : utiliser _baseTotals directement.
+    // calculateTotalsWithSpells n'inclut pas les AAs — sans buff à afficher,
+    // on évite de passer des totaux partiels qui faussent le bandeau.
+    if (effective.empty()) {
+        if (_baseTotals) emit statsChanged(*_baseTotals, {});
+        return;
+    }
+
     int casterLvl = expansionMaxLevel();
     std::vector<std::map<std::string, int>> spellDicts;
     for (auto& sp : effective) {
