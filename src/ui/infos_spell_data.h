@@ -176,9 +176,8 @@ inline const std::vector<InfoGroup>& getInfoGroups() {
         {"tuyen_cr",  "Tuyen Gel/Glace",        {"CR"},                true,  {744,3373}},
         {"tuyen_pr",  "Tuyen Venin",            {"PR"},                true,  {3566,3370}},
         {"tuyen_dr",  "Tuyen Fléau",        {"DR"},                true,  {3567,3363}},
-        {"bard_mr2",  "Bard MR (slows)",        {"MR"},                true,  {725,741,750,868}},
+        {"bard_mr2",  "Bard MR (slows)",        {"MR"},                true,  {725,750}},
         {"bard_mr4",  "Denon ⚠",            {"MR"},                true,  {1764}},
-        {"bard_mr5",  "Song of Twilight",       {"MR"},                true,  {1753}},
         {"bard_mr6",  "Fufil's Chant",          {"MR"},                true,  {707}},
     };
     return g;
@@ -207,7 +206,7 @@ inline const std::map<std::string,std::vector<std::string>>& getResistGroupOrder
 }
 inline const std::map<std::string,std::vector<std::string>>& getResistBardGroups() {
     static const std::map<std::string,std::vector<std::string>> m = {
-        {"MR", {"occl_multi","bard_mr2","bard_mr4","bard_mr5","bard_mr6"}},
+        {"MR", {"occl_multi","bard_mr2","bard_mr4","bard_mr6"}},
         {"FR", {"occl_multi","tuyen_fr"}},
         {"CR", {"occl_multi","tuyen_cr"}},
         {"PR", {"tuyen_pr"}},
