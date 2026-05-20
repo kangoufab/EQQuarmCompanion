@@ -562,12 +562,16 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
     flDmg->addWidget(sectionLabel("Incoming Damage", "#ef5350"));
     auto dmg = incomingDamage(npc, *_totals, _charInfo->class_name,
                                _charInfo->level, "none");
-    flDmg->addWidget(gridWidget({
+    std::vector<std::pair<QString,QString>> dmgRows = {
         {"Avg hit",   QString("~%1  (%2-%3)").arg(dmg.avg_hit,0,'f',0).arg(npc.min_hit).arg(npc.max_hit)},
         {"NPC Power", QString::number(dmg.npc_offense)},
         {"Your Mit.", QString("%1  (d20->%2/20)").arg(dmg.player_mit).arg(dmg.exp_roll)},
         {"Mit. down", QString("~%1%").arg(dmg.mitigation_pct,0,'f',0)},
-    }, 1));
+    };
+    if (spDps > 0.f)
+        dmgRows.push_back({"Spell DPS",
+            QString("<span style='color:#ba68c8'>~%1/s</span>").arg(spDps,0,'f',0)});
+    flDmg->addWidget(gridWidget(dmgRows, 1));
 
     using DiscRow = std::pair<QString, IncomingDamageResult>;
     std::vector<DiscRow> disciplines = {{"—", dmg}};
@@ -784,14 +788,6 @@ QWidget* FightTab::buildDpsSlowTable(
         }
     }
 
-    if (spDps > 0.f) {
-        auto* note = new QLabel(
-            QString("<span style='color:#555555;font-size:13px'>+ ~%1/s spell DPS (constant)</span>")
-            .arg(spDps, 0, 'f', 0));
-        note->setTextFormat(Qt::RichText); note->setStyleSheet("background:transparent;");
-        g->addWidget(note, static_cast<int>(disciplines.size())+1, 0,
-                     1, static_cast<int>(slowScenarios.size())+1);
-    }
     return w;
 }
 
