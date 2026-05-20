@@ -278,23 +278,46 @@ std::string formatSpellSummary(const SpellData& sp, int npcLevel) {
 // ── decodeSpecialAbilities ────────────────────────────────────────────
 
 std::vector<SpecialAbility> decodeSpecialAbilities(std::string_view raw) {
+    // IDs from EQMacEmu common/emu_constants.h (SPECATK_* enum)
     static const std::unordered_map<int, std::pair<std::string,std::string>> kTable = {
-        {1,  {"Summon <VALUE%",    "orange"}},
-        {3,  {"Enrage <VALUE%",   "orange"}},
-        {4,  {"Rampage",          "orange"}},
-        {5,  {"AE Rampage",       "red"   }},
-        {6,  {"Immune to Fleeing","red"   }},
-        {7,  {"Calls for Help",   "orange"}},
-        {8,  {"Immune to Fear",   "red"   }},
-        {9,  {"Immune to Mez",    "red"   }},
-        {10, {"Immune to Charm",  "red"   }},
-        {11, {"Immune to Slow",   "red"   }},
-        {12, {"Immune to Snare",  "red"   }},
-        {13, {"Immune to DoT",    "red"   }},
-        {14, {"Immune to Nuke",   "red"   }},
-        {16, {"Immune to Stun",   "red"   }},
-        {19, {"Immune to Taunt",  "orange"}},
-        {20, {"Immune to Dispel", "orange"}},
+        {1,  {"Summon",                     "orange"}},
+        {2,  {"Enrage",                     "orange"}},
+        {3,  {"Rampage",                    "orange"}},
+        {4,  {"AE Rampage",                 "red"   }},
+        {5,  {"Flurry",                     "orange"}},
+        {6,  {"Triple Attack",              "grey"  }},
+        {7,  {"Dual Wield",                 "grey"  }},
+        {9,  {"Bane Attack",                "orange"}},
+        {10, {"Magical Attack",             "orange"}},
+        {11, {"Ranged Attack",              "grey"  }},
+        {12, {"Immune to Slow",             "red"   }},
+        {13, {"Immune to Mez",              "red"   }},
+        {14, {"Immune to Charm",            "red"   }},
+        {15, {"Immune to Stun",             "red"   }},
+        {16, {"Immune to Snare",            "red"   }},
+        {17, {"Immune to Fear",             "red"   }},
+        {18, {"Immune to Dispel",           "red"   }},
+        {19, {"Immune to Melee",            "red"   }},
+        {20, {"Immune to Magic",            "red"   }},
+        {21, {"Immune to Fleeing",          "red"   }},
+        {22, {"Immune to Melee (non-bane)", "red"   }},
+        {23, {"Immune to Non-Magic Melee",  "red"   }},
+        {24, {"Immune to Aggro",            "orange"}},
+        {25, {"Immune to Being Aggro",      "orange"}},
+        {26, {"Belly-Caster Only",          "orange"}},
+        {27, {"Immune to Feign Death",      "orange"}},
+        {28, {"Immune to Taunt",            "orange"}},
+        {31, {"Immune to Pacify",           "orange"}},
+        {35, {"Immune to Player Damage",    "red"   }},
+        {43, {"Always Calls for Help",      "orange"}},
+        {50, {"Reverse Slow",               "orange"}},
+        {51, {"Immune to Haste",            "orange"}},
+        {53, {"Immune to Riposte",          "orange"}},
+    };
+    // Abilities where params[0] (parts[2]) is shown: id → format suffix
+    static const std::unordered_map<int, std::string> kParamFmt = {
+        {2, "@ {}%hp"},   // Enrage HP threshold
+        {5, "{}%"},       // Flurry custom chance
     };
 
     std::vector<SpecialAbility> result;
@@ -302,17 +325,16 @@ std::vector<SpecialAbility> decodeSpecialAbilities(std::string_view raw) {
     for (auto& [id, params] : sa) {
         SpecialAbility ab;
         auto it = kTable.find(id);
-        if (it != kTable.end()) {
-            ab.tag      = it->second.first;
-            ab.severity = it->second.second;
-            if (!params.empty()) {
-                auto pos = ab.tag.find("VALUE");
-                if (pos != std::string::npos)
-                    ab.tag.replace(pos, 5, std::to_string(params[0]));
-            }
-        } else {
-            ab.tag      = "Unknown(" + std::to_string(id) + ")";
-            ab.severity = "grey";
+        if (it == kTable.end()) continue;  // silently skip unknown IDs
+        ab.tag      = it->second.first;
+        ab.severity = it->second.second;
+        auto pit = kParamFmt.find(id);
+        if (pit != kParamFmt.end() && params.size() >= 1 && params[0] != 0) {
+            std::string fmt = pit->second;
+            auto pos = fmt.find("{}");
+            if (pos != std::string::npos)
+                fmt.replace(pos, 2, std::to_string(params[0]));
+            ab.tag += " (" + fmt + ")";
         }
         result.push_back(ab);
     }
