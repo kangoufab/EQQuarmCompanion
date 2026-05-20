@@ -146,6 +146,9 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
     _infosTab  = new InfosTab(config);
 
     _tabs = new QTabWidget;
+    _tabs->setStyleSheet(
+        "QTabBar::tab { font-size: 14px; padding: 6px 18px; }"
+        "QTabBar::tab:selected { font-weight: bold; }");
     _tabs->addTab(_charTab,   "Stuff");
     _tabs->addTab(_spellsTab, "Buffs");
     _tabs->addTab(_fightTab,  "Fight");
