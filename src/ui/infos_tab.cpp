@@ -142,10 +142,10 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
     grid->setHorizontalSpacing(12);
     grid->setVerticalSpacing(3);
 
-    // Column headers
-    const char* headers[] = {"Groupe","Meilleur sort","Classes","Val.","Cible"};
-    int colWidths[]       = {110,     250,              155,      48,    65};
-    for (int ci = 0; ci < 5; ++ci) {
+    // Column headers (sans colonne Groupe)
+    const char* headers[] = {"Meilleur sort","Classes","Val.","Cible"};
+    int colWidths[]       = {280,             155,      48,    65};
+    for (int ci = 0; ci < 4; ++ci) {
         auto* lbl = new QLabel(QString("<span style='color:#444444'>%1</span>").arg(headers[ci]));
         lbl->setTextFormat(Qt::RichText);
         lbl->setStyleSheet("background:transparent;border:none;font-size:11px;");
@@ -204,42 +204,34 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
         int r = rowI + 1;
         QString rowBg = (rowI % 2 == 0) ? "#18181e" : "transparent";
 
-        // Group name
-        const char* grpColor = grp.is_bard ? "#9cbe9c" : "#aaaaaa";
-        auto* grpLbl = new QLabel(QString("<span style='color:%1'>%2</span>")
-                                  .arg(grpColor).arg(grp.label));
-        grpLbl->setTextFormat(Qt::RichText);
-        grpLbl->setStyleSheet(QString("background:%1;border:none;font-size:11px;padding:2px 3px;").arg(rowBg));
-        grid->addWidget(grpLbl, r, 0);
-
-        // Spell name
+        // Spell name (col 0)
         const char* nameColor = grp.is_bard ? "#b8d8b8" : "#e0e0e0";
         auto* nameLbl = new QLabel(QString("<span style='color:%1'>%2</span>")
                                    .arg(nameColor).arg(best->name));
         nameLbl->setTextFormat(Qt::RichText);
         nameLbl->setStyleSheet(QString("background:%1;border:none;font-size:12px;padding:2px 3px;").arg(rowBg));
-        grid->addWidget(nameLbl, r, 1);
+        grid->addWidget(nameLbl, r, 0);
 
-        // Classes
+        // Classes (col 1)
         auto* clsLbl = new QLabel(QString("<span style='color:#777777'>%1</span>")
                                   .arg(QString::fromStdString(classesStr(*best))));
         clsLbl->setTextFormat(Qt::RichText);
         clsLbl->setStyleSheet(QString("background:%1;border:none;font-size:11px;padding:2px 3px;").arg(rowBg));
-        grid->addWidget(clsLbl, r, 2);
+        grid->addWidget(clsLbl, r, 1);
 
-        // Value
+        // Value (col 2)
         const char* vc = val <= -40 ? "#81c784" : val <= -20 ? "#ffb74d" : "#aaaaaa";
         auto* valLbl = new QLabel(QString("<b><span style='color:%1'>%2</span></b>").arg(vc).arg(val));
         valLbl->setTextFormat(Qt::RichText);
         valLbl->setStyleSheet(QString("background:%1;border:none;font-size:12px;padding:2px 3px;").arg(rowBg));
-        grid->addWidget(valLbl, r, 3);
+        grid->addWidget(valLbl, r, 2);
 
-        // Target type
+        // Target type (col 3)
         auto* ttLbl = new QLabel(QString("<span style='color:#666666'>%1</span>")
                                  .arg(targetLabel(best->targettype)));
         ttLbl->setTextFormat(Qt::RichText);
         ttLbl->setStyleSheet(QString("background:%1;border:none;font-size:11px;padding:2px 3px;").arg(rowBg));
-        grid->addWidget(ttLbl, r, 4);
+        grid->addWidget(ttLbl, r, 3);
 
         totalVal += val;
 
