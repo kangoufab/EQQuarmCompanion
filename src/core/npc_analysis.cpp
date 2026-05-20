@@ -42,19 +42,26 @@ parseSa(std::string_view raw) {
 }
 
 static float npcAttacksPerRound(const NpcData& npc) {
-    auto sa     = parseSa(npc.special_abilities);
-    float base  = static_cast<float>(std::max(1, npc.attack_count));
-    float da    = npcDoubleAttackChance(npc.level);
-    float triple = (npc.level >= 60 && (npc.npc_class == 1 || npc.npc_class == 32))
-                   ? 0.135f : 0.f;
-    bool  dw        = sa.count(7) > 0;
-    bool  hasFlurry = sa.count(5) > 0;
-    float flurry    = hasFlurry
-                      ? static_cast<float>(sa.at(5).empty() ? 20 : sa.at(5)[0]) / 100.f
-                      : 0.f;
-    float attacks = base * (1.f + da + triple) * (dw ? 2.f : 1.f);
-    if (hasFlurry) attacks += flurry * base;
-    return attacks;
+    // Mirrors Python _npc_attacks_per_round (zone/mob_ai.cpp DoMainHandRound+Flurry)
+    auto sa    = parseSa(npc.special_abilities);
+    float base = static_cast<float>(std::max(1, npc.attack_count));
+    float da   = npcDoubleAttackChance(npc.level);
+
+    // Triple attack: Warrior/WarriorGM NPCs at lv60+ — 13.5% of DA swings
+    bool hasTriple  = (npc.level >= 60 && (npc.npc_class == 1 || npc.npc_class == 32));
+    float triple    = hasTriple ? da * 0.135f : 0.f;
+    float mainAtk   = base + da + triple;
+
+    // Dual Wield (SA 7): off-hand is 1 base attack + DA (off-hand also double-attacks)
+    float offAtk = sa.count(7) > 0 ? (1.f + da) : 0.f;
+
+    // Flurry (SA 5): multiplies the full round (main + off-hand) by (1 + flurry%)
+    float total = mainAtk + offAtk;
+    if (sa.count(5) > 0) {
+        float flurryPct = static_cast<float>(sa.at(5).empty() ? 20 : sa.at(5)[0]) / 100.f;
+        total *= (1.f + flurryPct);
+    }
+    return total;
 }
 
 // attack.cpp:207-218 — AvoidanceCheck hit probability.
@@ -68,8 +75,8 @@ static float avoidanceHitChance(int npcToHit, int playerAvoidance, int avoidance
     return std::max(0.f, t * 1.21f / (a * 2.f));
 }
 
-// Client::GetAvoidance approximation — defense_skill * 400/225
-static int playerAvoidanceScore(std::string_view className, int level) {
+// Client::GetAvoidance approximation — defense_skill * 400/225 + AGI bonus
+static int playerAvoidanceScore(std::string_view className, int level, int agi = 75) {
     static const std::unordered_map<std::string, int> kDefCap = {
         {"Warrior",252},{"Paladin",252},{"Shadowknight",252},
         {"Monk",252},{"Bard",252},{"Rogue",252},
@@ -81,7 +88,16 @@ static int playerAvoidanceScore(std::string_view className, int level) {
     int cap = (it != kDefCap.end()) ? it->second : 200;
     int defSkill = std::min(level, 60) * cap / 60;
     int defAv    = defSkill * 400 / 225;
-    return std::max(1, defAv);
+    // AGI avoidance bonus (mirrors _player_avoidance_score in npc_analysis.py)
+    int agiAv = 0;
+    int agiCap = std::min(agi, 200);
+    if (agiCap < 40) {
+        agiAv = (25 * (agiCap - 40)) / 40;  // negative penalty
+    } else if (agiCap >= 75) {
+        int bonusAdj = (level >= 40) ? 80 : (level >= 20) ? 70 : (level >= 7) ? 55 : 35;
+        agiAv = (2 * (bonusAdj - (200 - agiCap) / 5)) / 3;
+    }
+    return std::max(1, defAv + agiAv);
 }
 
 // Mob::GetOffense (attack.cpp:4691) — level formula + DB ATK
@@ -140,8 +156,8 @@ IncomingDamageResult incomingDamage(const NpcData& npc,
     r.mitigation_pct = mitRatio * 100.f;
     r.exp_roll = expRoll;
 
-    // Base avoidance score from class/level (no mitigation stat used here)
-    int baseAv  = (level > 0) ? playerAvoidanceScore(className, level) : 300;
+    // Base avoidance score from class/level + AGI
+    int baseAv  = (level > 0) ? playerAvoidanceScore(className, level, player.agi) : 300;
     float baseHC = avoidanceHitChance(npcTh, baseAv, 0);
 
     // Discipline modifiers (mirrors incoming_damage() in npc_analysis.py)
