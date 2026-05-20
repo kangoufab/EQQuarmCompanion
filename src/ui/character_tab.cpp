@@ -562,8 +562,10 @@ void CharacterTab::onSearchPopup()
     _searchCombo->blockSignals(true);
     _searchCombo->clear();
 
-    for (const auto& item : results) {
+    int charLevel = _charInfo ? _charInfo->level : 65;
+    for (auto item : results) {
         if (!canEquip(item)) continue;
+        applyWornStats(item, charLevel);
         _searchResults.append(item);
         _searchCombo->addItem(QString::fromStdString(item.name));
     }
