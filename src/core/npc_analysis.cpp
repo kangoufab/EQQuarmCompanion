@@ -44,6 +44,7 @@ parseSa(std::string_view raw) {
 static float npcAttacksPerRound(const NpcData& npc) {
     // Mirrors Python _npc_attacks_per_round (zone/mob_ai.cpp DoMainHandRound+Flurry)
     auto sa    = parseSa(npc.special_abilities);
+    // attack_count = -1 in DB means "default" = 1 attack (mob_ai.cpp:1184: n_atk <= 1 → single Attack())
     float base = static_cast<float>(std::max(1, npc.attack_count));
     float da   = npcDoubleAttackChance(npc.level);
 
