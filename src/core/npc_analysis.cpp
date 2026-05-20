@@ -1,4 +1,5 @@
 #include "core/npc_analysis.h"
+#include "core/spell_stats.h"
 #include <algorithm>
 #include <cmath>
 #include <sstream>
@@ -288,10 +289,26 @@ std::string resistLabel(const SpellData& sp) {
 }
 
 std::string effectiveSpellType(const SpellData& sp) {
-    // Porter depuis npc_analysis.py::effective_spell_type()
-    // Lire le Python pour la logique complète basée sur spell_type + SPAs
-    (void)sp;
-    return "spell";
+    for (int i = 0; i < 12; ++i) {
+        int spa = sp.spa[i];
+        if (spa == 254) break;
+        int base = sp.effect_base_value[i];
+        switch (spa) {
+            case 0:  if (base < 0) return sp.buffdurationformula > 0 ? "dot" : "nuke";
+                     if (base > 0) return "heal"; break;
+            case 11: return base < 100 ? "slow" : "haste";
+            case 21: return "stun";
+            case 22: return "charm";
+            case 23: return "fear";
+            case 27: return "dispel";
+            case 31: return "mez";
+            case 50: if (base < 0) return "snare"; break;
+            case 96: return "root";
+            case 99: if (base < 100) return "slow"; break;
+            case 79: if (base < 0) return "nuke"; if (base > 0) return "heal"; break;
+        }
+    }
+    return sp.spell_type == 0 ? "debuff" : "buff";
 }
 
 std::string targetTypeLabel(int tt) {
@@ -304,9 +321,64 @@ std::string targetTypeLabel(int tt) {
 }
 
 std::string formatSpellSummary(const SpellData& sp, int npcLevel) {
-    // Porter depuis npc_analysis.py::format_spell_summary()
-    (void)sp; (void)npcLevel;
-    return "";
+    static const std::unordered_map<int,const char*> SPA_LABEL = {
+        {1,"AC"},{2,"ATK"},{4,"STR"},{5,"DEX"},{6,"AGI"},{7,"STA"},
+        {8,"INT"},{9,"WIS"},{10,"CHA"},
+        {46,"FR"},{47,"CR"},{48,"PR"},{49,"DR"},{50,"MR"},
+        {69,"Max HP"},{97,"Max Mana"},
+    };
+    std::string parts;
+    auto append = [&](const std::string& s) {
+        if (!parts.empty()) parts += "  ·  ";
+        parts += s;
+    };
+
+    for (int i = 0; i < 12; ++i) {
+        int spa = sp.spa[i];
+        if (spa == 254) break;
+        int base = sp.effect_base_value[i];
+        int mx   = sp.effect_limit_value[i];
+        int form = sp.effect_formula[i] ? sp.effect_formula[i] : 100;
+        if (base == 0) continue;
+
+        int val = calcSpellEffectValue(base, mx, form, npcLevel);
+
+        switch (spa) {
+            case 0:  // SE_CurrentHP — nuke or DoT
+                if (val < 0) append("Dmg " + std::to_string(-val)
+                    + (sp.buffdurationformula > 0 ? "/tick" : ""));
+                break;
+            case 79: // SE_CurrentHPOnce — direct HP
+                if (val < 0) append("Dmg " + std::to_string(-val));
+                else if (val > 0) append("Heal +" + std::to_string(val));
+                break;
+            case 11: { // SE_AttackSpeed — haste/slow
+                int pct = val - 100;
+                if (pct < 0) append("Slow " + std::to_string(pct) + "%");
+                else append("Haste +" + std::to_string(pct) + "%");
+                break;
+            }
+            case 21: // SE_Stun (base in ms)
+                if (val > 0) append("Stun " + std::to_string(val / 1000) + "s");
+                break;
+            case 50: // SE_MovementSpeed (negative = snare)
+                if (val < 0) append("Snare " + std::to_string(-val) + "%");
+                break;
+            case 96: append("Root"); break;
+            case 22: append("Charm"); break;
+            case 23: append("Fear"); break;
+            case 31: append("Mez"); break;
+            default: {
+                auto it = SPA_LABEL.find(spa);
+                if (it != SPA_LABEL.end() && val != 0) {
+                    std::string sign = val > 0 ? "+" : "";
+                    append(std::string(it->second) + " " + sign + std::to_string(val));
+                }
+                break;
+            }
+        }
+    }
+    return parts;
 }
 
 // ── decodeSpecialAbilities ────────────────────────────────────────────
