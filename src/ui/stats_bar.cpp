@@ -1,4 +1,4 @@
-#include "ui/stats_bar.h"
+﻿#include "ui/stats_bar.h"
 #include "core/spell_stats.h"
 #include "core/stats_calculator.h"
 #include <QFrame>
@@ -145,12 +145,12 @@ static QString makeStatTooltip(const std::string& statKey,
 {
     // En-tête : nom + valeur / cap
     QString sfxQ = QString::fromStdString(suffix);
-    QString valStr = QString("<span style='color:%1;font-weight:bold;font-size:12px;'>%2%3</span>")
+    QString valStr = QString("<span style='color:%1;font-weight:bold;font-size:14px;'>%2%3</span>")
         .arg(accent).arg(cappedVal).arg(sfxQ);
     if (cap.has_value())
         valStr += QString("<span style='color:#555;'> / %1%2</span>").arg(*cap).arg(sfxQ);
     if (rawVal != cappedVal)
-        valStr += QString(" <span style='color:#888;font-size:10px;'>(brut %1)</span>").arg(rawVal);
+        valStr += QString(" <span style='color:#888;font-size:14px;'>(brut %1)</span>").arg(rawVal);
 
     QString rows;
     auto row = [&](const QString& label, const QString& val, const char* color) {
@@ -159,7 +159,7 @@ static QString makeStatTooltip(const std::string& statKey,
                 .arg(label).arg(color).arg(val);
     };
     auto sectionHeader = [&](const QString& title, const char* color) {
-        rows += QString("<tr><td colspan='2' style='color:%1;font-size:9px;"
+        rows += QString("<tr><td colspan='2' style='color:%1;font-size:13px;"
                         "font-weight:bold;padding-top:4px;'>─ %2</td></tr>")
                 .arg(color).arg(title);
     };
@@ -219,8 +219,8 @@ static QString makeStatTooltip(const std::string& statKey,
 
     QString table = QString(
         "<table cellspacing='0' cellpadding='1'>"
-        "<tr><td style='color:%1;font-weight:bold;font-size:12px;'>%2</td>"
-        "<td align='right' style='font-size:12px;'>%3</td></tr>"
+        "<tr><td style='color:%1;font-weight:bold;font-size:14px;'>%2</td>"
+        "<td align='right' style='font-size:14px;'>%3</td></tr>"
         "%4</table>")
         .arg(accent)
         .arg(QString::fromStdString(statLabel))
@@ -349,7 +349,7 @@ static QWidget* makeEffectsWidget(const std::vector<EffectEntry>& effects,
     if (prefix && prefix[0]) {
         auto* pl = new QLabel(QString::fromUtf8(prefix));
         pl->setStyleSheet(
-            QString("color: %1; font-size: 9px; border: none; background: transparent;")
+            QString("color: %1; font-size: 13px; border: none; background: transparent;")
             .arg(color));
         layout->addWidget(pl);
     }
@@ -361,7 +361,7 @@ static QWidget* makeEffectsWidget(const std::vector<EffectEntry>& effects,
         if (i < (int)effects.size() - 1) text += " \xc2\xb7";
         auto* lbl = new QLabel(text);
         lbl->setStyleSheet(
-            QString("color: %1; font-size: 9px; font-style: italic; "
+            QString("color: %1; font-size: 13px; font-style: italic; "
                     "border: none; background: transparent;").arg(color));
         if (spellId == -1) {
             // Flowing Thought agrégé : itemName contient les sources séparées par '\n'
@@ -460,7 +460,7 @@ QFrame* makePlayerStatsBar(
         const char* catStr = (lblIt != CAT_LABELS.end()) ? lblIt->second : catName.c_str();
         auto* catLbl = new QLabel(QString::fromUtf8(catStr));
         catLbl->setStyleSheet(
-            QString("font-size: 10px; color: %1; font-variant: small-caps; "
+            QString("font-size: 14px; color: %1; font-variant: small-caps; "
                     "font-weight: bold; border: none; background: transparent;").arg(accent));
         panelL->addWidget(catLbl);
 
@@ -501,12 +501,12 @@ QFrame* makePlayerStatsBar(
 
             auto* nameLbl = new QLabel(slabel);
             nameLbl->setStyleSheet(
-                "font-size: 8px; color: #888888; border: none; background: transparent;");
+                "font-size: 14px; color: #888888; border: none; background: transparent;");
             nameLbl->setAlignment(Qt::AlignCenter);
 
             auto* valLbl = new QLabel(QString::number(dispVal) + suffix);
             valLbl->setStyleSheet(
-                QString("font-size: 11px; font-weight: bold; color: %1; "
+                QString("font-size: 13px; font-weight: bold; color: %1; "
                         "border: none; background: transparent;").arg(tileFg));
             valLbl->setAlignment(Qt::AlignCenter);
 

@@ -1,4 +1,4 @@
-#include "ui/character_tab.h"
+﻿#include "ui/character_tab.h"
 #include "ui/widgets.h"
 #include "core/config.h"
 #include "core/stats_calculator.h"
@@ -195,7 +195,7 @@ void CharacterTab::buildUi()
             QString::fromUtf8("Rechercher un item\xe2\x80\xa6"));
         _searchCombo->setStyleSheet(
             "QComboBox { background: #1a2236; border: 1px solid #3a4a6a; "
-            "border-radius: 3px; color: #c0c0c0; padding: 3px 6px; font-size: 11px; }"
+            "border-radius: 3px; color: #c0c0c0; padding: 3px 6px; font-size: 13px; }"
             "QComboBox:hover { border-color: #64b5f6; }"
             "QComboBox QAbstractItemView { background: #1a2236; border: 1px solid #3a4a6a; "
             "color: #c0c0c0; selection-background-color: #2a3a5a; }");
@@ -209,7 +209,7 @@ void CharacterTab::buildUi()
         _clearBtn->setEnabled(false);
         _clearBtn->setStyleSheet(
             "QPushButton { background: #2a3a5a; border: 1px solid #3a4a6a; "
-            "border-radius: 3px; color: #c0c0c0; padding: 3px 10px; font-size: 11px; }"
+            "border-radius: 3px; color: #c0c0c0; padding: 3px 10px; font-size: 13px; }"
             "QPushButton:hover { border-color: #64b5f6; color: #64b5f6; }"
             "QPushButton:disabled { color: #444; border-color: #2a3045; }");
         connect(_clearBtn, &QPushButton::clicked, this, [this]() {
@@ -301,7 +301,7 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
         const char* catLabelStr = (labelIt != CAT_LABELS.end()) ? labelIt->second : catName.c_str();
         auto* catLbl = new QLabel(QString::fromUtf8(catLabelStr));
         catLbl->setStyleSheet(
-            QString("font-size: 10px; color: %1; font-variant: small-caps; "
+            QString("font-size: 14px; color: %1; font-variant: small-caps; "
                     "font-weight: bold; border: none; background: transparent;")
             .arg(accent));
         panelLayout->addWidget(catLbl);
@@ -337,7 +337,7 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
             auto* nameLbl = new QLabel(
                 QString::fromStdString(STAT_LABELS.count(stat) ? STAT_LABELS.at(stat) : stat));
             nameLbl->setStyleSheet(
-                "font-size: 9px; color: #888; border: none; background: transparent;");
+                "font-size: 13px; color: #888; border: none; background: transparent;");
             nameLbl->setAlignment(Qt::AlignCenter);
             tileL->addWidget(nameLbl);
 
@@ -346,7 +346,7 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
             QString valHtml;
             if (hasCap) {
                 valHtml = QString("<span style='color:%1;font-weight:bold;'>%2%3</span>"
-                                  "<span style='color:#555;font-size:9px;'>/%4</span>")
+                                  "<span style='color:#555;font-size:13px;'>/%4</span>")
                     .arg(tileFg).arg(dispVal).arg(sfx).arg(cap);
             } else {
                 valHtml = QString("<span style='color:%1;font-weight:bold;'>%2%3</span>")
@@ -358,10 +358,10 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
                 int refDisp = hasCap ? std::min(refRaw, cap) : refRaw;
                 int delta   = dispVal - refDisp;
                 if (delta > 0)
-                    valHtml += QString("<span style='color:#2a8a2a;font-size:9px;'> +%1</span>")
+                    valHtml += QString("<span style='color:#2a8a2a;font-size:13px;'> +%1</span>")
                                    .arg(delta);
                 else if (delta < 0)
-                    valHtml += QString("<span style='color:#aa2222;font-size:9px;'> %1</span>")
+                    valHtml += QString("<span style='color:#aa2222;font-size:13px;'> %1</span>")
                                    .arg(delta);
             }
 
@@ -399,7 +399,7 @@ static void addSeparator(QVBoxLayout* layout) {
 static void addSectionHeader(QVBoxLayout* layout, const char* label, const char* color) {
     auto* lbl = new QLabel(label);
     lbl->setStyleSheet(
-        QString("font-size: 8px; color: %1; font-weight: bold; letter-spacing: 1px; "
+        QString("font-size: 14px; color: %1; font-weight: bold; letter-spacing: 1px; "
                 "border: none; background: transparent;").arg(color));
     layout->addWidget(lbl);
 }
@@ -424,7 +424,7 @@ QFrame* CharacterTab::makeItemCard(const ItemData* item, const ItemData* refItem
     hL->setContentsMargins(10, 7, 10, 7);
     auto* titleLbl = new QLabel(title);
     titleLbl->setStyleSheet(
-        "font-weight: bold; font-size: 11px; color: #d0e8ff; "
+        "font-weight: bold; font-size: 13px; color: #d0e8ff; "
         "border: none; background: transparent;");
     titleLbl->setWordWrap(true);
     hL->addWidget(titleLbl);
@@ -440,7 +440,7 @@ QFrame* CharacterTab::makeItemCard(const ItemData* item, const ItemData* refItem
     if (!item) {
         auto* lbl = new QLabel(QString::fromUtf8("(vide)"));
         lbl->setStyleSheet(
-            "color: #555; font-style: italic; font-size: 10px; "
+            "color: #555; font-style: italic; font-size: 14px; "
             "border: none; background: transparent;");
         bodyL->addWidget(lbl);
         bodyL->addStretch();
@@ -496,12 +496,12 @@ QFrame* CharacterTab::makeItemCard(const ItemData* item, const ItemData* refItem
 
             auto* nameLbl = new QLabel(row.label);
             nameLbl->setStyleSheet(
-                "color: #667788; font-size: 9px; border: none; background: transparent;");
+                "color: #667788; font-size: 13px; border: none; background: transparent;");
             gridL->addWidget(nameLbl, r, 0);
 
             auto* valLbl = new QLabel(QString::number(row.val));
             valLbl->setStyleSheet(
-                "color: #c8d8e8; font-size: 10px; font-weight: bold; "
+                "color: #c8d8e8; font-size: 14px; font-weight: bold; "
                 "border: none; background: transparent;");
             valLbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
             gridL->addWidget(valLbl, r, 1);
@@ -511,7 +511,7 @@ QFrame* CharacterTab::makeItemCard(const ItemData* item, const ItemData* refItem
                 QString color = row.delta > 0 ? "#4caf50" : "#ef5350";
                 auto* dLbl = new QLabel(sign + QString::number(row.delta));
                 dLbl->setStyleSheet(
-                    QString("color: %1; font-size: 10px; font-weight: bold; "
+                    QString("color: %1; font-size: 14px; font-weight: bold; "
                             "border: none; background: transparent;").arg(color));
                 dLbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
                 gridL->addWidget(dLbl, r, 2);
@@ -533,7 +533,7 @@ QFrame* CharacterTab::makeItemCard(const ItemData* item, const ItemData* refItem
                     "<span style='color:#aaa;'> %3</span>")
             .arg(col).arg(pfx).arg(QString::fromStdString(name)));
         lbl->setTextFormat(Qt::RichText);
-        lbl->setStyleSheet("font-size: 9px; font-style: italic; "
+        lbl->setStyleSheet("font-size: 13px; font-style: italic; "
                            "border: none; background: transparent;");
         lbl->setWordWrap(true);
         bodyL->addWidget(lbl);
@@ -602,7 +602,7 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
 
         auto* slotLbl = new QLabel("Slot :");
         slotLbl->setStyleSheet(
-            "color: #888; font-size: 10px; border: none; background: transparent;");
+            "color: #888; font-size: 14px; border: none; background: transparent;");
         slotL->addWidget(slotLbl);
 
         for (auto& eqSlot : allSlots) {
@@ -612,9 +612,9 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
             btn->setStyleSheet(
                 isCurrent
                 ? "QPushButton { background: #2a3a5a; border: 1px solid #64b5f6; "
-                  "border-radius: 3px; color: #64b5f6; padding: 2px 8px; font-size: 10px; }"
+                  "border-radius: 3px; color: #64b5f6; padding: 2px 8px; font-size: 14px; }"
                 : "QPushButton { background: #1a2236; border: 1px solid #3a4a6a; "
-                  "border-radius: 3px; color: #c0c0c0; padding: 2px 8px; font-size: 10px; }"
+                  "border-radius: 3px; color: #c0c0c0; padding: 2px 8px; font-size: 14px; }"
                   "QPushButton:hover { border-color: #64b5f6; color: #64b5f6; }");
             connect(btn, &QPushButton::clicked, [this, newItem, eqSlot, allSlots]() {
                 clearComparison(false);
@@ -695,7 +695,7 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
         QString("Score : %1%2  <b>%3</b>").arg(sign).arg(scoreDelta).arg(upgradeText));
     scoreLbl->setTextFormat(Qt::RichText);
     scoreLbl->setStyleSheet(
-        QString("color: %1; font-size: 11px; border: none; background: transparent;")
+        QString("color: %1; font-size: 13px; border: none; background: transparent;")
         .arg(upgradeColor));
     sumL->addWidget(scoreLbl);
     sumL->addStretch();
@@ -805,7 +805,7 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
     // ── Constructeurs de lignes HTML ──────────────────────────────────────
     auto secRow = [](const char* lbl, const char* color) -> QString {
         return QString(
-            "<tr><td colspan='2' style='color:%1;font-size:9px;font-weight:bold;"
+            "<tr><td colspan='2' style='color:%1;font-size:13px;font-weight:bold;"
             "padding-top:5px;'>\xe2\x94\x80 %2</td></tr>")
             .arg(color).arg(lbl);
     };
@@ -839,8 +839,8 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
 
     QString rows = QString(
         "<tr>"
-        "<td><span style='color:%1;font-weight:bold;font-size:12px;'>%2</span></td>"
-        "<td align='right' style='font-size:12px;'>%3</td>"
+        "<td><span style='color:%1;font-weight:bold;font-size:14px;'>%2</span></td>"
+        "<td align='right' style='font-size:14px;'>%3</td>"
         "</tr>")
         .arg(catAccent).arg(name).arg(headerVal);
 
@@ -1050,7 +1050,7 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
     }
 
     return QString(
-        "<table cellspacing='0' cellpadding='1' style='font-size:10px;min-width:260px;'>"
+        "<table cellspacing='0' cellpadding='1' style='font-size:14px;min-width:260px;'>"
         "%1"
         "</table>")
         .arg(rows);

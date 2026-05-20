@@ -1,4 +1,4 @@
-#include "ui/main_window.h"
+﻿#include "ui/main_window.h"
 #include "ui/character_tab.h"
 #include "ui/fight_tab.h"
 #include "ui/spells_tab.h"
@@ -124,7 +124,7 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
         fl->setContentsMargins(8, 6, 8, 6);
         _charHeaderLabel = new QLabel(QString::fromUtf8("\xe2\x80\x94"));
         _charHeaderLabel->setStyleSheet(
-            "font-weight: bold; font-size: 12px; color: #e0e0e0; "
+            "font-weight: bold; font-size: 14px; color: #e0e0e0; "
             "border: none; background: transparent;");
         fl->addWidget(_charHeaderLabel);
         centralLayout->addWidget(frame);

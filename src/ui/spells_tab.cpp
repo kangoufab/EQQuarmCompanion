@@ -1,4 +1,4 @@
-#include "ui/spells_tab.h"
+﻿#include "ui/spells_tab.h"
 #include "ui/stats_bar.h"
 #include "core/config.h"
 #include "core/spell_stacking.h"
@@ -145,14 +145,14 @@ void SpellsTab::buildUi()
         sh->setSpacing(6);
 
         auto* lbl = new QLabel(QString::fromUtf8("Sets :"));
-        lbl->setStyleSheet("font-size: 10px; color: #888; border: none; background: transparent;");
+        lbl->setStyleSheet("font-size: 14px; color: #888; border: none; background: transparent;");
         sh->addWidget(lbl);
 
         _setsCombo = new QComboBox;
         _setsCombo->setMinimumWidth(160);
         _setsCombo->setStyleSheet(
             "QComboBox { background: #141428; border: 1px solid #3a4a6a; "
-            "color: #c0c0c0; font-size: 10px; padding: 2px 6px; border-radius: 3px; }"
+            "color: #c0c0c0; font-size: 14px; padding: 2px 6px; border-radius: 3px; }"
             "QComboBox::drop-down { border: none; }"
             "QComboBox QAbstractItemView { background: #1a1a2e; color: #c0c0c0; "
             "selection-background-color: #3a4a6a; }");
@@ -162,7 +162,7 @@ void SpellsTab::buildUi()
             auto* btn = new QPushButton(QString::fromUtf8(text));
             btn->setStyleSheet(
                 QString("QPushButton { background: #1e2a3e; border: 1px solid %1; "
-                        "color: %1; font-size: 10px; padding: 2px 10px; border-radius: 3px; }"
+                        "color: %1; font-size: 14px; padding: 2px 10px; border-radius: 3px; }"
                         "QPushButton:hover { background: %1; color: #0f1624; }"
                         "QPushButton:disabled { border-color: #444; color: #444; }").arg(color));
             return btn;
@@ -211,7 +211,7 @@ void SpellsTab::buildUi()
         _headerLabel = new QLabel(
             QString::fromUtf8("Buffs actifs (0/%1)").arg(MAX_BUFF_SLOTS));
         _headerLabel->setStyleSheet(
-            "font-size: 10px; color: #64b5f6; font-variant: small-caps; font-weight: bold;"
+            "font-size: 14px; color: #64b5f6; font-variant: small-caps; font-weight: bold;"
             "border: none; background: transparent;");
         leftL->addWidget(_headerLabel);
 
@@ -243,7 +243,7 @@ void SpellsTab::buildUi()
 
         auto* sortsTitre = new QLabel(QString::fromUtf8("Sorts b\xc3\xa9n\xc3\xa9" "fiques"));
         sortsTitre->setStyleSheet(
-            "font-size: 10px; color: #888; font-variant: small-caps;"
+            "font-size: 14px; color: #888; font-variant: small-caps;"
             "border: none; background: transparent;");
         rightL->addWidget(sortsTitre);
 
@@ -254,7 +254,7 @@ void SpellsTab::buildUi()
         _classList = new QListWidget;
         _classList->setFixedWidth(130);
         _classList->setStyleSheet(
-            "QListWidget { background: #1a1a2e; border: 1px solid #3a4a6a; font-size: 10px; }"
+            "QListWidget { background: #1a1a2e; border: 1px solid #3a4a6a; font-size: 14px; }"
             "QListWidget::item { color: #888; padding: 3px 6px; }"
             "QListWidget::item:selected { background: #3a4a6a; color: #64b5f6; }");
         for (const auto& cls : BUFF_CASTER_CLASSES)
@@ -378,7 +378,7 @@ void SpellsTab::rebuildRightPanel()
 
         if (isBlocked) {
             QString wname = winnerNames.count(spell.id) ? winnerNames[spell.id] : "un autre sort";
-            cb->setStyleSheet("font-size: 10px; color: #aa4444; text-decoration: line-through;");
+            cb->setStyleSheet("font-size: 14px; color: #aa4444; text-decoration: line-through;");
             cb->setToolTip(QString("Bloqu\xc3\xa9 par %1").arg(wname));
             cb->setEnabled(false);
         } else if (!isSelected) {
@@ -388,15 +388,15 @@ void SpellsTab::rebuildRightPanel()
                 QString wname;
                 for (auto& b : _activeBuffs)
                     if (b.spell.id == *conflict) { wname = QString::fromStdString(b.spell.name); break; }
-                cb->setStyleSheet("font-size: 10px; color: #aa4444; text-decoration: line-through;");
+                cb->setStyleSheet("font-size: 14px; color: #aa4444; text-decoration: line-through;");
                 cb->setToolTip(QString("Bloqu\xc3\xa9 par %1").arg(wname));
                 cb->setEnabled(false);
             } else {
-                cb->setStyleSheet("font-size: 10px; color: #c0c0c0;");
+                cb->setStyleSheet("font-size: 14px; color: #c0c0c0;");
                 cb->setEnabled(!atCap);
             }
         } else {
-            cb->setStyleSheet("font-size: 10px; color: #c0c0c0;");
+            cb->setStyleSheet("font-size: 14px; color: #c0c0c0;");
             cb->setEnabled(true);
         }
 
@@ -505,9 +505,9 @@ void SpellsTab::rebuildActiveBuffsList()
         auto* nameLbl = new QLabel(QString::fromStdString(b.spell.name));
         nameLbl->setStyleSheet(
             blocked
-            ? "font-size: 9px; color: #aa4444; text-decoration: line-through; "
+            ? "font-size: 13px; color: #aa4444; text-decoration: line-through; "
               "border: none; background: transparent;"
-            : "font-size: 9px; color: #c0c0c0; border: none; background: transparent;");
+            : "font-size: 13px; color: #c0c0c0; border: none; background: transparent;");
         nameLbl->setToolTip(formatSpellTooltip(b.spell,
             _charInfo ? _charInfo->level : expansionMaxLevel()));
         rl->addWidget(nameLbl, 1);
@@ -515,7 +515,7 @@ void SpellsTab::rebuildActiveBuffsList()
         // Classe source (petit, grisé)
         auto* clsLbl = new QLabel(QString::fromStdString(b.buffClass).left(3));
         clsLbl->setStyleSheet(
-            "font-size: 8px; color: #555; border: none; background: transparent;");
+            "font-size: 14px; color: #555; border: none; background: transparent;");
         rl->addWidget(clsLbl);
 
         // Bouton ×
@@ -523,7 +523,7 @@ void SpellsTab::rebuildActiveBuffsList()
         removeBtn->setFixedSize(16, 16);
         removeBtn->setStyleSheet(
             "QPushButton { background: #2a1a1a; border: 1px solid #5a3a3a; "
-            "color: #e57373; font-size: 9px; border-radius: 3px; padding: 0; }"
+            "color: #e57373; font-size: 13px; border-radius: 3px; padding: 0; }"
             "QPushButton:hover { background: #5a3a3a; }");
         SpellData spellCopy = b.spell;
         connect(removeBtn, &QPushButton::clicked, this, [this, spellCopy] {
