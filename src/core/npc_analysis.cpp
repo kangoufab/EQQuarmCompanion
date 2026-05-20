@@ -15,6 +15,8 @@ static float npcDoubleAttackChance(int level) {
     return std::min(1.f, effective / 500.f);
 }
 
+// Format: "id,enabled,param0,param1,..." entries separated by '^'
+// enabled=0 → disabled, skip. params stored WITHOUT the enabled field.
 static std::unordered_map<int, std::vector<int>>
 parseSa(std::string_view raw) {
     std::unordered_map<int, std::vector<int>> result;
@@ -27,7 +29,11 @@ parseSa(std::string_view raw) {
         if (entry.empty()) continue;
         std::replace(entry.begin(), entry.end(), ',', ' ');
         std::istringstream es(entry);
-        int id; es >> id;
+        int id;
+        if (!(es >> id)) continue;
+        int enabled = 1;
+        es >> enabled;          // may be absent → defaults to 1
+        if (!enabled) continue; // disabled entry, skip
         std::vector<int> params;
         int p; while (es >> p) params.push_back(p);
         result[id] = params;
@@ -278,46 +284,68 @@ std::string formatSpellSummary(const SpellData& sp, int npcLevel) {
 // ── decodeSpecialAbilities ────────────────────────────────────────────
 
 std::vector<SpecialAbility> decodeSpecialAbilities(std::string_view raw) {
-    // IDs from EQMacEmu common/emu_constants.h (SPECATK_* enum)
+    // IDs from EQMacEmu common/emu_constants.h — namespace SpecialAbility
     static const std::unordered_map<int, std::pair<std::string,std::string>> kTable = {
-        {1,  {"Summon",                     "orange"}},
-        {2,  {"Enrage",                     "orange"}},
-        {3,  {"Rampage",                    "orange"}},
-        {4,  {"AE Rampage",                 "red"   }},
-        {5,  {"Flurry",                     "orange"}},
-        {6,  {"Triple Attack",              "grey"  }},
-        {7,  {"Dual Wield",                 "grey"  }},
-        {9,  {"Bane Attack",                "orange"}},
-        {10, {"Magical Attack",             "orange"}},
-        {11, {"Ranged Attack",              "grey"  }},
-        {12, {"Immune to Slow",             "red"   }},
-        {13, {"Immune to Mez",              "red"   }},
-        {14, {"Immune to Charm",            "red"   }},
-        {15, {"Immune to Stun",             "red"   }},
-        {16, {"Immune to Snare",            "red"   }},
-        {17, {"Immune to Fear",             "red"   }},
-        {18, {"Immune to Dispel",           "red"   }},
-        {19, {"Immune to Melee",            "red"   }},
-        {20, {"Immune to Magic",            "red"   }},
-        {21, {"Immune to Fleeing",          "red"   }},
-        {22, {"Immune to Melee (non-bane)", "red"   }},
-        {23, {"Immune to Non-Magic Melee",  "red"   }},
-        {24, {"Immune to Aggro",            "orange"}},
-        {25, {"Immune to Being Aggro",      "orange"}},
-        {26, {"Belly-Caster Only",          "orange"}},
-        {27, {"Immune to Feign Death",      "orange"}},
-        {28, {"Immune to Taunt",            "orange"}},
-        {31, {"Immune to Pacify",           "orange"}},
-        {35, {"Immune to Player Damage",    "red"   }},
-        {43, {"Always Calls for Help",      "orange"}},
-        {50, {"Reverse Slow",               "orange"}},
-        {51, {"Immune to Haste",            "orange"}},
-        {53, {"Immune to Riposte",          "orange"}},
+        {1,  {"Summon",                        "orange"}},
+        {2,  {"Enrage",                        "orange"}},
+        {3,  {"Rampage",                       "orange"}},
+        {4,  {"AE Rampage",                    "red"   }},
+        {5,  {"Flurry",                        "orange"}},
+        {6,  {"Triple Attack",                 "grey"  }},
+        {7,  {"Dual Wield",                    "grey"  }},
+        {8,  {"Disallow Equip",                "grey"  }},
+        {9,  {"Bane Attack",                   "orange"}},
+        {10, {"Magical Attack",                "orange"}},
+        {11, {"Ranged Attack",                 "grey"  }},
+        {12, {"Immune to Slow",                "red"   }},
+        {13, {"Immune to Mez",                 "red"   }},
+        {14, {"Immune to Charm",               "red"   }},
+        {15, {"Immune to Stun",                "red"   }},
+        {16, {"Immune to Snare",               "red"   }},
+        {17, {"Immune to Fear",                "red"   }},
+        {18, {"Immune to Dispel",              "red"   }},
+        {19, {"Immune to Melee",               "red"   }},
+        {20, {"Immune to Magic",               "red"   }},
+        {21, {"Immune to Fleeing",             "red"   }},
+        {22, {"Immune to Melee (non-bane)",    "red"   }},
+        {23, {"Immune to Non-Magic Melee",     "red"   }},
+        {24, {"Immune to Aggro",               "orange"}},
+        {25, {"Immune to Being Aggro",         "orange"}},
+        {26, {"Belly-Caster Only",             "orange"}},
+        {27, {"Immune to Feign Death",         "orange"}},
+        {28, {"Immune to Taunt",               "orange"}},
+        {29, {"Tunnel Vision",                 "orange"}},
+        {30, {"No Buff/Heal Allies",           "grey"  }},
+        {31, {"Immune to Pacify",              "orange"}},
+        {32, {"Leashed",                       "grey"  }},
+        {33, {"Tethered",                      "grey"  }},
+        {34, {"Permaroot Flee",                "orange"}},
+        {35, {"Immune to Player Damage",       "red"   }},
+        {36, {"Always Flees",                  "orange"}},
+        {37, {"Flees at HP%",                  "orange"}},
+        {38, {"Allows Beneficial Spells",      "grey"  }},
+        {39, {"Melee Disabled",                "grey"  }},
+        {40, {"Chase Distance",                "grey"  }},
+        {41, {"Allowed to Tank",               "grey"  }},
+        {42, {"Proximity Aggro",               "orange"}},
+        {43, {"Always Calls for Help",         "orange"}},
+        {44, {"Warrior Skills",                "grey"  }},
+        {45, {"Flees on Low Con",              "orange"}},
+        {46, {"No Loitering",                  "grey"  }},
+        {47, {"Block Handin (Bad Faction)",    "grey"  }},
+        {48, {"PC Deathblow",                  "orange"}},
+        {49, {"Corpse Camper",                 "grey"  }},
+        {50, {"Reverse Slow",                  "orange"}},
+        {51, {"Immune to Haste",               "orange"}},
+        {52, {"Immune to Disarm",              "orange"}},
+        {53, {"Immune to Riposte",             "orange"}},
+        {54, {"Proximity Aggro 2",             "orange"}},
     };
-    // Abilities where params[0] (parts[2]) is shown: id → format suffix
+    // Abilities where params[0] (first param after enabled) is meaningful
     static const std::unordered_map<int, std::string> kParamFmt = {
-        {2, "@ {}%hp"},   // Enrage HP threshold
-        {5, "{}%"},       // Flurry custom chance
+        {2,  "@ {}%hp"},  // Enrage HP threshold
+        {5,  "{}%"},      // Flurry custom chance (default 20%)
+        {37, "@ {}%hp"},  // FleePercent threshold
     };
 
     std::vector<SpecialAbility> result;
@@ -325,9 +353,13 @@ std::vector<SpecialAbility> decodeSpecialAbilities(std::string_view raw) {
     for (auto& [id, params] : sa) {
         SpecialAbility ab;
         auto it = kTable.find(id);
-        if (it == kTable.end()) continue;  // silently skip unknown IDs
-        ab.tag      = it->second.first;
-        ab.severity = it->second.second;
+        if (it != kTable.end()) {
+            ab.tag      = it->second.first;
+            ab.severity = it->second.second;
+        } else {
+            ab.tag      = "SA#" + std::to_string(id);
+            ab.severity = "grey";
+        }
         auto pit = kParamFmt.find(id);
         if (pit != kParamFmt.end() && params.size() >= 1 && params[0] != 0) {
             std::string fmt = pit->second;
