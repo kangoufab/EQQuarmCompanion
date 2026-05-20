@@ -17,8 +17,12 @@
 #include <QScrollArea>
 #include <QTimer>
 #include <QVBoxLayout>
+#include "ui/infos_data.h"
+#include <QLocale>
 #include <algorithm>
 #include <cmath>
+#include <numeric>
+#include <set>
 
 static const std::vector<std::tuple<QString,int,int>> kSlowSpells = {
     {"Turgur", 1, 25},
@@ -26,6 +30,271 @@ static const std::vector<std::tuple<QString,int,int>> kSlowSpells = {
 };
 static const int   kChMaxClr  = 6;
 static const float kChHpFloor = 0.30f;
+
+static const std::vector<std::pair<const char*, int>> kSlotBits = {
+    {"Charm",1},{"Left Ear",2},{"Head",4},{"Face",8},{"Right Ear",16},
+    {"Neck",32},{"Shoulders",64},{"Arms",128},{"Back",256},
+    {"Left Wrist",512},{"Right Wrist",1024},{"Range",2048},{"Hands",4096},
+    {"Primary",8192},{"Secondary",16384},{"Left Finger",32768},
+    {"Right Finger",65536},{"Chest",131072},{"Legs",262144},
+    {"Feet",524288},{"Waist",1048576},{"Ammo",2097152},
+};
+
+static QString decodeSlots(int bits) {
+    QStringList out;
+    for (auto& [n, b] : kSlotBits) if (bits & b) out << n;
+    return out.join(", ");
+}
+
+static QString valueDelta(int v, int r) {
+    if (!r) return QString::number(v);
+    int d = v - r;
+    if (!d) return QString::number(v);
+    const char* c = d > 0 ? kGreen : kRed;
+    return QString("%1  <span style='color:%2'>%3%4</span>")
+           .arg(v).arg(c).arg(d > 0 ? "+" : "").arg(d);
+}
+
+static QString valueDeltaInvert(int v, int r) {
+    if (!r) return QString::number(v);
+    int d = v - r;
+    if (!d) return QString::number(v);
+    const char* c = d < 0 ? kGreen : kRed;
+    return QString("%1  <span style='color:%2'>%3%4</span>")
+           .arg(v).arg(c).arg(d > 0 ? "+" : "").arg(d);
+}
+
+static QWidget* tileGrid(const std::vector<std::pair<QString,QString>>& tiles, int cols = 4) {
+    static const std::map<std::string, std::pair<const char*,const char*>> tileAccents = {
+        {"HP",  {"#1e2a1e","#81c784"}},
+        {"ATK", {"#2a1e1e","#ef5350"}},
+    };
+    auto* w = new QWidget; w->setStyleSheet("background:transparent;");
+    auto* g = new QGridLayout(w);
+    g->setContentsMargins(0,0,0,0); g->setSpacing(4);
+    for (int i = 0; i < static_cast<int>(tiles.size()); ++i) {
+        int row = i / cols, col = i % cols;
+        const auto& [label, value] = tiles[i];
+        auto it = tileAccents.find(label.toStdString());
+        const char* bg = "#252540", *tc = "#cccccc";
+        if (it != tileAccents.end()) { bg = it->second.first; tc = it->second.second; }
+        auto* frame = new QFrame;
+        frame->setStyleSheet(QString("background:%1;border-radius:3px;").arg(bg));
+        auto* fl = new QVBoxLayout(frame);
+        fl->setContentsMargins(6,3,6,3); fl->setSpacing(1);
+        auto* nl = new QLabel(label);
+        nl->setStyleSheet("font-size:9px;color:#888888;background:transparent;");
+        auto* vl = new QLabel(value);
+        vl->setTextFormat(Qt::RichText);
+        vl->setStyleSheet(QString("font-weight:bold;color:%1;background:transparent;").arg(tc));
+        fl->addWidget(nl); fl->addWidget(vl);
+        g->addWidget(frame, row, col);
+    }
+    return w;
+}
+
+static const char* spellTypeColor(const std::string& type) {
+    static const std::set<std::string> danger  = {"charm","mez","fear","slow","stun"};
+    static const std::set<std::string> harmful = {"dot","nuke","root","snare","lifetap","dispel"};
+    static const std::set<std::string> helpful = {"buff","heal","pet","rune","cure","rez","combat buff"};
+    if (danger.count(type))  return "#ef5350";
+    if (harmful.count(type)) return "#ffb74d";
+    if (helpful.count(type)) return "#81c784";
+    return "#aaaaaa";
+}
+
+static std::vector<std::tuple<QString,std::optional<float>,float>>
+buildSlowScenarios(const NpcData& npc, int playerLevel,
+                   const std::map<std::string,int>& debuffs)
+{
+    std::vector<std::tuple<QString,std::optional<float>,float>> scenarios = {
+        {"No slow", std::nullopt, 100.f}
+    };
+    for (const auto& [name, resistType, atkSpeed] : kSlowSpells) {
+        if (!slowLandPct(npc, playerLevel, resistType))  // immune
+            continue;
+        NpcData npcD = npc;
+        if (resistType == 1) {
+            auto it = debuffs.find("MR");
+            if (it != debuffs.end()) npcD.mr = std::max(0, npc.mr + it->second);
+        } else if (resistType == 5) {
+            auto it = debuffs.find("DR");
+            if (it != debuffs.end()) npcD.dr = std::max(0, npc.dr + it->second);
+        }
+        auto pct = slowLandPct(npcD, playerLevel, resistType);
+        if (!pct || *pct < 10.f) continue;
+        scenarios.push_back({name, *pct, static_cast<float>(atkSpeed)});
+    }
+    return scenarios;
+}
+
+static int itemStatVal(const ItemData& item, const std::string& k) {
+    if (k=="hp")         return item.hp;
+    if (k=="mana")       return item.mana;
+    if (k=="ac")         return item.ac;
+    if (k=="atk")        return item.atk;
+    if (k=="astr")       return item.astr;
+    if (k=="asta")       return item.asta;
+    if (k=="adex")       return item.adex;
+    if (k=="aagi")       return item.aagi;
+    if (k=="aint")       return item.aint;
+    if (k=="awis")       return item.awis;
+    if (k=="acha")       return item.acha;
+    if (k=="mr")         return item.mr;
+    if (k=="fr")         return item.fr;
+    if (k=="cr")         return item.cr;
+    if (k=="dr")         return item.dr;
+    if (k=="pr")         return item.pr;
+    if (k=="haste")      return item.haste;
+    if (k=="hp_regen")   return item.hp_regen;
+    if (k=="mana_regen") return item.mana_regen;
+    if (k=="damage")     return item.damage;
+    return 0;
+}
+
+static QWidget* buildItemContent(const ItemData& item, const ItemData* ref) {
+    auto* container = new QWidget;
+    auto* layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(8);
+    layout->setAlignment(Qt::AlignTop);
+
+    auto* nameL = new QLabel(QString::fromStdString(item.name));
+    nameL->setStyleSheet("font-size:13px;font-weight:bold;color:#e0e0e0;");
+    layout->addWidget(nameL);
+
+    {
+        QStringList parts;
+        if (item.item_slots) parts << decodeSlots(item.item_slots);
+        if (item.reqlevel > 0) parts << QString("Req. %1").arg(item.reqlevel);
+        if (ref && !ref->name.empty()) parts << QString("vs %1").arg(QString::fromStdString(ref->name));
+        auto* sub = new QLabel(parts.join("  ·  "));
+        sub->setStyleSheet("color:#888888;font-size:11px;"); sub->setWordWrap(true);
+        layout->addWidget(sub);
+    }
+
+    if (!item.lore.empty() && item.lore != item.name) {
+        auto* lore = new QLabel(QString::fromStdString(item.lore));
+        lore->setStyleSheet("color:#555555;font-size:10px;font-style:italic;");
+        lore->setWordWrap(true);
+        layout->addWidget(lore);
+    }
+
+    {
+        std::vector<std::pair<QString,QString>> pairs;
+        auto add = [&](const char* l, int v, int r) {
+            if (!v && !(ref && r)) return;
+            pairs.push_back({l, ref ? valueDelta(v, r) : QString::number(v)});
+        };
+        add("HP",   item.hp,   ref ? ref->hp   : 0);
+        add("Mana", item.mana, ref ? ref->mana : 0);
+        add("AC",   item.ac,   ref ? ref->ac   : 0);
+        add("ATK",  item.atk,  ref ? ref->atk  : 0);
+        if (item.haste || (ref && ref->haste)) {
+            int rh = ref ? ref->haste : 0;
+            pairs.push_back({"Haste", ref ? valueDelta(item.haste, rh)
+                                          : QString("+%1%").arg(item.haste)});
+        }
+        auto addRegen = [&](const char* l, int v, int r) {
+            if (!v && !(ref && r)) return;
+            pairs.push_back({l, ref ? valueDelta(v, r) : QString("+%1").arg(v)});
+        };
+        addRegen("HP Regen",   item.hp_regen,   ref ? ref->hp_regen   : 0);
+        addRegen("Mana Regen", item.mana_regen, ref ? ref->mana_regen : 0);
+        if (!pairs.empty()) {
+            auto [f, fl] = sectionFrame("#ef5350");
+            fl->addWidget(sectionLabel("Combat", "#ef5350"));
+            fl->addWidget(gridWidget(pairs, 2));
+            layout->addWidget(f);
+        }
+    }
+
+    {
+        std::vector<std::pair<QString,QString>> pairs;
+        auto add = [&](const char* l, int v, int r) {
+            if (!v && !(ref && r)) return;
+            pairs.push_back({l, ref ? valueDelta(v, r) : QString::number(v)});
+        };
+        add("STR", item.astr, ref ? ref->astr : 0);
+        add("STA", item.asta, ref ? ref->asta : 0);
+        add("DEX", item.adex, ref ? ref->adex : 0);
+        add("AGI", item.aagi, ref ? ref->aagi : 0);
+        add("INT", item.aint, ref ? ref->aint : 0);
+        add("WIS", item.awis, ref ? ref->awis : 0);
+        add("CHA", item.acha, ref ? ref->acha : 0);
+        if (!pairs.empty()) {
+            auto [f, fl] = sectionFrame("#64b5f6");
+            fl->addWidget(sectionLabel("Stats", "#64b5f6"));
+            fl->addWidget(gridWidget(pairs, 4));
+            layout->addWidget(f);
+        }
+    }
+
+    {
+        std::vector<std::pair<QString,QString>> pairs;
+        auto add = [&](const char* l, int v, int r) {
+            if (!v && !(ref && r)) return;
+            pairs.push_back({l, ref ? valueDelta(v, r) : QString::number(v)});
+        };
+        add("MR", item.mr, ref ? ref->mr : 0);
+        add("FR", item.fr, ref ? ref->fr : 0);
+        add("CR", item.cr, ref ? ref->cr : 0);
+        add("DR", item.dr, ref ? ref->dr : 0);
+        add("PR", item.pr, ref ? ref->pr : 0);
+        if (!pairs.empty()) {
+            auto [f, fl] = sectionFrame("#64b5f6");
+            fl->addWidget(sectionLabel("Resists", "#64b5f6"));
+            fl->addWidget(gridWidget(pairs, 5));
+            layout->addWidget(f);
+        }
+    }
+
+    if (item.damage > 0 && item.delay > 0) {
+        static const std::map<int,const char*> itemTypes = {
+            {0,"1H Slash"},{1,"2H Slash"},{2,"Piercing"},{3,"1H Blunt"},{4,"2H Blunt"},
+            {5,"Archery"},{7,"Throwing"},{8,"Shield"},{10,"2H Pierce"},{11,"Hand to Hand"},{35,"Bow"},
+        };
+        auto tIt = itemTypes.find(item.itemtype);
+        QString typeName = tIt != itemTypes.end() ? tIt->second
+                                                   : QString("Type %1").arg(item.itemtype);
+        float ratio = item.damage / (item.delay / 10.f);
+        int rDmg = ref ? ref->damage : 0;
+        int rDly = ref ? ref->delay  : 0;
+        float rRatio = (rDmg && rDly) ? rDmg / (rDly / 10.f) : 0.f;
+        std::vector<std::pair<QString,QString>> pairs;
+        pairs.push_back({"Damage", ref ? valueDelta(item.damage, rDmg)
+                                       : QString::number(item.damage)});
+        if (ref && rDly) {
+            pairs.push_back({"Delay", valueDeltaInvert(item.delay, rDly)});
+            pairs.push_back({"Ratio", valueDelta((int)(ratio*100), (int)(rRatio*100))});
+        } else {
+            pairs.push_back({"Delay", QString("%1s").arg(item.delay/10.0, 0,'f',1)});
+            pairs.push_back({"Ratio", QString("%1").arg(ratio, 0,'f',2)});
+        }
+        auto [f, fl] = sectionFrame("#ffb74d");
+        fl->addWidget(sectionLabel(QString("Weapon — %1").arg(typeName), "#ffb74d"));
+        fl->addWidget(gridWidget(pairs, 3));
+        layout->addWidget(f);
+    }
+
+    {
+        std::vector<std::pair<QString,QString>> pairs;
+        if (!item.worneffect_name.empty())
+            pairs.push_back({"Worn",  QString::fromStdString(item.worneffect_name)});
+        if (!item.focuseffect_name.empty())
+            pairs.push_back({"Focus", QString::fromStdString(item.focuseffect_name)});
+        if (item.damage > 0 && !item.proceffect_name.empty())
+            pairs.push_back({"Proc",  QString::fromStdString(item.proceffect_name)});
+        if (!pairs.empty()) {
+            auto [f, fl] = sectionFrame("#ba68c8");
+            fl->addWidget(sectionLabel("Effects", "#ba68c8"));
+            fl->addWidget(gridWidget(pairs, 1));
+            layout->addWidget(f);
+        }
+    }
+
+    return container;
+}
 
 // ── Constructor ───────────────────────────────────────────────────────────────
 
@@ -145,9 +414,9 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
 
     auto [fCombat, flCombat] = sectionFrame("#64b5f6");
     flCombat->addWidget(sectionLabel("Combat", "#64b5f6"));
-    flCombat->addWidget(gridWidget({
+    flCombat->addWidget(tileGrid({
         {"Level",    QString::number(npc.level)},
-        {"HP",       QString::number(npc.hp)},
+        {"HP",       QLocale(QLocale::English).toString(npc.hp)},
         {"AC",       QString::number(npc.ac)},
         {"ATK",      QString::number(npc.atk)},
         {"Accuracy", QString::number(npc.accuracy)},
@@ -155,7 +424,7 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
         {"Max hit",  QString::number(npc.max_hit)},
         {"Delay",    QString("%1s").arg(npc.attack_delay / 10.0, 0, 'f', 1)},
         {"Hits/rnd", QString::number(std::max(1, npc.attack_count))},
-    }, 1));
+    }, 4));
     layout->addWidget(fCombat);
 
     auto [fRes, flRes] = sectionFrame("#64b5f6");
@@ -188,9 +457,41 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
     layout->addWidget(fAb);
 
     auto [fLoot, flLoot] = sectionFrame("#81c784");
-    flLoot->addWidget(sectionLabel("Loot", "#81c784"));
+    {
+        auto* hdrRow = new QHBoxLayout;
+        hdrRow->setContentsMargins(0,0,0,0);
+        hdrRow->addWidget(sectionLabel("Loot", "#81c784"));
+        hdrRow->addStretch();
+        auto* sortBtn = new QPushButton(_lootSort == "chance" ? "Score ↓" : "% ↓");
+        sortBtn->setFlat(true);
+        sortBtn->setStyleSheet(
+            "QPushButton{color:#555555;font-size:9px;background:transparent;border:none;}"
+            "QPushButton:hover{color:#81c784;}");
+        connect(sortBtn, &QPushButton::clicked, this,
+                [this]{ QTimer::singleShot(0, this, &FightTab::toggleLootSort); });
+        hdrRow->addWidget(sortBtn);
+        auto* hdrW = new QWidget; hdrW->setStyleSheet("background:transparent;");
+        hdrW->setLayout(hdrRow);
+        flLoot->addWidget(hdrW);
+    }
     if (npc.loottable_id > 0) {
         auto loot = _npcDb->getNpcLoot(npc.loottable_id);
+        if (_lootSort == "score" && _charInfo) {
+            auto weights = _config->getClassWeights(_charInfo->class_name);
+            if (!weights.empty()) {
+                std::vector<float> scores(loot.size(), 0.f);
+                for (int i = 0; i < loot.size(); ++i)
+                    if (auto it = _itemDb->getItemById(loot[i].item_id))
+                        for (auto& [k, w] : weights)
+                            scores[i] += itemStatVal(*it, k) * w;
+                std::vector<int> idx(loot.size());
+                std::iota(idx.begin(), idx.end(), 0);
+                std::sort(idx.begin(), idx.end(), [&](int a, int b){ return scores[a] > scores[b]; });
+                QList<LootItem> sorted;
+                for (int i : idx) sorted.push_back(loot[i]);
+                loot = sorted;
+            }
+        }
         if (loot.isEmpty()) {
             flLoot->addWidget(new QLabel("(no loot)"));
         } else {
@@ -275,13 +576,9 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
                 incomingDamage(npc, *_totals, "Warrior", _charInfo->level, "defensive")});
     }
 
-    using SlowScenario = std::tuple<QString, std::optional<float>, float>;
-    std::vector<SlowScenario> slowScenarios = {{"No slow", std::nullopt, 100.f}};
-    for (const auto& [name, resistType, atkSpeed] : kSlowSpells) {
-        auto pct = slowLandPct(npc, _charInfo->level, resistType, 0);
-        if (!pct || *pct < 10.f) continue;
-        slowScenarios.push_back({name, *pct, static_cast<float>(atkSpeed)});
-    }
+    std::string expansion = _config->get("current_expansion");
+    if (expansion.empty()) expansion = "Luclin";
+    auto slowScenarios = buildSlowScenarios(npc, _charInfo->level, getResistDebuffs(expansion));
 
     flDmg->addWidget(buildDpsSlowTable(disciplines, slowScenarios, spDps, hp));
     layout->addWidget(fDmg);
@@ -296,7 +593,7 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
                       : r.rating == Rating::MEDIUM ? kOrange : kRed;
         const char* l = r.rating == Rating::GOOD   ? "GOOD"
                       : r.rating == Rating::MEDIUM ? "MEDIUM" : "LOW";
-        return QString("%1  <span style='color:%2'>%3 ~%4%</span>")
+        return QString("%1  <span style='color:%2'>%3 ≈%4%</span>")
                .arg(r.value).arg(c).arg(l).arg(r.pct, 0, 'f', 0);
     };
     flRes->addWidget(gridWidget({
@@ -322,7 +619,8 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
             inner->setContentsMargins(8, 4, 8, 4); inner->setSpacing(2);
 
             QString rt = QString::fromStdString(resistLabel(sp));
-            QString st = QString::fromStdString(effectiveSpellType(sp));
+            std::string stStr = effectiveSpellType(sp);
+            const char* typeColor = spellTypeColor(stStr);
             QString tt = QString::fromStdString(targetTypeLabel(sp.targettype));
 
             QString resistBadge;
@@ -333,12 +631,23 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
             }
 
             auto* lbl1 = new QLabel(
-                QString("<b>%1</b>  <span style='color:#888888'>(%2%3)</span>  %4"
-                        "  <span style='color:#555555'>[%5]</span>")
-                    .arg(QString::fromStdString(sp.name)).arg(rt).arg(resistBadge).arg(st).arg(tt));
+                QString("<b>%1</b>  <span style='color:#888888'>(%2%3)</span>"
+                        "  <span style='color:%4'>%5</span>"
+                        "  <span style='color:#555555'>[%6]</span>")
+                    .arg(QString::fromStdString(sp.name)).arg(rt).arg(resistBadge)
+                    .arg(typeColor).arg(QString::fromStdString(stStr)).arg(tt));
             lbl1->setTextFormat(Qt::RichText); lbl1->setWordWrap(true);
             lbl1->setStyleSheet("background:transparent;");
             inner->addWidget(lbl1);
+
+            QString summary = QString::fromStdString(formatSpellSummary(sp, npc.level));
+            if (!summary.isEmpty()) {
+                auto* lbl2 = new QLabel(summary);
+                lbl2->setStyleSheet("color:#666666;font-size:10px;background:transparent;");
+                lbl2->setWordWrap(true);
+                inner->addWidget(lbl2);
+            }
+
             flSpells->addWidget(frame);
             ++i;
         }
@@ -357,19 +666,19 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
         {"ATK", QString("%1  <span style='color:%2'>%3 vs AC %4</span>")
                 .arg(off.melee.player_atk).arg(mc).arg(ml).arg(off.melee.npc_ac)},
     };
-    auto addSpellOff = [&](const char* key, const std::optional<SpellOffense>& so) {
+    auto addSpellOff = [&](const char* label, const char* key, const std::optional<SpellOffense>& so) {
         if (!so) return;
         const char* c = so->rating == OffenseRating::EASY   ? kGreen
                       : so->rating == OffenseRating::MEDIUM ? kOrange : kRed;
         const char* l = so->rating == OffenseRating::EASY   ? "EASY"
                       : so->rating == OffenseRating::MEDIUM ? "MEDIUM" : "HARD";
-        offPairs.push_back({key,
-            QString("<span style='color:%1'>%2 - NPC %3 %4</span>")
+        offPairs.push_back({label,
+            QString("<span style='color:%1'>%2 — NPC %3 %4</span>")
                 .arg(c).arg(l).arg(key).arg(so->npc_resist)});
     };
-    addSpellOff("MR", off.mr); addSpellOff("FR", off.fr);
-    addSpellOff("CR", off.cr); addSpellOff("DR", off.dr);
-    addSpellOff("PR", off.pr);
+    addSpellOff("Magic",   "MR", off.mr); addSpellOff("Fire",    "FR", off.fr);
+    addSpellOff("Cold",    "CR", off.cr); addSpellOff("Disease", "DR", off.dr);
+    addSpellOff("Poison",  "PR", off.pr);
     flOff->addWidget(gridWidget(offPairs, 1));
     layout->addWidget(fOff);
 
@@ -479,6 +788,22 @@ void FightTab::onLootClicked(int itemId) {
     auto item = _itemDb->getItemById(itemId);
     if (!item) return;
 
+    // Find equipped item in a matching slot for delta comparison
+    std::optional<ItemData> equippedItem;
+    if (_charInfo && item->item_slots) {
+        for (const auto& [slotName, bit] : kSlotBits) {
+            if (!(item->item_slots & bit)) continue;
+            for (const auto& [eqSlot, eqId] : _charInfo->equipped) {
+                if (eqSlot == slotName) {
+                    if (auto ei = _itemDb->getItemById(eqId))
+                        equippedItem = std::move(*ei);
+                    break;
+                }
+            }
+            if (equippedItem) break;
+        }
+    }
+
     while (_itemSectionLayout->count()) {
         auto* child = _itemSectionLayout->takeAt(0);
         if (child->widget()) child->widget()->deleteLater();
@@ -489,27 +814,9 @@ void FightTab::onLootClicked(int itemId) {
     sep->setStyleSheet("QFrame{color:#333333;border:none;background:#333333;max-height:1px;}");
     _itemSectionLayout->addWidget(sep);
 
-    auto* itemW = new QWidget;
-    auto* vl = new QVBoxLayout(itemW);
-    auto* nameL = new QLabel(QString::fromStdString(item->name));
-    nameL->setStyleSheet("font-size:13px;font-weight:bold;color:#e0e0e0;");
-    vl->addWidget(nameL);
-
-    // Stats
-    std::vector<std::pair<QString,QString>> stats;
-    if (item->hp)   stats.push_back({"HP",   QString::number(item->hp)});
-    if (item->mana) stats.push_back({"Mana", QString::number(item->mana)});
-    if (item->ac)   stats.push_back({"AC",   QString::number(item->ac)});
-    if (item->atk)  stats.push_back({"ATK",  QString::number(item->atk)});
-    if (!stats.empty()) {
-        auto [f, fl] = sectionFrame("#ef5350");
-        fl->addWidget(sectionLabel("Combat", "#ef5350"));
-        fl->addWidget(gridWidget(stats, 2));
-        vl->addWidget(f);
-    }
-
-    _itemSectionLayout->addWidget(itemW);
+    _itemSectionLayout->addWidget(
+        buildItemContent(*item, equippedItem ? &*equippedItem : nullptr));
     _itemSection->setVisible(true);
-    if (item->item_slots > 0)  // <-- item_slots not slots
+    if (item->item_slots > 0)
         emit itemSelected(QString::fromStdString(item->name));
 }
