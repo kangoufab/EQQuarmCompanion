@@ -11,7 +11,11 @@ public:
 
     [[nodiscard]] std::optional<ItemData> getItemById(int id);
     [[nodiscard]] QList<ItemData>         searchItems(const QString& nameFragment,
-                                                       int limit = 30);
+                                                       int limit = 30,
+                                                       int slotFilter = 0);
+
+    // Retourne les NPCs qui droppent cet item (loottable → npc_types), max 30.
+    [[nodiscard]] QList<NpcSourceData> getNpcSources(int itemId);
 
     // Retourne les sorts bénéfiques (goodEffect=1) castables par la classe donnée
     // jusqu'au niveau maxLevel, triés par niveau décroissant puis nom.

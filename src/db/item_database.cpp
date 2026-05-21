@@ -188,16 +188,20 @@ std::optional<ItemData> ItemDatabase::getItemById(int id) {
     return rowToItemData(q);
 }
 
-QList<ItemData> ItemDatabase::searchItems(const QString& nameFragment, int limit) {
+QList<ItemData> ItemDatabase::searchItems(const QString& nameFragment, int limit, int slotFilter) {
     QList<ItemData> result;
     QString cols = buildCols();
     QString from = buildFrom();
 
+    QString slotCond = (slotFilter > 0)
+        ? QString(" AND (i.slots & %1) != 0").arg(slotFilter)
+        : QString();
+
     QSqlQuery q(DbConnection::instance().db());
     q.prepare(
-        QString("SELECT %1 FROM %2 WHERE i.Name LIKE :name"
+        QString("SELECT %1 FROM %2 WHERE i.Name LIKE :name%3"
                 " ORDER BY CHAR_LENGTH(i.Name) ASC LIMIT :lim")
-            .arg(cols).arg(from)
+            .arg(cols).arg(from).arg(slotCond)
     );
     q.bindValue(":name", QString("%%1%").arg(nameFragment));
     q.bindValue(":lim", limit);
@@ -207,6 +211,43 @@ QList<ItemData> ItemDatabase::searchItems(const QString& nameFragment, int limit
     }
     while (q.next())
         result.append(rowToItemData(q));
+    return result;
+}
+
+QList<NpcSourceData> ItemDatabase::getNpcSources(int itemId) {
+    QList<NpcSourceData> result;
+    QSqlQuery q(DbConnection::instance().db());
+    q.prepare(
+        "SELECT nt.id, nt.name, nt.level,"
+        " lde.chance AS item_chance, lte.probability AS table_prob,"
+        " MIN(z.long_name) AS zone_long_name"
+        " FROM lootdrop_entries lde"
+        " JOIN loottable_entries lte ON lte.lootdrop_id = lde.lootdrop_id"
+        " JOIN npc_types nt ON nt.loottable_id = lte.loottable_id"
+        " LEFT JOIN spawnentry se ON se.npcID = nt.id"
+        " LEFT JOIN spawn2 s2 ON s2.spawngroupID = se.spawngroupID"
+        " LEFT JOIN zone z ON z.short_name = s2.zone"
+        " WHERE lde.item_id = :item_id"
+        " GROUP BY nt.id, nt.name, nt.level, lde.chance, lte.probability"
+        " ORDER BY (lte.probability * lde.chance) DESC"
+        " LIMIT 30"
+    );
+    q.bindValue(":item_id", itemId);
+    if (!q.exec()) {
+        qWarning() << "getNpcSources failed:" << q.lastError().text();
+        return result;
+    }
+    while (q.next()) {
+        NpcSourceData s;
+        s.id           = q.value("id").toInt();
+        s.name         = q.value("name").toString().toStdString();
+        s.level        = q.value("level").toInt();
+        double ip      = q.value("item_chance").toDouble();
+        double tp      = q.value("table_prob").toDouble();
+        s.drop_chance  = static_cast<float>(tp / 100.0 * ip / 100.0 * 100.0);
+        s.zone_long_name = q.value("zone_long_name").toString().toStdString();
+        result.append(s);
+    }
     return result;
 }
 
