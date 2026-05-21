@@ -144,7 +144,7 @@ struct ItemData {
     int mana_regen_base{}, mana_regen_formula{100}, mana_regen_max{};
 };
 
-struct LootItem { int item_id{}, item_slots{}; float chance{}; bool nodrop{}; std::string name; };
+struct LootItem { int item_id{}, item_slots{}; float chance{}; int nodrop{}; std::string name; };
 
 struct NpcSourceData {
     int id{}, level{};
