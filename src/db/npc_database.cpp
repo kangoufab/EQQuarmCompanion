@@ -81,6 +81,8 @@ std::optional<NpcData> NpcDatabase::getNpcById(int id) {
         " _INT AS int_v, WIS AS wis, CHA AS cha,"
         " MR AS mr, CR AS cr, DR AS dr, FR AS fr, PR AS pr,"
         " hp_regen_rate, mana_regen_rate, runspeed,"
+        " avoidance, slow_mitigation,"
+        " raid_target, isquest AS is_quest, encounter,"
         " special_abilities, npc_spells_id, loottable_id"
         " FROM npc_types WHERE id = :id LIMIT 1"
     );
@@ -113,11 +115,16 @@ std::optional<NpcData> NpcDatabase::getNpcById(int id) {
     npc.npc_spells_id   = q.value("npc_spells_id").toInt();
     npc.loottable_id    = q.value("loottable_id").toInt();
     npc.special_abilities = q.value("special_abilities").toString().toStdString();
+    npc.avoidance       = q.value("avoidance").toInt();
+    npc.slow_mitigation = q.value("slow_mitigation").toInt();
+    npc.raid_target     = q.value("raid_target").toBool();
+    npc.is_quest        = q.value("is_quest").toBool();
+    npc.encounter       = q.value("encounter").toBool();
 
     // Zone lookup
     QSqlQuery zq(DbConnection::instance().db());
     zq.prepare(
-        "SELECT MIN(z.long_name) AS zone_long_name"
+        "SELECT MIN(z.long_name) AS zone_long_name, MIN(z.type) AS zone_type"
         " FROM spawnentry se"
         " JOIN spawn2 s2 ON s2.spawngroupID = se.spawngroupID"
         " JOIN zone z ON z.short_name = s2.zone"
@@ -125,8 +132,10 @@ std::optional<NpcData> NpcDatabase::getNpcById(int id) {
     );
     zq.bindValue(":id", id);
     QString zone;
-    if (zq.exec() && zq.next())
+    if (zq.exec() && zq.next()) {
         zone = zq.value("zone_long_name").toString();
+        npc.zone_type = zq.value("zone_type").isNull() ? -1 : zq.value("zone_type").toInt();
+    }
     if (zone.isEmpty())
         zone = fallbackZone(QString::fromStdString(npc.name));
     npc.zone_long_name = zone.toStdString();
