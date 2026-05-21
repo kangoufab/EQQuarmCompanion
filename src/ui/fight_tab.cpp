@@ -62,7 +62,7 @@ static bool charCanEquip(const LootItem& item, const CharacterInfo* ci) {
     };
     auto cit = CLASS_BIT.find(ci->class_name);
     if (cit == CLASS_BIT.end()) return false;
-    if (item.classes != 65535 && !(item.classes & cit->second)) return false;
+    if ((item.classes & 32767) != 32767 && !(item.classes & cit->second)) return false;
     auto rit = RACE_BIT.find(ci->race);
     if (rit != RACE_BIT.end() && item.races != 65535 && item.races != 0
         && !(item.races & rit->second)) return false;
@@ -754,23 +754,29 @@ QWidget* FightTab::buildDpsSlowTable(
 void FightTab::onLootClicked(int itemId) {
     auto item = _itemDb->getItemById(itemId);
     if (!item) return;
+    _lootItem = *item;
 
-    // Find equipped item in a matching slot for delta comparison
-    std::optional<ItemData> equippedItem;
+    // Detect slots — prioritise slots that have something equipped
+    _lootSlots.clear();
     if (_charInfo && item->item_slots) {
         for (const auto& [slotName, bit] : kSlotBits) {
             if (!(item->item_slots & bit)) continue;
-            for (const auto& [eqSlot, eqId] : _charInfo->equipped) {
-                if (eqSlot == slotName) {
-                    if (auto ei = _itemDb->getItemById(eqId))
-                        equippedItem = std::move(*ei);
-                    break;
-                }
-            }
-            if (equippedItem) break;
+            for (const auto& [eqSlot, eqId] : _charInfo->equipped)
+                if (eqSlot == slotName) { _lootSlots.push_back(QString::fromStdString(slotName)); break; }
         }
     }
+    if (_lootSlots.empty() && item->item_slots) {
+        for (const auto& [slotName, bit] : kSlotBits)
+            if (item->item_slots & bit)
+                _lootSlots.push_back(QString::fromStdString(slotName));
+    }
 
+    showLootForSlot(_lootSlots.empty() ? "" : _lootSlots[0]);
+    if (item->item_slots > 0)
+        emit itemSelected(QString::fromStdString(item->name));
+}
+
+void FightTab::showLootForSlot(const QString& slot) {
     while (_itemSectionLayout->count()) {
         auto* child = _itemSectionLayout->takeAt(0);
         if (child->widget()) child->widget()->deleteLater();
@@ -781,15 +787,48 @@ void FightTab::onLootClicked(int itemId) {
     sep->setStyleSheet("QFrame{color:#333333;border:none;background:#333333;max-height:1px;}");
     _itemSectionLayout->addWidget(sep);
 
+    // Slot buttons (only when multiple slots)
+    if (_lootSlots.size() > 1) {
+        auto* slotW = new QWidget; slotW->setStyleSheet("background:transparent;");
+        auto* slotL = new QHBoxLayout(slotW);
+        slotL->setContentsMargins(0, 2, 0, 4); slotL->setSpacing(4);
+        auto* lbl = new QLabel("Slot :");
+        lbl->setStyleSheet("color:#888;font-size:12px;background:transparent;");
+        slotL->addWidget(lbl);
+        for (const auto& s : _lootSlots) {
+            auto* btn = new QPushButton(s);
+            bool cur = (s == slot);
+            btn->setEnabled(!cur);
+            btn->setStyleSheet(cur
+                ? "QPushButton{background:#2a3a5a;border:1px solid #64b5f6;border-radius:3px;"
+                  "color:#64b5f6;padding:1px 8px;font-size:12px;}"
+                : "QPushButton{background:#1a2236;border:1px solid #3a4a6a;border-radius:3px;"
+                  "color:#c0c0c0;padding:1px 8px;font-size:12px;}"
+                  "QPushButton:hover{border-color:#64b5f6;color:#64b5f6;}");
+            connect(btn, &QPushButton::clicked, [this, s]() { showLootForSlot(s); });
+            slotL->addWidget(btn);
+        }
+        slotL->addStretch();
+        _itemSectionLayout->addWidget(slotW);
+    }
+
+    // Equipped item in this slot for delta comparison
+    std::optional<ItemData> equippedItem;
+    if (_charInfo && !slot.isEmpty()) {
+        for (const auto& [eqSlot, eqId] : _charInfo->equipped) {
+            if (QString::fromStdString(eqSlot) == slot) {
+                equippedItem = _itemDb->getItemById(eqId);
+                break;
+            }
+        }
+    }
+
     std::optional<SpellData> clickSpell;
-    int spellId = item->clickeffect > 0 ? item->clickeffect : item->scrolleffect;
-    if (spellId > 0)
-        clickSpell = _itemDb->getSpellById(spellId);
+    int spellId = _lootItem.clickeffect > 0 ? _lootItem.clickeffect : _lootItem.scrolleffect;
+    if (spellId > 0) clickSpell = _itemDb->getSpellById(spellId);
 
     _itemSectionLayout->addWidget(
-        makeItemCard(&*item, equippedItem ? &*equippedItem : nullptr,
+        makeItemCard(&_lootItem, equippedItem ? &*equippedItem : nullptr,
                      clickSpell ? &*clickSpell : nullptr));
     _itemSection->setVisible(true);
-    if (item->item_slots > 0)
-        emit itemSelected(QString::fromStdString(item->name));
 }

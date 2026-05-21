@@ -391,8 +391,10 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
 
     // ── Classes / Races ───────────────────────────────────────────────────
     {
-        constexpr int ALL_CLS = (1 << 16) - 1;
-        constexpr int ALL_RAC = (1 << 15) - 1;
+        // Classes : 15 pre-GoD (no Berserker) → 32767; covers 32767 and 65535
+        constexpr int ALL_CLS = (1 << 15) - 1;  // 32767
+        // Races : 14 Luclin-era races (Human→Vah Shir, no Froglok) → 16383
+        constexpr int ALL_RAC = (1 << 14) - 1;  // 16383
 
         QString clsTxt, racTxt;
         if (!item->classes || (item->classes & ALL_CLS) == ALL_CLS)

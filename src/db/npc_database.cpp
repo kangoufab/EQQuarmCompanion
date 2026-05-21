@@ -75,7 +75,7 @@ std::optional<NpcData> NpcDatabase::getNpcById(int id) {
     QSqlQuery q(DbConnection::instance().db());
     q.prepare(
         "SELECT nt.id, nt.name, nt.level, nt.maxlevel, nt.hp, nt.mana,"
-        " nt.race, `nt`.`class` AS npc_class, nt.bodytype,"
+        " nt.race, nt.`class` AS npc_class, nt.bodytype,"
         " COALESCE(r.name, CONCAT('Race ', nt.race)) AS race_name,"
         " nt.AC AS ac, nt.ATK AS atk, nt.mindmg AS min_hit, nt.maxdmg AS max_hit,"
         " nt.attack_delay, nt.attack_count, nt.Accuracy AS accuracy,"

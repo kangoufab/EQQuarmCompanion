@@ -31,6 +31,7 @@ private slots:
 
 private:
     void buildUi();
+    void showLootForSlot(const QString& slot);
     QWidget* buildLeftPanel(const NpcData&);
     QWidget* buildRightPanel(const NpcData&);
     QWidget* buildDpsSlowTable(
@@ -54,6 +55,9 @@ private:
     bool                 _hasNpc{false};
     std::vector<NpcData> _searchResults;
     QString              _lootSort{"chance"};
+
+    ItemData             _lootItem{};
+    std::vector<QString> _lootSlots;
 
     QFutureWatcher<std::vector<NpcData>>* _searchWatcher;
 };
