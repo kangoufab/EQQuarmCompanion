@@ -35,6 +35,9 @@ struct NpcData {
     int  min_hit{}, max_hit{}, attack_delay{10}, attack_count{1};
     int  mr{}, fr{}, cr{}, dr{}, pr{};
     int  npc_spells_id{}, loottable_id{}, race{}, npc_class{};
+    int  avoidance{}, slow_mitigation{};          // H
+    bool raid_target{}, is_quest{}, encounter{};  // E
+    int  zone_type{-1};                           // F (-1=unknown, 0=dungeon, 1=outdoor, 2=city)
     std::string name, special_abilities, zone_long_name;
 };
 
@@ -129,6 +132,8 @@ struct ItemData {
     int haste{}, hp_regen{}, mana_regen{};
     int item_slots{}, classes{65535}, reqlevel{};
     int worneffect{}, focuseffect{}, proceffect{};
+    int skillmodtype{-1}, skillmodvalue{};  // C: skill modifier (skillmodtype=-1 = none)
+    int nodrop{};                           // G: 1=no-drop, 0=droppable
     std::string name, lore;
     std::string worneffect_name, focuseffect_name, proceffect_name;
     // Raw worn-effect formula data — filled by DB, consumed by applyWornStats()
@@ -139,4 +144,10 @@ struct ItemData {
     int mana_regen_base{}, mana_regen_formula{100}, mana_regen_max{};
 };
 
-struct LootItem { int item_id{}, item_slots{}; float chance{}; std::string name; };
+struct LootItem { int item_id{}, item_slots{}; float chance{}; bool nodrop{}; std::string name; };
+
+struct NpcSourceData {
+    int id{}, level{};
+    float drop_chance{};
+    std::string name, zone_long_name;
+};
