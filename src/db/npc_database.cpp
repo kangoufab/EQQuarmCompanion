@@ -74,17 +74,21 @@ QList<NpcData> NpcDatabase::searchNpcs(const QString& nameFragment) {
 std::optional<NpcData> NpcDatabase::getNpcById(int id) {
     QSqlQuery q(DbConnection::instance().db());
     q.prepare(
-        "SELECT id, name, level, maxlevel, hp, mana, race, `class` AS npc_class, bodytype,"
-        " AC AS ac, ATK AS atk, mindmg AS min_hit, maxdmg AS max_hit,"
-        " attack_delay, attack_count, Accuracy AS accuracy,"
-        " STR AS str_v, STA AS sta, DEX AS dex, AGI AS agi,"
-        " _INT AS int_v, WIS AS wis, CHA AS cha,"
-        " MR AS mr, CR AS cr, DR AS dr, FR AS fr, PR AS pr,"
-        " hp_regen_rate, mana_regen_rate, runspeed,"
-        " avoidance, slow_mitigation,"
-        " raid_target, isquest AS is_quest, encounter,"
-        " special_abilities, npc_spells_id, loottable_id"
-        " FROM npc_types WHERE id = :id LIMIT 1"
+        "SELECT nt.id, nt.name, nt.level, nt.maxlevel, nt.hp, nt.mana,"
+        " nt.race, `nt`.`class` AS npc_class, nt.bodytype,"
+        " COALESCE(r.name, CONCAT('Race ', nt.race)) AS race_name,"
+        " nt.AC AS ac, nt.ATK AS atk, nt.mindmg AS min_hit, nt.maxdmg AS max_hit,"
+        " nt.attack_delay, nt.attack_count, nt.Accuracy AS accuracy,"
+        " nt.STR AS str_v, nt.STA AS sta, nt.DEX AS dex, nt.AGI AS agi,"
+        " nt._INT AS int_v, nt.WIS AS wis, nt.CHA AS cha,"
+        " nt.MR AS mr, nt.CR AS cr, nt.DR AS dr, nt.FR AS fr, nt.PR AS pr,"
+        " nt.hp_regen_rate, nt.mana_regen_rate, nt.runspeed,"
+        " nt.avoidance, nt.slow_mitigation,"
+        " nt.raid_target, nt.isquest AS is_quest, nt.encounter,"
+        " nt.special_abilities, nt.npc_spells_id, nt.loottable_id"
+        " FROM npc_types nt"
+        " LEFT JOIN races r ON r.id = nt.race"
+        " WHERE nt.id = :id LIMIT 1"
     );
     q.bindValue(":id", id);
     if (!q.exec()) {
@@ -112,6 +116,19 @@ std::optional<NpcData> NpcDatabase::getNpcById(int id) {
     npc.pr              = q.value("pr").toInt();
     npc.race            = q.value("race").toInt();
     npc.npc_class       = q.value("npc_class").toInt();
+    npc.race_name       = q.value("race_name").toString().toStdString();
+    {
+        static const std::map<int,const char*> CLS = {
+            {1,"Warrior"},{2,"Cleric"},{3,"Paladin"},{4,"Ranger"},
+            {5,"Shadowknight"},{6,"Druid"},{7,"Monk"},{8,"Bard"},
+            {9,"Rogue"},{10,"Shaman"},{11,"Necromancer"},{12,"Wizard"},
+            {13,"Magician"},{14,"Enchanter"},{15,"Beastlord"},{16,"Berserker"},
+            {20,"Warrior"},{21,"Paladin"},{22,"Ranger"},{23,"Shadowknight"},
+        };
+        auto it = CLS.find(npc.npc_class);
+        npc.class_name = it != CLS.end() ? it->second
+                                         : "Classe " + std::to_string(npc.npc_class);
+    }
     npc.npc_spells_id   = q.value("npc_spells_id").toInt();
     npc.loottable_id    = q.value("loottable_id").toInt();
     npc.special_abilities = q.value("special_abilities").toString().toStdString();
@@ -207,7 +224,7 @@ QList<LootItem> NpcDatabase::getNpcLoot(int loottableId) {
         " lte.probability AS table_probability,"
         " lte.multiplier AS table_multiplier,"
         " lte.droplimit, lte.mindrop,"
-        " i.slots, i.nodrop"
+        " i.slots, i.nodrop, i.classes, i.races, i.reqlevel"
         " FROM loottable_entries lte"
         " JOIN lootdrop_entries lde ON lde.lootdrop_id = lte.lootdrop_id"
         " JOIN items i ON i.id = lde.item_id"
@@ -222,6 +239,7 @@ QList<LootItem> NpcDatabase::getNpcLoot(int loottableId) {
     // Collect raw rows to compute loot chances (EQMacEmu algorithm)
     struct RawRow {
         int    item_id{}, slots{}, nodrop{};
+        int    classes{65535}, races{65535}, reqlevel{};
         double item_chance{}, table_probability{}, table_multiplier{};
         int    droplimit{}, mindrop{}, lootdrop_id{};
         QString name;
@@ -241,6 +259,9 @@ QList<LootItem> NpcDatabase::getNpcLoot(int loottableId) {
         r.lootdrop_id      = q.value("lootdrop_id").toInt();
         r.slots            = q.value("slots").toInt();
         r.nodrop           = q.value("nodrop").toInt();
+        r.classes          = q.value("classes").isNull() ? 65535 : q.value("classes").toInt();
+        r.races            = q.value("races").isNull()   ? 65535 : q.value("races").toInt();
+        r.reqlevel         = q.value("reqlevel").toInt();
         totals[r.lootdrop_id] += r.item_chance;
         rows.append(r);
     }
@@ -269,7 +290,10 @@ QList<LootItem> NpcDatabase::getNpcLoot(int loottableId) {
         li.name    = r.name.toStdString();
         li.chance  = static_cast<float>(chance);
         li.item_slots = r.slots;
-        li.nodrop  = r.nodrop;
+        li.nodrop   = r.nodrop;
+        li.classes  = r.classes;
+        li.races    = r.races;
+        li.reqlevel = r.reqlevel;
         result.append(li);
     }
 

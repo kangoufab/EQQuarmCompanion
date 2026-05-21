@@ -1,4 +1,5 @@
 ﻿#include "ui/fight_tab.h"
+#include "ui/item_card.h"
 #include "ui/ui_helpers.h"
 #include "ui/widgets.h"
 #include "core/config.h"
@@ -45,6 +46,30 @@ static QString decodeSlots(int bits) {
     for (auto& [n, b] : kSlotBits) if (bits & b) out << n;
     return out.join(", ");
 }
+
+
+static bool charCanEquip(const LootItem& item, const CharacterInfo* ci) {
+    if (!ci || item.item_slots == 0) return false;
+    static const std::map<std::string, int> CLASS_BIT = {
+        {"Warrior",1},{"Cleric",2},{"Paladin",4},{"Ranger",8},
+        {"Shadowknight",16},{"Druid",32},{"Monk",64},{"Bard",128},
+        {"Rogue",256},{"Shaman",512},{"Necromancer",1024},{"Wizard",2048},
+        {"Magician",4096},{"Enchanter",8192},{"Beastlord",16384},{"Berserker",32768},
+    };
+    static const std::map<int, int> RACE_BIT = {
+        {1,1},{2,2},{3,4},{4,8},{5,16},{6,32},{7,64},{8,128},
+        {9,256},{10,512},{11,1024},{12,2048},{128,4096},{130,8192},{330,16384},{331,16384},
+    };
+    auto cit = CLASS_BIT.find(ci->class_name);
+    if (cit == CLASS_BIT.end()) return false;
+    if (item.classes != 65535 && !(item.classes & cit->second)) return false;
+    auto rit = RACE_BIT.find(ci->race);
+    if (rit != RACE_BIT.end() && item.races != 65535 && item.races != 0
+        && !(item.races & rit->second)) return false;
+    if (item.reqlevel > 0 && item.reqlevel > ci->level) return false;
+    return true;
+}
+
 
 static QString valueDelta(int v, int r) {
     if (!r) return QString::number(v);
@@ -150,150 +175,6 @@ static int itemStatVal(const ItemData& item, const std::string& k) {
     if (k=="mana_regen") return item.mana_regen;
     if (k=="damage")     return item.damage;
     return 0;
-}
-
-static QWidget* buildItemContent(const ItemData& item, const ItemData* ref) {
-    auto* container = new QWidget;
-    auto* layout = new QVBoxLayout(container);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(8);
-    layout->setAlignment(Qt::AlignTop);
-
-    auto* nameL = new QLabel(QString::fromStdString(item.name));
-    nameL->setStyleSheet("font-size:13px;font-weight:bold;color:#e0e0e0;");
-    layout->addWidget(nameL);
-
-    {
-        QStringList parts;
-        if (item.item_slots) parts << decodeSlots(item.item_slots);
-        if (item.reqlevel > 0) parts << QString("Req. %1").arg(item.reqlevel);
-        if (ref && !ref->name.empty()) parts << QString("vs %1").arg(QString::fromStdString(ref->name));
-        auto* sub = new QLabel(parts.join("  ·  "));
-        sub->setStyleSheet("color:#888888;font-size:13px;"); sub->setWordWrap(true);
-        layout->addWidget(sub);
-    }
-
-    if (!item.lore.empty() && item.lore != item.name) {
-        auto* lore = new QLabel(QString::fromStdString(item.lore));
-        lore->setStyleSheet("color:#555555;font-size:14px;font-style:italic;");
-        lore->setWordWrap(true);
-        layout->addWidget(lore);
-    }
-
-    {
-        std::vector<std::pair<QString,QString>> pairs;
-        auto add = [&](const char* l, int v, int r) {
-            if (!v && !(ref && r)) return;
-            pairs.push_back({l, ref ? valueDelta(v, r) : QString::number(v)});
-        };
-        add("HP",   item.hp,   ref ? ref->hp   : 0);
-        add("Mana", item.mana, ref ? ref->mana : 0);
-        add("AC",   item.ac,   ref ? ref->ac   : 0);
-        add("ATK",  item.atk,  ref ? ref->atk  : 0);
-        if (item.haste || (ref && ref->haste)) {
-            int rh = ref ? ref->haste : 0;
-            pairs.push_back({"Haste", ref ? valueDelta(item.haste, rh)
-                                          : QString("+%1%").arg(item.haste)});
-        }
-        auto addRegen = [&](const char* l, int v, int r) {
-            if (!v && !(ref && r)) return;
-            pairs.push_back({l, ref ? valueDelta(v, r) : QString("+%1").arg(v)});
-        };
-        addRegen("HP Regen",   item.hp_regen,   ref ? ref->hp_regen   : 0);
-        addRegen("Mana Regen", item.mana_regen, ref ? ref->mana_regen : 0);
-        if (!pairs.empty()) {
-            auto [f, fl] = sectionFrame("#ef5350");
-            fl->addWidget(sectionLabel("Combat", "#ef5350"));
-            fl->addWidget(gridWidget(pairs, 2));
-            layout->addWidget(f);
-        }
-    }
-
-    {
-        std::vector<std::pair<QString,QString>> pairs;
-        auto add = [&](const char* l, int v, int r) {
-            if (!v && !(ref && r)) return;
-            pairs.push_back({l, ref ? valueDelta(v, r) : QString::number(v)});
-        };
-        add("STR", item.astr, ref ? ref->astr : 0);
-        add("STA", item.asta, ref ? ref->asta : 0);
-        add("DEX", item.adex, ref ? ref->adex : 0);
-        add("AGI", item.aagi, ref ? ref->aagi : 0);
-        add("INT", item.aint, ref ? ref->aint : 0);
-        add("WIS", item.awis, ref ? ref->awis : 0);
-        add("CHA", item.acha, ref ? ref->acha : 0);
-        if (!pairs.empty()) {
-            auto [f, fl] = sectionFrame("#64b5f6");
-            fl->addWidget(sectionLabel("Stats", "#64b5f6"));
-            fl->addWidget(gridWidget(pairs, 4));
-            layout->addWidget(f);
-        }
-    }
-
-    {
-        std::vector<std::pair<QString,QString>> pairs;
-        auto add = [&](const char* l, int v, int r) {
-            if (!v && !(ref && r)) return;
-            pairs.push_back({l, ref ? valueDelta(v, r) : QString::number(v)});
-        };
-        add("MR", item.mr, ref ? ref->mr : 0);
-        add("FR", item.fr, ref ? ref->fr : 0);
-        add("CR", item.cr, ref ? ref->cr : 0);
-        add("DR", item.dr, ref ? ref->dr : 0);
-        add("PR", item.pr, ref ? ref->pr : 0);
-        if (!pairs.empty()) {
-            auto [f, fl] = sectionFrame("#64b5f6");
-            fl->addWidget(sectionLabel("Resists", "#64b5f6"));
-            fl->addWidget(gridWidget(pairs, 5));
-            layout->addWidget(f);
-        }
-    }
-
-    if (item.damage > 0 && item.delay > 0) {
-        static const std::map<int,const char*> itemTypes = {
-            {0,"1H Slash"},{1,"2H Slash"},{2,"Piercing"},{3,"1H Blunt"},{4,"2H Blunt"},
-            {5,"Archery"},{7,"Throwing"},{8,"Shield"},{10,"2H Pierce"},{11,"Hand to Hand"},{35,"Bow"},
-        };
-        auto tIt = itemTypes.find(item.itemtype);
-        QString typeName = tIt != itemTypes.end() ? tIt->second
-                                                   : QString("Type %1").arg(item.itemtype);
-        float ratio = item.damage / (item.delay / 10.f);
-        int rDmg = ref ? ref->damage : 0;
-        int rDly = ref ? ref->delay  : 0;
-        float rRatio = (rDmg && rDly) ? rDmg / (rDly / 10.f) : 0.f;
-        std::vector<std::pair<QString,QString>> pairs;
-        pairs.push_back({"Damage", ref ? valueDelta(item.damage, rDmg)
-                                       : QString::number(item.damage)});
-        if (ref && rDly) {
-            pairs.push_back({"Delay", valueDeltaInvert(item.delay, rDly)});
-            pairs.push_back({"Ratio", valueDelta((int)(ratio*100), (int)(rRatio*100))});
-        } else {
-            pairs.push_back({"Delay", QString("%1s").arg(item.delay/10.0, 0,'f',1)});
-            pairs.push_back({"Ratio", QString("%1").arg(ratio, 0,'f',2)});
-        }
-        auto [f, fl] = sectionFrame("#ffb74d");
-        fl->addWidget(sectionLabel(QString("Weapon — %1").arg(typeName), "#ffb74d"));
-        fl->addWidget(gridWidget(pairs, 3));
-        layout->addWidget(f);
-    }
-
-    {
-        std::vector<std::pair<QString,QString>> pairs;
-        if (!item.worneffect_name.empty())
-            pairs.push_back({"Worn",  QString::fromStdString(item.worneffect_name)});
-        if (!item.focuseffect_name.empty())
-            pairs.push_back({"Focus", QString::fromStdString(item.focuseffect_name)});
-        if (item.damage > 0 && !item.proceffect_name.empty())
-            pairs.push_back({"Proc",  QString::fromStdString(item.proceffect_name)});
-        if (!pairs.empty()) {
-            auto [f, fl] = sectionFrame("#ba68c8");
-            fl->addWidget(sectionLabel("Effects", "#ba68c8"));
-            fl->addWidget(gridWidget(pairs, 1));
-            layout->addWidget(f);
-        }
-    }
-
-    return container;
 }
 
 // ── Constructor ───────────────────────────────────────────────────────────────
@@ -442,7 +323,11 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
                         .arg(QString::fromUtf8(zt->second));
     }
     auto* sub = new QLabel(
-        zoneTxt + QString("  *  Race %1  *  Class %2").arg(npc.race).arg(npc.npc_class));
+        zoneTxt + QString("  *  %1  *  %2")
+            .arg(QString::fromStdString(npc.race_name.empty()
+                ? "Race " + std::to_string(npc.race) : npc.race_name))
+            .arg(QString::fromStdString(npc.class_name.empty()
+                ? "Classe " + std::to_string(npc.npc_class) : npc.class_name)));
     sub->setTextFormat(Qt::RichText);
     sub->setStyleSheet("color:#888888;font-size:13px;");
     layout->addWidget(sub);
@@ -534,7 +419,9 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
         } else {
             for (const auto& item : loot) {
                 bool equippable = item.item_slots > 0;
-                const char* nameColor = equippable ? "#e0e0e0" : "#555555";
+                bool usable = charCanEquip(item, _charInfo);
+                // 3 levels: usable by char = bright, has slots but wrong class/race/level = dim, no slots = very dim
+                const char* nameColor = usable ? "#e0e0e0" : (equippable ? "#666666" : "#444444");
 
                 auto* row = new QWidget; row->setStyleSheet("background:transparent;");
                 auto* rowL = new QHBoxLayout(row);
@@ -657,6 +544,31 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
         {"CR", resEntry(ratings.cr)}, {"DR", resEntry(ratings.dr)},
         {"PR", resEntry(ratings.pr)},
     }, 1));
+
+    // Resist recommendation — what's needed to reach GOOD
+    // Formula: pct = val/(val + npc.level*2) >= 0.65  →  val >= ceil(26*level/7)
+    {
+        int threshold = (26 * npc.level + 6) / 7;
+        QStringList needs;
+        auto check = [&](const char* label, int cur, const ResistRating& r) {
+            if (r.rating != Rating::GOOD && cur < threshold)
+                needs << QString("+%1 %2").arg(threshold - cur).arg(label);
+        };
+        check("MR", _totals->mr, ratings.mr);
+        check("FR", _totals->fr, ratings.fr);
+        check("CR", _totals->cr, ratings.cr);
+        check("DR", _totals->dr, ratings.dr);
+        check("PR", _totals->pr, ratings.pr);
+        if (!needs.isEmpty()) {
+            auto* lbl = new QLabel(
+                QString("Pour GOOD (%1+) : %2")
+                    .arg(threshold).arg(needs.join("  ·  ")));
+            lbl->setStyleSheet("color:#666666;font-size:12px;background:transparent;");
+            lbl->setWordWrap(true);
+            flRes->addWidget(lbl);
+        }
+    }
+
     layout->addWidget(fRes);
 
     // NPC Spells
@@ -869,8 +781,14 @@ void FightTab::onLootClicked(int itemId) {
     sep->setStyleSheet("QFrame{color:#333333;border:none;background:#333333;max-height:1px;}");
     _itemSectionLayout->addWidget(sep);
 
+    std::optional<SpellData> clickSpell;
+    int spellId = item->clickeffect > 0 ? item->clickeffect : item->scrolleffect;
+    if (spellId > 0)
+        clickSpell = _itemDb->getSpellById(spellId);
+
     _itemSectionLayout->addWidget(
-        buildItemContent(*item, equippedItem ? &*equippedItem : nullptr));
+        makeItemCard(&*item, equippedItem ? &*equippedItem : nullptr,
+                     clickSpell ? &*clickSpell : nullptr));
     _itemSection->setVisible(true);
     if (item->item_slots > 0)
         emit itemSelected(QString::fromStdString(item->name));

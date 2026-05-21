@@ -93,8 +93,9 @@ Qt's AUTOMOC scans files listed in `add_library()`/`add_executable()`. Any QObje
 | `src/core/spell_stats.h/cpp` | spellValue, spellIncomingDps |
 | `src/core/spell_stacking.h/cpp` | spellsStack() — bard vs non-bard logic |
 | `src/ui/main_window.h/cpp` | App shell, character selector, global stats bar, DB badge, file watcher |
+| `src/ui/item_card.h/cpp` | Widget item unifié (carte compacte Option B) — utilisé par Stuff et Fight |
 | `src/ui/character_tab.h/cpp` | Stuff tab — slot filter, item comparison, Équiper, skill mods, source popup |
-| `src/ui/fight_tab.h/cpp` | 2D DPS×slow table, loot, NPC tags (raid/quest), avoidance/slow_mit |
+| `src/ui/fight_tab.h/cpp` | 2D DPS×slow table, loot (couleurs équipabilité), NPC tags, resists recommandées |
 | `src/ui/infos_tab.h/cpp` | Expansion selector + resist debuff groups |
 | `src/ui/spells_tab.h/cpp` | Buffs tab — class list, checkboxes, stacking, sets save/load, search bar |
 | `src/ui/infos_spell_data.h` | Données statiques sorts debuff + bestInGroup() + spellResistVal() |
@@ -105,5 +106,5 @@ At runtime, the app loads `config.json` from the same directory as the executabl
 
 ## Database
 
-MySQL database named `quarm` (Project Quarm server DB). Connection params in `config.json` under `"db"`. Default: `localhost:3306` user `root` no password. Tables used: `npc_types`, `spells_new`, `loottable`, `lootdrop`, `items`.
+MySQL database named `quarm` (Project Quarm server DB). Connection params in `config.json` under `"db"`. Default: `localhost:3306` user `root` no password. Tables used: `npc_types`, `spells_new`, `loottable`, `lootdrop`, `items`, `races`, `global_loot`.
 

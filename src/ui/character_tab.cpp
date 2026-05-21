@@ -427,184 +427,12 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
     return frame;
 }
 
-// ── makeItemCard ─────────────────────────────────────────────────────────
+// ── makeItemCard (supprimé — utilise ui/item_card.h) ─────────────────────
 
-static void addSeparator(QVBoxLayout* layout) {
-    auto* sep = new QFrame;
-    sep->setFrameShape(QFrame::HLine);
-    sep->setStyleSheet("QFrame { border: none; border-top: 1px solid #1e2a3a; "
-                       "margin: 3px 0; background: transparent; }");
-    layout->addWidget(sep);
-}
-
-static void addSectionHeader(QVBoxLayout* layout, const char* label, const char* color) {
-    auto* lbl = new QLabel(label);
-    lbl->setStyleSheet(
-        QString("font-size: 14px; color: %1; font-weight: bold; letter-spacing: 1px; "
-                "border: none; background: transparent;").arg(color));
-    layout->addWidget(lbl);
-}
-
-QFrame* CharacterTab::makeItemCard(const ItemData* item, const ItemData* refItem,
-                                    const QString& title, bool showDeltas)
+static QFrame* buildSlotCard(const ItemData* item, const ItemData* refItem,
+                               const QString& slotTitle)
 {
-    auto* frame = new QFrame;
-    frame->setStyleSheet(
-        "QFrame { background: #111c2e; border-radius: 5px; border: 1px solid #2a3a5a; }");
-
-    auto* outerL = new QVBoxLayout(frame);
-    outerL->setContentsMargins(0, 0, 0, 0);
-    outerL->setSpacing(0);
-
-    // ── En-tête (nom de l'item) ───────────────────────────────────────────
-    auto* header = new QWidget;
-    header->setStyleSheet(
-        "QWidget { background: #1a2a40; border-radius: 5px 5px 0 0; "
-        "border-bottom: 1px solid #2a3a5a; }");
-    auto* hL = new QHBoxLayout(header);
-    hL->setContentsMargins(10, 7, 10, 7);
-    auto* titleLbl = new QLabel(title);
-    titleLbl->setStyleSheet(
-        "font-weight: bold; font-size: 13px; color: #d0e8ff; "
-        "border: none; background: transparent;");
-    titleLbl->setWordWrap(true);
-    hL->addWidget(titleLbl);
-    outerL->addWidget(header);
-
-    // ── Corps ─────────────────────────────────────────────────────────────
-    auto* body = new QWidget;
-    body->setStyleSheet("QWidget { background: transparent; }");
-    auto* bodyL = new QVBoxLayout(body);
-    bodyL->setContentsMargins(10, 8, 10, 10);
-    bodyL->setSpacing(1);
-
-    if (!item) {
-        auto* lbl = new QLabel(QString::fromUtf8("(vide)"));
-        lbl->setStyleSheet(
-            "color: #555; font-style: italic; font-size: 14px; "
-            "border: none; background: transparent;");
-        bodyL->addWidget(lbl);
-        bodyL->addStretch();
-        outerL->addWidget(body);
-        return frame;
-    }
-
-    // Groupes de stats : {titre, couleur, liste de (stat_key, label)}
-    struct StatGroup {
-        const char* title;
-        const char* color;
-        std::vector<std::pair<std::string, std::string>> stats;
-    };
-    static const std::vector<StatGroup> GROUPS = {
-        {"COMBAT", "#64b5f6",
-            {{"hp","HP"},{"mana","Mana"},{"ac","AC"},{"atk","ATK"},{"damage","Dég"},{"delay","Vitesse"}}},
-        {"ATTRIBUTS", "#ffb74d",
-            {{"astr","FOR"},{"asta","CON"},{"adex","DEX"},{"aagi","AGI"},
-             {"awis","SAG"},{"aint","INT"},{"acha","CHA"}}},
-        {"RÉSISTS", "#ef5350",
-            {{"mr","Mag"},{"fr","Feu"},{"cr","Froid"},{"dr","Maladie"},{"pr","Poison"}}},
-        {"AUTRES", "#81c784",
-            {{"haste","Haste"},{"hp_regen","HP/tick"},{"mana_regen","Mana/tick"}}},
-    };
-
-    bool firstGroup = true;
-    for (auto& grp : GROUPS) {
-        // Collecter les stats non-nulles de ce groupe
-        struct Row { QString label; int val; int delta; };
-        std::vector<Row> rows;
-        for (auto& [stat, lbl] : grp.stats) {
-            int v = getItemStat(stat, *item);
-            int d = refItem ? v - getItemStat(stat, *refItem) : 0;
-            if (v == 0 && d == 0) continue;
-            rows.push_back({QString::fromStdString(lbl), v, d});
-        }
-        if (rows.empty()) continue;
-
-        if (!firstGroup) addSeparator(bodyL);
-        firstGroup = false;
-        addSectionHeader(bodyL, grp.title, grp.color);
-
-        // Grille 3 colonnes : nom · valeur · delta
-        auto* grid = new QWidget;
-        grid->setStyleSheet("background: transparent;");
-        auto* gridL = new QGridLayout(grid);
-        gridL->setContentsMargins(0, 2, 0, 2);
-        gridL->setVerticalSpacing(2);
-        gridL->setHorizontalSpacing(6);
-
-        for (int r = 0; r < (int)rows.size(); ++r) {
-            auto& row = rows[r];
-
-            auto* nameLbl = new QLabel(row.label);
-            nameLbl->setStyleSheet(
-                "color: #667788; font-size: 13px; border: none; background: transparent;");
-            gridL->addWidget(nameLbl, r, 0);
-
-            auto* valLbl = new QLabel(QString::number(row.val));
-            valLbl->setStyleSheet(
-                "color: #c8d8e8; font-size: 14px; font-weight: bold; "
-                "border: none; background: transparent;");
-            valLbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-            gridL->addWidget(valLbl, r, 1);
-
-            if (showDeltas && row.delta != 0) {
-                QString sign  = row.delta > 0 ? "+" : "";
-                QString color = row.delta > 0 ? "#4caf50" : "#ef5350";
-                auto* dLbl = new QLabel(sign + QString::number(row.delta));
-                dLbl->setStyleSheet(
-                    QString("color: %1; font-size: 14px; font-weight: bold; "
-                            "border: none; background: transparent;").arg(color));
-                dLbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-                gridL->addWidget(dLbl, r, 2);
-            }
-        }
-        gridL->setColumnStretch(0, 3);
-        gridL->setColumnStretch(1, 1);
-        gridL->setColumnStretch(2, 1);
-        bodyL->addWidget(grid);
-    }
-
-    // ── Effets ────────────────────────────────────────────────────────────
-    bool hasEffect = false;
-    auto addEffect = [&](int id, const std::string& name, const char* pfx, const char* col) {
-        if (id <= 0 || name.empty()) return;
-        if (!hasEffect) { addSeparator(bodyL); hasEffect = true; }
-        auto* lbl = new QLabel(
-            QString("<span style='color:%1;font-weight:bold;'>%2</span>"
-                    "<span style='color:#aaa;'> %3</span>")
-            .arg(col).arg(pfx).arg(QString::fromStdString(name)));
-        lbl->setTextFormat(Qt::RichText);
-        lbl->setStyleSheet("font-size: 13px; font-style: italic; "
-                           "border: none; background: transparent;");
-        lbl->setWordWrap(true);
-        bodyL->addWidget(lbl);
-    };
-    addEffect(item->worneffect,  item->worneffect_name,  "Worn",  "#8888ff");
-    addEffect(item->focuseffect, item->focuseffect_name, "Focus", "#88cc88");
-    if (item->damage > 0)
-        addEffect(item->proceffect, item->proceffect_name, "Proc", "#ffaa44");
-
-    // Skill mod (C)
-    if (item->skillmodtype >= 0 && item->skillmodvalue != 0) {
-        auto skillIt = SKILL_NAMES.find(item->skillmodtype);
-        QString skillName = skillIt != SKILL_NAMES.end()
-            ? skillIt->second
-            : QString("Skill %1").arg(item->skillmodtype);
-        addSeparator(bodyL);
-        auto* lbl = new QLabel(
-            QString("<span style='color:#ffb74d;font-weight:bold;'>Skill</span>"
-                    "<span style='color:#aaa;'> %1 %2%3</span>")
-            .arg(skillName)
-            .arg(item->skillmodvalue > 0 ? "+" : "")
-            .arg(item->skillmodvalue));
-        lbl->setTextFormat(Qt::RichText);
-        lbl->setStyleSheet("font-size: 13px; border: none; background: transparent;");
-        bodyL->addWidget(lbl);
-    }
-
-    bodyL->addStretch();
-    outerL->addWidget(body);
-    return frame;
+    return makeItemCard(item, refItem, nullptr, slotTitle);
 }
 
 // ── onSearchPopup ─────────────────────────────────────────────────────────
@@ -724,9 +552,8 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
     QString curName = curItem
         ? QString::fromStdString(curItem->name)
         : QString::fromUtf8("(vide)");
-    colL->addWidget(makeItemCard(curItem,   nullptr,  curName,   false));
-    colL->addWidget(makeItemCard(&newItem,  curItem,
-                                 QString::fromStdString(newItem.name), true));
+    colL->addWidget(buildSlotCard(curItem,  nullptr, curName));
+    colL->addWidget(makeItemCard(&newItem, curItem));
     _comparisonLayout->addWidget(colW);
 
     // Résumé : score + UPGRADE/DOWNGRADE

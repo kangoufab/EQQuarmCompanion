@@ -11,6 +11,5 @@ SearchComboBox::SearchComboBox(QWidget* parent) : QComboBox(parent) {
 }
 
 void SearchComboBox::showPopup() {
-    emit popup_requested();
     QComboBox::showPopup();
 }

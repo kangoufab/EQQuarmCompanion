@@ -1,5 +1,6 @@
 #pragma once
 #include "core/types.h"
+#include "ui/item_card.h"
 #include <QWidget>
 #include <QList>
 #include <map>
@@ -38,8 +39,7 @@ private:
                          const PlayerTotals& totals,
                          int attrCap, int resistCap,
                          const PlayerTotals* refTotals = nullptr);
-    QFrame* makeItemCard(const ItemData* item, const ItemData* refItem,
-                         const QString& title, bool showDeltas);
+
     void showComparison(const ItemData& newItem, const QString& slot,
                         const std::vector<QString>& allSlots = {});
     void clearComparison(bool emitReset = true);

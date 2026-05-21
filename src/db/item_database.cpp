@@ -76,7 +76,9 @@ static QString buildCols() {
         spaCaseMulti({0, 100}, "max")               + " AS hp_regen_max, " +
         spaCase(15, "effect_base_value")    + " AS mana_regen_base, " +
         spaCase(15, "formula", 100)         + " AS mana_regen_formula, " +
-        spaCase(15, "max")                  + " AS mana_regen_max";
+        spaCase(15, "max")                  + " AS mana_regen_max, " +
+        "i.clickeffect, COALESCE(sc.name, '') AS clickeffect_name, "
+        "i.scrolleffect, COALESCE(ss.name, '') AS scrolleffect_name";
 }
 
 static QString buildFrom() {
@@ -84,7 +86,9 @@ static QString buildFrom() {
         "items i"
         " LEFT JOIN spells_new sw ON sw.id = i.worneffect  AND i.worneffect  > 0"
         " LEFT JOIN spells_new sf ON sf.id = i.focuseffect AND i.focuseffect > 0"
-        " LEFT JOIN spells_new sp ON sp.id = i.proceffect  AND i.proceffect  > 0";
+        " LEFT JOIN spells_new sp ON sp.id = i.proceffect  AND i.proceffect  > 0"
+        " LEFT JOIN spells_new sc ON sc.id = i.clickeffect  AND i.clickeffect  > 0"
+        " LEFT JOIN spells_new ss ON ss.id = i.scrolleffect AND i.scrolleffect > 0";
 }
 
 // ── Map query row to ItemData ──────────────────────────────────────────────
@@ -125,6 +129,11 @@ static ItemData rowToItemData(QSqlQuery& q) {
     item.skillmodtype       = q.value("skillmodtype").isNull() ? -1 : q.value("skillmodtype").toInt();
     item.skillmodvalue      = q.value("skillmodvalue").toInt();
     item.nodrop             = q.value("nodrop").toInt();
+    item.races              = q.value("races").isNull() ? 65535 : q.value("races").toInt();
+    item.clickeffect        = q.value("clickeffect").toInt();
+    item.clickeffect_name   = q.value("clickeffect_name").toString().toStdString();
+    item.scrolleffect       = q.value("scrolleffect").toInt();
+    item.scrolleffect_name  = q.value("scrolleffect_name").toString().toStdString();
     item.atk_base           = q.value("atk_base").toInt();
     item.atk_formula        = q.value("atk_formula").toInt();
     item.atk_max            = q.value("atk_max").toInt();
@@ -258,7 +267,7 @@ std::optional<SpellData> ItemDatabase::getSpellById(int id) {
         effectCols += QString("effectid%1, effect_base_value%1, max%1, formula%1, ").arg(i);
     effectCols.chop(2);
     QString sql = QString(
-        "SELECT id, name, targettype, %1 FROM spells_new WHERE id = :id").arg(effectCols);
+        "SELECT id, name, targettype, resisttype AS resist_type, %1 FROM spells_new WHERE id = :id").arg(effectCols);
     QSqlQuery q(DbConnection::instance().db());
     q.prepare(sql);
     q.bindValue(":id", id);
@@ -266,7 +275,8 @@ std::optional<SpellData> ItemDatabase::getSpellById(int id) {
     SpellData sd;
     sd.id        = q.value("id").toInt();
     sd.name      = q.value("name").toString().toStdString();
-    sd.targettype= q.value("targettype").toInt();
+    sd.targettype  = q.value("targettype").toInt();
+    sd.resist_type = q.value("resist_type").toInt();
     for (int i = 0; i < 12; ++i) {
         int n = i + 1;
         sd.spa[i]               = q.value(QString("effectid%1").arg(n)).toInt();
