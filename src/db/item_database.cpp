@@ -64,7 +64,7 @@ static QString buildCols() {
         "i.worneffect, COALESCE(sw.name, '') AS worneffect_name, "
         "i.focuseffect, COALESCE(sf.name, '') AS focuseffect_name, "
         "i.proceffect, COALESCE(sp.name, '') AS proceffect_name, "
-        "i.wornlevel, " +
+        "i.wornlevel, i.skillmodtype, i.skillmodvalue, i.nodrop, " +
         spaCase(2,  "effect_base_value")    + " AS atk_base, " +
         spaCase(2,  "formula", 100)         + " AS atk_formula, " +
         spaCase(2,  "max")                  + " AS atk_max, " +
@@ -122,6 +122,9 @@ static ItemData rowToItemData(QSqlQuery& q) {
     item.proceffect_name  = q.value("proceffect_name").toString().toStdString();
 
     item.wornlevel          = q.value("wornlevel").toInt();
+    item.skillmodtype       = q.value("skillmodtype").isNull() ? -1 : q.value("skillmodtype").toInt();
+    item.skillmodvalue      = q.value("skillmodvalue").toInt();
+    item.nodrop             = q.value("nodrop").toInt();
     item.atk_base           = q.value("atk_base").toInt();
     item.atk_formula        = q.value("atk_formula").toInt();
     item.atk_max            = q.value("atk_max").toInt();
