@@ -16,7 +16,10 @@
 #include <QPushButton>
 #include <QComboBox>
 #include <QDialog>
+#include <QPointer>
 #include <QString>
+#include <QFutureWatcher>
+#include <QtConcurrent/QtConcurrent>
 #include <algorithm>
 #include <algorithm>
 #include <set>
@@ -814,8 +817,6 @@ void CharacterTab::clearComparison(bool emitReset)
 
 void CharacterTab::onShowSources(int itemId, const QString& itemName)
 {
-    auto sources = _itemDb->getNpcSources(itemId);
-
     auto* dlg = new QDialog(this);
     dlg->setWindowTitle(QString::fromUtf8("Sources \xe2\x80\x94 ") + itemName);
     dlg->setAttribute(Qt::WA_DeleteOnClose);
@@ -826,46 +827,31 @@ void CharacterTab::onShowSources(int itemId, const QString& itemName)
     layout->setContentsMargins(12, 12, 12, 12);
     layout->setSpacing(6);
 
-    if (sources.isEmpty()) {
-        auto* lbl = new QLabel(
-            QString::fromUtf8("Aucun NPC ne droppe cet item dans la base de données."));
-        lbl->setStyleSheet("color: #888; font-size: 13px;");
-        layout->addWidget(lbl);
-    } else {
-        auto* header = new QLabel(
-            QString("<b>%1</b> est dropp\xc3\xa9 par :").arg(itemName));
-        header->setTextFormat(Qt::RichText);
-        header->setStyleSheet("color: #64b5f6; font-size: 14px;");
-        layout->addWidget(header);
+    auto* header = new QLabel(
+        QString("<b>%1</b> est dropp\xc3\xa9 par :").arg(itemName));
+    header->setTextFormat(Qt::RichText);
+    header->setStyleSheet("color: #64b5f6; font-size: 14px;");
+    layout->addWidget(header);
 
-        auto* scroll = new QScrollArea;
-        scroll->setWidgetResizable(true);
-        scroll->setStyleSheet("QScrollArea { border: 1px solid #3a4a6a; background: #141428; }");
-        auto* inner = new QWidget;
-        inner->setStyleSheet("background: transparent;");
-        auto* innerL = new QVBoxLayout(inner);
-        innerL->setContentsMargins(6, 6, 6, 6);
-        innerL->setSpacing(3);
+    // État chargement (remplacé dès que la requête revient)
+    auto* loadingLbl = new QLabel(QString::fromUtf8("Chargement\xe2\x80\xa6"));
+    loadingLbl->setAlignment(Qt::AlignCenter);
+    loadingLbl->setStyleSheet("color: #555; font-size: 13px; font-style: italic;");
+    layout->addWidget(loadingLbl, 1);
 
-        for (const auto& src : sources) {
-            QString zone = src.zone_long_name.empty()
-                ? "?"
-                : QString::fromStdString(src.zone_long_name);
-            QString text = QString("<b>%1</b>  <span style='color:#888;font-size:13px;'>"
-                                   "niv.%2 \xe2\x80\x94 %3 \xe2\x80\x94 ~%4%</span>")
-                .arg(QString::fromStdString(src.name).replace('_', ' '))
-                .arg(src.level)
-                .arg(zone)
-                .arg(src.drop_chance, 0, 'f', 1);
-            auto* lbl = new QLabel(text);
-            lbl->setTextFormat(Qt::RichText);
-            lbl->setStyleSheet("border: none; background: transparent; font-size: 13px;");
-            innerL->addWidget(lbl);
-        }
-        innerL->addStretch();
-        scroll->setWidget(inner);
-        layout->addWidget(scroll, 1);
-    }
+    // Zone de résultats (masquée jusqu'à la fin de la requête)
+    auto* scroll = new QScrollArea;
+    scroll->setWidgetResizable(true);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scroll->setStyleSheet("QScrollArea { border: 1px solid #3a4a6a; background: #141428; }");
+    scroll->setVisible(false);
+    auto* inner = new QWidget;
+    inner->setStyleSheet("background: transparent;");
+    auto* innerL = new QVBoxLayout(inner);
+    innerL->setContentsMargins(6, 6, 6, 6);
+    innerL->setSpacing(3);
+    scroll->setWidget(inner);
+    layout->addWidget(scroll, 1);
 
     auto* closeBtn = new QPushButton("Fermer");
     closeBtn->setStyleSheet(
@@ -874,6 +860,54 @@ void CharacterTab::onShowSources(int itemId, const QString& itemName)
         "QPushButton:hover { border-color: #64b5f6; }");
     connect(closeBtn, &QPushButton::clicked, dlg, &QDialog::accept);
     layout->addWidget(closeBtn, 0, Qt::AlignRight);
+
+    // Requête async — le watcher est parente de this (pas dlg) pour survivre à une fermeture rapide
+    auto* watcher = new QFutureWatcher<QList<NpcSourceData>>(this);
+    QPointer<QDialog>  dlgPtr      = dlg;
+    QPointer<QLabel>   loadingPtr  = loadingLbl;
+    QPointer<QScrollArea> scrollPtr = scroll;
+    QPointer<QVBoxLayout> innerLPtr = innerL;
+
+    connect(watcher, &QFutureWatcher<QList<NpcSourceData>>::finished,
+            this, [watcher, dlgPtr, loadingPtr, scrollPtr, innerLPtr]() {
+        watcher->deleteLater();
+        if (!dlgPtr) return;  // dialog fermé avant la fin
+        auto sources = watcher->result();
+
+        if (loadingPtr) loadingPtr->setVisible(false);
+        if (!innerLPtr || !scrollPtr) return;
+
+        if (sources.isEmpty()) {
+            auto* lbl = new QLabel(
+                QString::fromUtf8("Aucun NPC ne droppe cet item dans la base de donn\xc3\xa9" "es."));
+            lbl->setStyleSheet("color: #888; font-size: 13px;");
+            lbl->setAlignment(Qt::AlignCenter);
+            innerLPtr->addWidget(lbl);
+        } else {
+            for (const auto& src : sources) {
+                QString zone = src.zone_long_name.empty()
+                    ? "?"
+                    : QString::fromStdString(src.zone_long_name);
+                QString text = QString("<b>%1</b>  <span style='color:#888;font-size:13px;'>"
+                                       "niv.%2 \xe2\x80\x94 %3 \xe2\x80\x94 ~%4%</span>")
+                    .arg(QString::fromStdString(src.name).replace('_', ' '))
+                    .arg(src.level)
+                    .arg(zone)
+                    .arg(src.drop_chance, 0, 'f', 1);
+                auto* lbl = new QLabel(text);
+                lbl->setTextFormat(Qt::RichText);
+                lbl->setStyleSheet("border: none; background: transparent; font-size: 13px;");
+                innerLPtr->addWidget(lbl);
+            }
+            innerLPtr->addStretch();
+        }
+        scrollPtr->setVisible(true);
+    });
+
+    ItemDatabase* db = _itemDb;
+    watcher->setFuture(QtConcurrent::run([db, itemId]() {
+        return db->getNpcSources(itemId);
+    }));
 
     dlg->exec();
 }
