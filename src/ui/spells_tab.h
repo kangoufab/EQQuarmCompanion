@@ -9,6 +9,7 @@ class Config;
 class ItemDatabase;
 class QComboBox;
 class QLabel;
+class QLineEdit;
 class QListWidget;
 class QPushButton;
 class QVBoxLayout;
@@ -55,6 +56,7 @@ private:
     std::map<std::string, ItemData> _equippedItems;
 
     QListWidget*  _classList{nullptr};
+    QLineEdit*    _spellSearch{nullptr};
     QWidget*      _rightInner{nullptr};
     QVBoxLayout*  _rightLayout{nullptr};
     QLabel*       _headerLabel{nullptr};

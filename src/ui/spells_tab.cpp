@@ -10,6 +10,7 @@
 
 #include <QCheckBox>
 #include <QComboBox>
+#include <QLineEdit>
 #include <QDebug>
 #include <QFrame>
 #include <QGridLayout>
@@ -247,6 +248,18 @@ void SpellsTab::buildUi()
             "border: none; background: transparent;");
         rightL->addWidget(sortsTitre);
 
+        // Search bar for filtering spells
+        _spellSearch = new QLineEdit;
+        _spellSearch->setPlaceholderText(QString::fromUtf8("Filtrer les sorts\xe2\x80\xa6"));
+        _spellSearch->setClearButtonEnabled(true);
+        _spellSearch->setStyleSheet(
+            "QLineEdit { background: #141428; border: 1px solid #3a4a6a; "
+            "border-radius: 3px; color: #c0c0c0; padding: 3px 6px; font-size: 13px; }"
+            "QLineEdit:focus { border-color: #64b5f6; }");
+        rightL->addWidget(_spellSearch);
+        connect(_spellSearch, &QLineEdit::textChanged,
+                this, [this](const QString&) { rebuildRightPanel(); });
+
         auto* panels = new QHBoxLayout;
         panels->setSpacing(6);
 
@@ -337,6 +350,8 @@ void SpellsTab::rebuildRightPanel()
         delete child;
     }
 
+    QString searchTxt = _spellSearch ? _spellSearch->text().trimmed() : QString();
+
     int charLevel    = _charInfo ? _charInfo->level : 0;
     int tooltipLevel = charLevel > 0 ? charLevel : expansionMaxLevel();
     int atCap        = (int)_activeBuffs.size() >= MAX_BUFF_SLOTS;
@@ -367,8 +382,12 @@ void SpellsTab::rebuildRightPanel()
     // Grouper les sorts
     std::map<std::string, std::vector<const SpellData*>> grouped;
     static const std::vector<std::string> CAT_ORDER = {"Melee","Range","Defense","Sorts","Autres"};
-    for (auto& sp : _currentClassSpells)
+    for (auto& sp : _currentClassSpells) {
+        if (!searchTxt.isEmpty() &&
+            !QString::fromStdString(sp.name).contains(searchTxt, Qt::CaseInsensitive))
+            continue;
         grouped[spellCategory(sp)].push_back(&sp);
+    }
 
     // ── Créer une checkbox pour un sort ──────────────────────────────────
     auto makeCheckbox = [&](const SpellData& spell) {
