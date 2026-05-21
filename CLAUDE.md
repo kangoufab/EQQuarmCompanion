@@ -46,7 +46,7 @@ cd build/debug
 ctest --output-on-failure
 ```
 
-28 tests across 5 suites: config, character_parser, stats_calculator, npc_analysis, spell_stats, spell_stacking.
+28 tests across 5 suites: config, stats_calculator, npc_analysis, spell_stats, spell_stacking.
 
 ## Architecture
 
@@ -60,8 +60,8 @@ resources/    # config_defaults.json, icons
 tests/        # GTest unit tests (core/ only)
 docs/
   specs/      # Functional specs for each feature
-  plans/      # Implementation plans (6 plans for the C++ rewrite)
-  formules-calcul-stats-et-stacking.md  # EQ formulas reference
+  plans/      # Implementation plans (6 C++ rewrite plans + 1 evolution plan)
+  functional-documentation.md  # EQ game formulas + combat analysis reference
 ```
 
 ## Critical Architecture Decisions
@@ -88,13 +88,15 @@ Qt's AUTOMOC scans files listed in `add_library()`/`add_executable()`. Any QObje
 | `src/core/types.h` | All shared structs (ItemData, LootItem, NpcData, CharacterData…) |
 | `src/core/config.h/cpp` | JSON config read/write, DbConfig, getResistDebuffs |
 | `src/core/character_parser.h/cpp` | Parse EQ TSV character files |
-| `src/core/stats_calculator.h/cpp` | HP/Mana/ATK/AC caps, class-gated mana |
+| `src/core/stats_calculator.h/cpp` | HP/Mana/ATK/AC caps, `applyWornStats`, `calculateTotalsWithSpells` (inclut AAs) |
 | `src/core/npc_analysis.h/cpp` | Incoming damage, resist ratings, slow land %, special abilities |
 | `src/core/spell_stats.h/cpp` | spellValue, spellIncomingDps |
 | `src/core/spell_stacking.h/cpp` | spellsStack() — bard vs non-bard logic |
-| `src/ui/fight_tab.h/cpp` | 2D DPS×slow table with CH rotation per cell |
+| `src/ui/main_window.h/cpp` | App shell, character selector, global stats bar, DB badge, file watcher |
+| `src/ui/character_tab.h/cpp` | Stuff tab — slot filter, item comparison, Équiper, skill mods, source popup |
+| `src/ui/fight_tab.h/cpp` | 2D DPS×slow table, loot, NPC tags (raid/quest), avoidance/slow_mit |
 | `src/ui/infos_tab.h/cpp` | Expansion selector + resist debuff groups |
-| `src/ui/spells_tab.h/cpp` | Onglet Buffs — class list, checkboxes, stacking, sets save/load |
+| `src/ui/spells_tab.h/cpp` | Buffs tab — class list, checkboxes, stacking, sets save/load, search bar |
 | `src/ui/infos_spell_data.h` | Données statiques sorts debuff + bestInGroup() + spellResistVal() |
 
 ## Config File
@@ -105,6 +107,3 @@ At runtime, the app loads `config.json` from the same directory as the executabl
 
 MySQL database named `quarm` (Project Quarm server DB). Connection params in `config.json` under `"db"`. Default: `localhost:3306` user `root` no password. Tables used: `npc_types`, `spells_new`, `loottable`, `lootdrop`, `items`.
 
-## Python Reference App
-
-Functional parity target: `D:\Games\quarm\source\eq-item-evaluator`. When the C++ behavior is unclear, check the Python source (`ui/fight_tab.py`, `core/npc_analysis.py`, etc.) as the reference implementation.

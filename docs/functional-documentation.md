@@ -2,7 +2,7 @@
 
 **Serveur :** Project Quarm (EQMacEmu, base Planes of Power)  
 **Référence serveur :** `common/emu_constants.h`, `zone/client_mods.cpp`, `zone/attack.cpp`, `zone/buffstacking.cpp`, `zone/mob.cpp`  
-**Mis à jour :** 2026-05-20 (révision 2)
+**Mis à jour :** 2026-05-21 (révision 4)
 
 ---
 
