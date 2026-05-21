@@ -99,10 +99,12 @@ SpellsTab::SpellsTab(Config* config, ItemDatabase* itemDb, QWidget* parent)
 // ── setCharacter ──────────────────────────────────────────────────────────
 
 void SpellsTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* baseTotals,
-                              const std::map<std::string, ItemData>& equipped)
+                              const std::map<std::string, ItemData>& equipped,
+                              const AaStats& aaStats)
 {
     _charInfo      = charInfo;
     _baseTotals    = baseTotals;
+    _aaStats       = aaStats;
     _equippedItems = equipped;
 
     // Reset state
@@ -625,7 +627,7 @@ void SpellsTab::refreshStats()
     }
 
     PlayerTotals totals = calculateTotalsWithSpells(
-        *_charInfo, items, spellDicts, primaryItemtype);
+        *_charInfo, items, spellDicts, primaryItemtype, nullptr, &_aaStats);
 
     // Construire l'extra pour les tooltips : spell_sources par stat
     PlayerTotalsExtra spellExtra;

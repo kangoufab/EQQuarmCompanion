@@ -695,7 +695,8 @@ PlayerTotals calculateTotalsWithSpells(
     const std::vector<ItemData>& items,
     const std::vector<std::map<std::string, int>>& spellDicts,
     int primaryItemtype,
-    PlayerTotalsExtra* extra)
+    PlayerTotalsExtra* extra,
+    const AaStats* aa)
 {
     PlayerTotals t;
     if (ci.level <= 0) return t;
@@ -741,6 +742,22 @@ PlayerTotals calculateTotalsWithSpells(
         itemManaRegenRaw += item.mana_regen;
     }
 
+    // AAs — même logique que calculateTotals
+    int aaHp = 0, aaHpRegen = 0, aaManaRegen = 0;
+    if (aa) {
+        auto getAa = [&](const char* k) {
+            auto it = aa->stats.find(k); return it != aa->stats.end() ? it->second : 0;
+        };
+        t.str_v += getAa("astr"); t.sta   += getAa("asta"); t.dex += getAa("adex");
+        t.agi   += getAa("aagi"); t.int_v += getAa("aint"); t.wis += getAa("awis");
+        t.cha   += getAa("acha");
+        t.mr    += getAa("mr");   t.fr    += getAa("fr");   t.cr  += getAa("cr");
+        t.dr    += getAa("dr");   t.pr    += getAa("pr");
+        aaHp        = getAa("hp");
+        aaHpRegen   = getAa("hp_regen");
+        aaManaRegen = getAa("mana_regen");
+    }
+
     // Accumulation des stats de sorts (avant caps)
     auto getSpell = [&](const std::map<std::string,int>& d, const char* k) {
         auto it = d.find(k); return it != d.end() ? it->second : 0;
@@ -771,18 +788,18 @@ PlayerTotals calculateTotalsWithSpells(
         spellManaRegen += getSpell(d, "mana_regen");
     }
 
-    // HP Regen : base + items cappés + sorts (non soumis au cap items)
+    // HP Regen : base + items cappés + sorts + AAs (non soumis au cap items)
     {
         int baseRegen    = calcBaseHpRegen(ci.level, ci.race);
         int itemRegenCap = (ci.level <= 60) ? 30 : ci.level - 30;
-        t.hp_regen = baseRegen + std::min(itemHpRegenRaw, itemRegenCap) + spellHpRegen;
+        t.hp_regen = baseRegen + std::min(itemHpRegenRaw, itemRegenCap) + spellHpRegen + aaHpRegen;
     }
 
-    // Mana Regen : base méditate + items cappés + sorts
+    // Mana Regen : base méditate + items cappés + sorts + AAs
     {
         int baseRegen  = calcBaseManaRegen(ci.class_name, ci.level);
         int cappedItem = classHasMana ? std::min(itemManaRegenRaw, MANA_REGEN_ITEM_CAP) : 0;
-        t.mana_regen = baseRegen + cappedItem + spellManaRegen;
+        t.mana_regen = baseRegen + cappedItem + spellManaRegen + aaManaRegen;
     }
 
     t.haste = std::min(t.haste, hasteCapPct(ci.level));
@@ -795,10 +812,13 @@ PlayerTotals calculateTotalsWithSpells(
     int totalSta = std::min(t.sta,   ATTRIBUTE_CAP);
     int totalAgi = std::min(t.agi,   ATTRIBUTE_CAP);
 
-    // HP : pas de cap items, +5 fixe, sorts ajoutés après base+items
+    // HP : base + items + ND sur (base+items) + aaHp + sorts + 5 fixe
     {
-        int baseHp = calcBaseHp(ci.class_name, ci.level, totalSta);
-        t.hp.base = t.hp.capped = baseHp + itemHpRaw + spellHp + 5;
+        int baseHp  = calcBaseHp(ci.class_name, ci.level, totalSta);
+        int ndBonus = 0;
+        if (aa && aa->nd_pct > 0.0f)
+            ndBonus = static_cast<int>((baseHp + itemHpRaw) * aa->nd_pct / 100.0f);
+        t.hp.base = t.hp.capped = baseHp + itemHpRaw + ndBonus + aaHp + spellHp + 5;
     }
 
     // Mana : pas de cap items

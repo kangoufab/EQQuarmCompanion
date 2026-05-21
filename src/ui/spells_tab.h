@@ -28,7 +28,8 @@ class SpellsTab : public QWidget {
 public:
     SpellsTab(Config* config, ItemDatabase* itemDb, QWidget* parent = nullptr);
     void setCharacter(CharacterInfo* charInfo, PlayerTotals* baseTotals,
-                      const std::map<std::string, ItemData>& equipped);
+                      const std::map<std::string, ItemData>& equipped,
+                      const AaStats& aaStats);
 
 signals:
     void statsChanged(PlayerTotals totals, PlayerTotalsExtra spellExtra);
@@ -53,6 +54,7 @@ private:
     ItemDatabase*  _itemDb;
     CharacterInfo* _charInfo{nullptr};
     PlayerTotals*  _baseTotals{nullptr};
+    AaStats        _aaStats;
     std::map<std::string, ItemData> _equippedItems;
 
     QListWidget*  _classList{nullptr};

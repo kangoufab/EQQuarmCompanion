@@ -309,7 +309,7 @@ void MainWindow::refreshAllTabs() {
 
     _charTab->setCharacter(&_currentChar, &_playerTotals, _equippedItems);
     _fightTab->setCharacter(&_currentChar, &_playerTotals);
-    _spellsTab->setCharacter(&_currentChar, &_playerTotals, _equippedItems);
+    _spellsTab->setCharacter(&_currentChar, &_playerTotals, _equippedItems, _aaStats);
 }
 
 void MainWindow::openSettings() {

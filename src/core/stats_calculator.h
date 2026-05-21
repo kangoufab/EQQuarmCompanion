@@ -23,7 +23,8 @@
     const std::vector<ItemData>& equippedItems,
     const std::vector<std::map<std::string, int>>& spellDicts,
     int primaryItemtype = 0,
-    PlayerTotalsExtra* extra = nullptr);
+    PlayerTotalsExtra* extra = nullptr,
+    const AaStats* aaStats = nullptr);
 
 // Applique les effets worn (procs, focus, etc.) à un item.
 void applyWornStats(ItemData& item, int level);
