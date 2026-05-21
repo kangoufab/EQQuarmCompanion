@@ -15,6 +15,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QComboBox>
+#include <QDialog>
 #include <QString>
 #include <algorithm>
 #include <algorithm>
@@ -75,6 +76,21 @@ static const std::map<std::string, std::string> STAT_LABELS = {
 
 static const std::map<std::string, std::string> STAT_SUFFIX = {
     {"haste", "%"}, {"hp_regen", "/tick"}, {"mana_regen", "/tick"},
+};
+
+static const std::map<int, const char*> SKILL_NAMES = {
+    {0,"1H Blunt"},{1,"1H Slash"},{2,"2H Blunt"},{3,"2H Slash"},
+    {4,"Abjuration"},{5,"Alteration"},{6,"Apply Poison"},{7,"Archery"},
+    {8,"Backstab"},{9,"Bind Wound"},{10,"Bash"},{11,"Block"},
+    {12,"Brass Inst."},{13,"Channeling"},{14,"Conjuration"},
+    {15,"Defense"},{16,"Disarm"},{17,"Disarm Traps"},{18,"Divination"},
+    {19,"Dodge"},{20,"Double Attack"},{21,"Dragon Punch"},{22,"Dual Wield"},
+    {23,"Eagle Strike"},{24,"Evocation"},{25,"Feign Death"},
+    {27,"Flying Kick"},{29,"Hand to Hand"},{30,"Hide"},{31,"Kick"},
+    {32,"Meditate"},{34,"Offense"},{35,"Parry"},{36,"Pick Lock"},
+    {37,"Piercing"},{38,"Riposte"},{39,"Round Kick"},{40,"Safe Fall"},
+    {42,"Singing"},{43,"Sneak"},{49,"Pick Pockets"},{51,"Swimming"},
+    {52,"Throwing"},{53,"Tiger Claw"},{54,"Tracking"},
 };
 
 // Slot bitmask (slot_name → bit)
@@ -565,6 +581,24 @@ QFrame* CharacterTab::makeItemCard(const ItemData* item, const ItemData* refItem
     if (item->damage > 0)
         addEffect(item->proceffect, item->proceffect_name, "Proc", "#ffaa44");
 
+    // Skill mod (C)
+    if (item->skillmodtype >= 0 && item->skillmodvalue != 0) {
+        auto skillIt = SKILL_NAMES.find(item->skillmodtype);
+        QString skillName = skillIt != SKILL_NAMES.end()
+            ? skillIt->second
+            : QString("Skill %1").arg(item->skillmodtype);
+        addSeparator(bodyL);
+        auto* lbl = new QLabel(
+            QString("<span style='color:#ffb74d;font-weight:bold;'>Skill</span>"
+                    "<span style='color:#aaa;'> %1 %2%3</span>")
+            .arg(skillName)
+            .arg(item->skillmodvalue > 0 ? "+" : "")
+            .arg(item->skillmodvalue));
+        lbl->setTextFormat(Qt::RichText);
+        lbl->setStyleSheet("font-size: 13px; border: none; background: transparent;");
+        bodyL->addWidget(lbl);
+    }
+
     bodyL->addStretch();
     outerL->addWidget(body);
     return frame;
@@ -742,6 +776,21 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
         _comparisonLayout->addWidget(equipBtn);
     }
 
+    // Bouton Source (B)
+    {
+        auto* srcBtn = new QPushButton(
+            QString::fromUtf8("Qui droppe cet item ?"));
+        srcBtn->setStyleSheet(
+            "QPushButton { background: #1e2a3e; border: 1px solid #3a4a6a; "
+            "border-radius: 3px; color: #888; padding: 3px 10px; font-size: 13px; }"
+            "QPushButton:hover { border-color: #64b5f6; color: #64b5f6; }");
+        connect(srcBtn, &QPushButton::clicked,
+                [this, itemId=newItem.id, itemName=QString::fromStdString(newItem.name)]() {
+                    onShowSources(itemId, itemName);
+                });
+        _comparisonLayout->addWidget(srcBtn);
+    }
+
     _comparisonArea->setVisible(true);
     if (_clearBtn) _clearBtn->setEnabled(true);
 }
@@ -759,6 +808,74 @@ void CharacterTab::clearComparison(bool emitReset)
     if (_clearBtn) _clearBtn->setEnabled(false);
     if (emitReset && _totals)
         emit statsChanged(*_totals, _equippedItems);
+}
+
+// ── onShowSources ─────────────────────────────────────────────────────────
+
+void CharacterTab::onShowSources(int itemId, const QString& itemName)
+{
+    auto sources = _itemDb->getNpcSources(itemId);
+
+    auto* dlg = new QDialog(this);
+    dlg->setWindowTitle(QString::fromUtf8("Sources \xe2\x80\x94 ") + itemName);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->resize(480, 360);
+    dlg->setStyleSheet("background: #0f1624; color: #c0c0c0;");
+
+    auto* layout = new QVBoxLayout(dlg);
+    layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(6);
+
+    if (sources.isEmpty()) {
+        auto* lbl = new QLabel(
+            QString::fromUtf8("Aucun NPC ne droppe cet item dans la base de données."));
+        lbl->setStyleSheet("color: #888; font-size: 13px;");
+        layout->addWidget(lbl);
+    } else {
+        auto* header = new QLabel(
+            QString("<b>%1</b> est dropp\xc3\xa9 par :").arg(itemName));
+        header->setTextFormat(Qt::RichText);
+        header->setStyleSheet("color: #64b5f6; font-size: 14px;");
+        layout->addWidget(header);
+
+        auto* scroll = new QScrollArea;
+        scroll->setWidgetResizable(true);
+        scroll->setStyleSheet("QScrollArea { border: 1px solid #3a4a6a; background: #141428; }");
+        auto* inner = new QWidget;
+        inner->setStyleSheet("background: transparent;");
+        auto* innerL = new QVBoxLayout(inner);
+        innerL->setContentsMargins(6, 6, 6, 6);
+        innerL->setSpacing(3);
+
+        for (const auto& src : sources) {
+            QString zone = src.zone_long_name.empty()
+                ? "?"
+                : QString::fromStdString(src.zone_long_name);
+            QString text = QString("<b>%1</b>  <span style='color:#888;font-size:13px;'>"
+                                   "niv.%2 \xe2\x80\x94 %3 \xe2\x80\x94 ~%4%</span>")
+                .arg(QString::fromStdString(src.name).replace('_', ' '))
+                .arg(src.level)
+                .arg(zone)
+                .arg(src.drop_chance, 0, 'f', 1);
+            auto* lbl = new QLabel(text);
+            lbl->setTextFormat(Qt::RichText);
+            lbl->setStyleSheet("border: none; background: transparent; font-size: 13px;");
+            innerL->addWidget(lbl);
+        }
+        innerL->addStretch();
+        scroll->setWidget(inner);
+        layout->addWidget(scroll, 1);
+    }
+
+    auto* closeBtn = new QPushButton("Fermer");
+    closeBtn->setStyleSheet(
+        "QPushButton { background: #2a3a5a; border: 1px solid #3a4a6a; "
+        "border-radius: 3px; color: #c0c0c0; padding: 4px 16px; font-size: 13px; }"
+        "QPushButton:hover { border-color: #64b5f6; }");
+    connect(closeBtn, &QPushButton::clicked, dlg, &QDialog::accept);
+    layout->addWidget(closeBtn, 0, Qt::AlignRight);
+
+    dlg->exec();
 }
 
 // ── detectSlots ──────────────────────────────────────────────────────────

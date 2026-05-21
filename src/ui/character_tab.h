@@ -30,6 +30,7 @@ signals:
 private slots:
     void onSearchPopup();
     void onItemSelected(int index);
+    void onShowSources(int itemId, const QString& itemName);
 
 private:
     void buildUi();
