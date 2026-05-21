@@ -16,6 +16,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include <QFile>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
@@ -183,6 +184,16 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
         refreshAllTabs();
     });
 
+    _fileWatcher = new QFileSystemWatcher(this);
+    connect(_fileWatcher, &QFileSystemWatcher::fileChanged,
+            this, [this](const QString& path) {
+        // Re-watch: Windows can drop the watch when a file is replaced
+        if (!path.isEmpty() && QFile::exists(path))
+            _fileWatcher->addPath(path);
+        // Debounce: EQ may write the file in two passes
+        QTimer::singleShot(500, this, &MainWindow::loadCharacterFiles);
+    });
+
     loadCharacterFiles();
 }
 
@@ -229,6 +240,10 @@ void MainWindow::loadCharacterFiles() {
         QString::fromStdString(_config->get("eq_files_dir")).toStdWString());
     auto files = findCharacterFiles(eqDir);
 
+    // Remove stale watches before rebuilding
+    if (_fileWatcher && !_fileWatcher->files().isEmpty())
+        _fileWatcher->removePaths(_fileWatcher->files());
+
     _charSelector->blockSignals(true);
     _charSelector->clear();
     _characters.clear();
@@ -238,6 +253,8 @@ void MainWindow::loadCharacterFiles() {
         _characters.push_back(*ci);
         _charSelector->addItem(
             QString::fromStdString(ci->name + " (" + ci->class_name + ")"));
+        if (_fileWatcher)
+            _fileWatcher->addPath(QString::fromStdWString(f.wstring()));
     }
     _charSelector->blockSignals(false);
     if (!_characters.empty()) onCharacterChanged(0);

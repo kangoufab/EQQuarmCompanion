@@ -3,6 +3,7 @@
 #include "core/stats_calculator.h"
 #include "core/types.h"
 #include <QComboBox>
+#include <QFileSystemWatcher>
 #include <QLabel>
 #include <QMainWindow>
 #include <QTabWidget>
@@ -45,6 +46,8 @@ private:
     Config*       _config;
     NpcDatabase*  _npcDb;
     ItemDatabase* _itemDb;
+
+    QFileSystemWatcher* _fileWatcher{nullptr};
 
     QComboBox*    _charSelector;
     QLabel*       _dbBadge{nullptr};
