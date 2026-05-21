@@ -410,9 +410,40 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
     auto* name = new QLabel(QString::fromStdString(npc.name).replace('_', ' '));
     name->setStyleSheet("font-size:14px;font-weight:bold;color:#e0e0e0;");
     layout->addWidget(name);
+
+    // Tags: RAID / QUEST / ENCOUNTER (E)
+    if (npc.raid_target || npc.is_quest || npc.encounter) {
+        auto* tagsW = new QWidget; tagsW->setStyleSheet("background:transparent;");
+        auto* tagsL = new QHBoxLayout(tagsW);
+        tagsL->setSpacing(4); tagsL->setContentsMargins(0,0,0,0);
+        auto addTag = [&](const char* label, const char* color) {
+            auto* t = new QLabel(label);
+            t->setStyleSheet(
+                QString("color:%1;font-size:12px;font-weight:bold;border:1px solid %1;"
+                        "border-radius:3px;padding:1px 5px;background:transparent;").arg(color));
+            tagsL->addWidget(t);
+        };
+        if (npc.raid_target) addTag("RAID",      "#ef5350");
+        if (npc.is_quest)    addTag("QUEST",     "#ffb74d");
+        if (npc.encounter)   addTag("ENCOUNTER", "#ba68c8");
+        tagsL->addStretch();
+        layout->addWidget(tagsW);
+    }
+
+    // Zone type tag (F)
+    static const std::map<int, const char*> ZONE_TYPE_LABELS = {
+        {0, "Donjon"}, {1, "Ext\xc3\xa9rieur"}, {2, "Ville"},
+    };
+    QString zoneTxt = QString::fromStdString(npc.zone_long_name);
+    if (npc.zone_type >= 0) {
+        auto zt = ZONE_TYPE_LABELS.find(npc.zone_type);
+        if (zt != ZONE_TYPE_LABELS.end())
+            zoneTxt += QString("  <span style='color:#555555;font-size:12px;'>[%1]</span>")
+                        .arg(QString::fromUtf8(zt->second));
+    }
     auto* sub = new QLabel(
-        QString::fromStdString(npc.zone_long_name)
-        + QString("  *  Race %1  *  Class %2").arg(npc.race).arg(npc.npc_class));
+        zoneTxt + QString("  *  Race %1  *  Class %2").arg(npc.race).arg(npc.npc_class));
+    sub->setTextFormat(Qt::RichText);
     sub->setStyleSheet("color:#888888;font-size:13px;");
     layout->addWidget(sub);
 
@@ -428,6 +459,8 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
         {"Max hit",  QString::number(npc.max_hit)},
         {"Delay",    QString("%1s").arg(npc.attack_delay / 10.0, 0, 'f', 1)},
         {"Hits/rnd", QString::number(std::max(1, npc.attack_count))},
+        {"Avoidance",  npc.avoidance  > 0 ? QString("+%1").arg(npc.avoidance)           : QString("—")},
+        {"Slow Mit.",  npc.slow_mitigation > 0 ? QString("%1%").arg(npc.slow_mitigation) : QString("—")},
     }, 4));
     layout->addWidget(fCombat);
 
@@ -502,6 +535,11 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
             for (const auto& item : loot) {
                 bool equippable = item.item_slots > 0;
                 const char* nameColor = equippable ? "#e0e0e0" : "#555555";
+
+                auto* row = new QWidget; row->setStyleSheet("background:transparent;");
+                auto* rowL = new QHBoxLayout(row);
+                rowL->setContentsMargins(0,0,0,0); rowL->setSpacing(4);
+
                 auto* btn = new QPushButton(
                     QString("%1  %2%").arg(QString::fromStdString(item.name))
                                       .arg(item.chance, 0, 'f', 0));
@@ -512,7 +550,17 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
                 if (item.item_id > 0)
                     connect(btn, &QPushButton::clicked,
                             [this, id=item.item_id]{ onLootClicked(id); });
-                flLoot->addWidget(btn);
+                rowL->addWidget(btn);
+
+                if (item.nodrop) {
+                    auto* ndLbl = new QLabel("NO DROP");
+                    ndLbl->setStyleSheet(
+                        "color:#ef5350;font-size:11px;font-weight:bold;"
+                        "background:transparent;border:none;");
+                    rowL->addWidget(ndLbl);
+                }
+                rowL->addStretch();
+                flLoot->addWidget(row);
             }
         }
     } else {

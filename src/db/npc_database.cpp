@@ -207,7 +207,7 @@ QList<LootItem> NpcDatabase::getNpcLoot(int loottableId) {
         " lte.probability AS table_probability,"
         " lte.multiplier AS table_multiplier,"
         " lte.droplimit, lte.mindrop,"
-        " i.slots"
+        " i.slots, i.nodrop"
         " FROM loottable_entries lte"
         " JOIN lootdrop_entries lde ON lde.lootdrop_id = lte.lootdrop_id"
         " JOIN items i ON i.id = lde.item_id"
@@ -221,7 +221,7 @@ QList<LootItem> NpcDatabase::getNpcLoot(int loottableId) {
 
     // Collect raw rows to compute loot chances (EQMacEmu algorithm)
     struct RawRow {
-        int    item_id{}, slots{};
+        int    item_id{}, slots{}, nodrop{};
         double item_chance{}, table_probability{}, table_multiplier{};
         int    droplimit{}, mindrop{}, lootdrop_id{};
         QString name;
@@ -240,6 +240,7 @@ QList<LootItem> NpcDatabase::getNpcLoot(int loottableId) {
         r.mindrop          = q.value("mindrop").toInt();
         r.lootdrop_id      = q.value("lootdrop_id").toInt();
         r.slots            = q.value("slots").toInt();
+        r.nodrop           = q.value("nodrop").toInt();
         totals[r.lootdrop_id] += r.item_chance;
         rows.append(r);
     }
@@ -268,6 +269,7 @@ QList<LootItem> NpcDatabase::getNpcLoot(int loottableId) {
         li.name    = r.name.toStdString();
         li.chance  = static_cast<float>(chance);
         li.item_slots = r.slots;
+        li.nodrop  = r.nodrop;
         result.append(li);
     }
 
