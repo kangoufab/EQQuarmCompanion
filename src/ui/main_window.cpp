@@ -176,6 +176,12 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
     // Signaux des onglets
     connect(_charTab,   &CharacterTab::statsChanged, this, &MainWindow::onStatsChanged);
     connect(_spellsTab, &SpellsTab::statsChanged,    this, &MainWindow::onBuffStatsChanged);
+    connect(_charTab, &CharacterTab::equipRequested,
+            this, [this](std::string slot, ItemData item) {
+        _equippedItems[slot] = item;
+        recalculateTotals();
+        refreshAllTabs();
+    });
 
     loadCharacterFiles();
 }

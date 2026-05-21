@@ -14,6 +14,7 @@ class QLabel;
 class QPushButton;
 class QVBoxLayout;
 class QFrame;
+class QComboBox;
 
 class CharacterTab : public QWidget {
     Q_OBJECT
@@ -24,6 +25,7 @@ public:
 
 signals:
     void statsChanged(PlayerTotals totals, std::map<std::string, ItemData> equippedItems);
+    void equipRequested(std::string slot, ItemData item);
 
 private slots:
     void onSearchPopup();
@@ -60,4 +62,5 @@ private:
     QVBoxLayout*    _comparisonLayout{nullptr};
 
     QList<ItemData> _searchResults;
+    QComboBox*      _slotFilter{nullptr};
 };

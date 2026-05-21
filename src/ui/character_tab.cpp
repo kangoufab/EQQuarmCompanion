@@ -14,6 +14,7 @@
 #include <QFrame>
 #include <QLabel>
 #include <QPushButton>
+#include <QComboBox>
 #include <QString>
 #include <algorithm>
 #include <algorithm>
@@ -186,6 +187,27 @@ void CharacterTab::buildUi()
     // Barre de recherche
     {
         auto* row = new QHBoxLayout;
+
+        _slotFilter = new QComboBox;
+        _slotFilter->addItem("Tous slots", 0);
+        static const std::vector<std::pair<const char*, int>> SLOT_FILTER_ITEMS = {
+            {"Charm",1},{"Left Ear",2},{"Head",4},{"Face",8},{"Right Ear",16},
+            {"Neck",32},{"Shoulders",64},{"Arms",128},{"Back",256},
+            {"Left Wrist",512},{"Right Wrist",1024},{"Range",2048},{"Hands",4096},
+            {"Primary",8192},{"Secondary",16384},{"Left Finger",32768},
+            {"Right Finger",65536},{"Chest",131072},{"Legs",262144},
+            {"Feet",524288},{"Waist",1048576},{"Ammo",2097152},
+        };
+        for (auto& [name, bit] : SLOT_FILTER_ITEMS)
+            _slotFilter->addItem(name, bit);
+        _slotFilter->setStyleSheet(
+            "QComboBox { background: #1a2236; border: 1px solid #3a4a6a; "
+            "border-radius: 3px; color: #c0c0c0; padding: 3px 6px; font-size: 13px; }"
+            "QComboBox:hover { border-color: #64b5f6; }"
+            "QComboBox QAbstractItemView { background: #1a2236; border: 1px solid #3a4a6a; "
+            "color: #c0c0c0; selection-background-color: #2a3a5a; }");
+        row->addWidget(_slotFilter);
+
         _searchCombo = new SearchComboBox;
         _searchCombo->setEditable(true);
         _searchCombo->setInsertPolicy(QComboBox::NoInsert);
@@ -557,7 +579,8 @@ void CharacterTab::onSearchPopup()
     if (query.length() < 2) return;
 
     int cursor = _searchCombo->lineEdit()->cursorPosition();
-    auto results = _itemDb->searchItems(query, 50);
+    int slotBit = _slotFilter ? _slotFilter->currentData().toInt() : 0;
+    auto results = _itemDb->searchItems(query, 50, slotBit);
     _searchResults.clear();
     _searchCombo->blockSignals(true);
     _searchCombo->clear();
@@ -703,6 +726,22 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
     sumL->addStretch();
 
     _comparisonLayout->addWidget(sumFrame);
+
+    // Bouton Équiper
+    {
+        auto* equipBtn = new QPushButton(
+            QString::fromUtf8("\xe2\x9c\x93  \xc3\x89quiper dans ") + slot);
+        equipBtn->setStyleSheet(
+            "QPushButton { background: #1e3a1e; border: 1px solid #4caf50; "
+            "border-radius: 3px; color: #4caf50; padding: 4px 12px; font-size: 13px; }"
+            "QPushButton:hover { background: #4caf50; color: #0f1624; }");
+        connect(equipBtn, &QPushButton::clicked,
+                [this, slot=slot.toStdString(), item=newItem]() {
+                    emit equipRequested(slot, item);
+                });
+        _comparisonLayout->addWidget(equipBtn);
+    }
+
     _comparisonArea->setVisible(true);
     if (_clearBtn) _clearBtn->setEnabled(true);
 }
