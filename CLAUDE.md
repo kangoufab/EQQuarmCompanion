@@ -89,13 +89,21 @@ Qt's AUTOMOC scans files listed in `add_library()`/`add_executable()`. Any QObje
 ### Clickies in Buffs tab
 "Clickies" is a synthetic class entry in the Buffs tab that collects click-effect spells from: (1) equipped items (already in `_equippedItems`), and (2) items in personal bag slots only (`General1-8`, not `Bank`/`SharedBank`) loaded via `ItemDatabase::getItemClickeffects()`. Deduplication by spell_id keeps the first item encountered. `CharacterInfo::bag_item_ids` stores the IDs from bag slots parsed in `character_parser.cpp`.
 
+### Stuff tab — layout 3 colonnes
+L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
+- **Inventaire** (colonne gauche, redimensionnable, min 120px, défaut 250px) : items équipés par slot + items des sacs groupés par numéro de bag (`Bag 1`, `Bag 2`…). Cliquer un item le charge dans la zone de comparaison.
+- **Recherche** (colonne du milieu) : filtre slot + SearchCombo + Clear — comportement inchangé.
+- **Comparaison** (colonne droite) : cartes item, score UPGRADE/DOWNGRADE, boutons Équiper et Source.
+
+`CharacterInfo::bag_item_ids` est `std::vector<std::pair<int,int>>` — `{bag_number, item_id}` — le numéro de bag est extrait depuis `"GeneralN-SlotM"` dans `character_parser.cpp`. La fenêtre par défaut est 1480×800.
+
 ## Key Source Files
 
 | File | Purpose |
 |------|---------|
-| `src/core/types.h` | All shared structs (ItemData, LootItem, NpcData, CharacterInfo…); `CharacterInfo::bag_item_ids` holds IDs from General1-8 bag slots |
+| `src/core/types.h` | All shared structs (ItemData, LootItem, NpcData, CharacterInfo…); `CharacterInfo::bag_item_ids` = `vector<pair<int,int>>` {bag_number, item_id} |
 | `src/core/config.h/cpp` | JSON config read/write, DbConfig, getResistDebuffs |
-| `src/core/character_parser.h/cpp` | Parse EQ TSV character files; detects `GeneralN-SlotM` lines → `bag_item_ids` |
+| `src/core/character_parser.h/cpp` | Parse EQ TSV character files; extrait `{bag_number, item_id}` depuis `GeneralN-SlotM` → `bag_item_ids` |
 | `src/core/stats_calculator.h/cpp` | HP/Mana/ATK/AC caps, `applyWornStats`, `calculateTotalsWithSpells` (inclut AAs) |
 | `src/core/npc_analysis.h/cpp` | Incoming damage, resist ratings, slow land %, special abilities |
 | `src/core/spell_stats.h/cpp` | spellValue, spellIncomingDps |
@@ -103,7 +111,7 @@ Qt's AUTOMOC scans files listed in `add_library()`/`add_executable()`. Any QObje
 | `src/db/item_database.h/cpp` | Item DB queries; `getItemClickeffects(QList<int>)` → clickeffect spell IDs for given item IDs |
 | `src/ui/main_window.h/cpp` | App shell; `_playerTotals` (base+items+AAs), `_buffedTotals` (+ active buffs); file watcher |
 | `src/ui/item_card.h/cpp` | Widget item unifié (carte compacte Option B) — utilisé par Stuff et Fight |
-| `src/ui/character_tab.h/cpp` | Stuff tab — slot filter, item comparison, Équiper, skill mods, source popup |
+| `src/ui/character_tab.h/cpp` | Stuff tab — layout 3 colonnes (QSplitter) : inventaire équipé+sacs / recherche / comparaison; `rebuildInventoryPanel()` |
 | `src/ui/fight_tab.h/cpp` | 2D DPS×slow table, loot, NPC tags, resists; `refreshStats()` rebuilds right panel with buffed totals |
 | `src/ui/infos_tab.h/cpp` | Expansion selector + resist debuff groups |
 | `src/ui/spells_tab.h/cpp` | Buffs tab — class list, checkboxes, stacking, sets save/load, search bar, Clickies (ClickieEntry, loadClickies, _clickieSpells) |
