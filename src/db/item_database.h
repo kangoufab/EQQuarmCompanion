@@ -27,4 +27,7 @@ public:
 
     // Retourne les bonus de stats issus des AAs (altadv_vars + aa_effects).
     [[nodiscard]] AaStats getAaStats(const std::vector<std::pair<int,int>>& purchases);
+
+    // Retourne les paires (item_name, clickeffect_spell_id) pour les items avec clickeffect > 0.
+    [[nodiscard]] QList<QPair<QString,int>> getItemClickeffects(const QList<int>& itemIds);
 };

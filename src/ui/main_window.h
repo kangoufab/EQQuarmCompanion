@@ -62,7 +62,8 @@ private:
 
     std::vector<CharacterInfo>      _characters;
     CharacterInfo                   _currentChar;
-    PlayerTotals                    _playerTotals;
+    PlayerTotals                    _playerTotals;   // base + items + AAs
+    PlayerTotals                    _buffedTotals;   // + buffs actifs (= stats bar)
     PlayerTotalsExtra               _playerExtra;
     AaStats                         _aaStats;
     std::map<std::string, ItemData> _equippedItems;

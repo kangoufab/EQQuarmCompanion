@@ -235,6 +235,11 @@ void FightTab::setCharacter(CharacterInfo* ci, PlayerTotals* totals) {
     }
 }
 
+void FightTab::refreshStats() {
+    if (_hasNpc && _charInfo && _totals)
+        _rightScroll->setWidget(buildRightPanel(_currentNpc));
+}
+
 // ── Search ────────────────────────────────────────────────────────────────────
 
 void FightTab::doSearch() {

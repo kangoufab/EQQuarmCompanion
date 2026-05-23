@@ -410,3 +410,27 @@ QList<SpellData> ItemDatabase::getBeneficialSpellsByClass(const QString& classNa
         result.append(rowToSpellData(q));
     return result;
 }
+
+// ── getItemClickeffects ────────────────────────────────────────────────────
+
+QList<QPair<QString,int>> ItemDatabase::getItemClickeffects(const QList<int>& itemIds) {
+    QList<QPair<QString,int>> result;
+    if (itemIds.isEmpty()) return result;
+
+    QStringList ph;
+    ph.reserve(itemIds.size());
+    for (int i = 0; i < itemIds.size(); ++i) ph << "?";
+
+    QSqlQuery q(DbConnection::instance().db());
+    q.prepare(QString("SELECT Name, clickeffect FROM items"
+                      " WHERE id IN (%1) AND clickeffect > 0").arg(ph.join(",")));
+    for (int id : itemIds) q.addBindValue(id);
+
+    if (!q.exec()) {
+        qWarning() << "getItemClickeffects failed:" << q.lastError().text();
+        return result;
+    }
+    while (q.next())
+        result.append({q.value("Name").toString(), q.value("clickeffect").toInt()});
+    return result;
+}

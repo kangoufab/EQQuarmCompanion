@@ -225,6 +225,8 @@ void MainWindow::onStatsChanged(PlayerTotals totals, std::map<std::string, ItemD
 }
 
 void MainWindow::onBuffStatsChanged(PlayerTotals totals, PlayerTotalsExtra spellExtra) {
+    _buffedTotals = totals;
+    _fightTab->refreshStats();
     // Fusionner _playerExtra (base+items+AA) avec les sources de sorts de SpellsTab
     PlayerTotalsExtra merged = _playerExtra;
     for (auto& [k, si] : spellExtra.stats)
@@ -291,6 +293,7 @@ void MainWindow::recalculateTotals() {
 
     _playerExtra  = {};
     _playerTotals = calculateTotals(_currentChar, items, primaryItemtype, &_playerExtra, &_aaStats);
+    _buffedTotals = _playerTotals;
 }
 
 void MainWindow::refreshAllTabs() {
@@ -308,7 +311,7 @@ void MainWindow::refreshAllTabs() {
     rebuildGlobalStatsBar(_playerTotals);
 
     _charTab->setCharacter(&_currentChar, &_playerTotals, _equippedItems);
-    _fightTab->setCharacter(&_currentChar, &_playerTotals);
+    _fightTab->setCharacter(&_currentChar, &_buffedTotals);
     _spellsTab->setCharacter(&_currentChar, &_playerTotals, _equippedItems, _aaStats);
 }
 

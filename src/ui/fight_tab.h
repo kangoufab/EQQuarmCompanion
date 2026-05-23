@@ -18,6 +18,7 @@ public:
              ItemDatabase* itemDb, QWidget* parent = nullptr);
 
     void setCharacter(CharacterInfo* charInfo, PlayerTotals* totals);
+    void refreshStats();
 
 signals:
     void itemSelected(const QString& itemName);

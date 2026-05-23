@@ -23,6 +23,12 @@ struct ActiveBuff {
     int         minLevel{};
 };
 
+// Un clicky : sort + nom de l'item source
+struct ClickieEntry {
+    std::string item_name;
+    SpellData   spell;
+};
+
 class SpellsTab : public QWidget {
     Q_OBJECT
 public:
@@ -43,6 +49,7 @@ private slots:
 private:
     void buildUi();
     void loadSpellsForClass(const std::string& className);
+    void loadClickies();
     void rebuildRightPanel();
     void rebuildClassList();
     void refreshStats();
@@ -74,4 +81,6 @@ private:
     std::map<int, int>       _conflicts;       // loser_id → winner_id
     std::vector<SpellData>   _currentClassSpells;
     std::string              _currentClass;
+    std::vector<ClickieEntry> _clickieSpells;
+    std::map<int, std::string> _clickieItemNames; // spell_id → item_name
 };

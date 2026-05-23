@@ -1,6 +1,6 @@
 # Évolutions Fight + Infos — Plan A
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Améliorer l'onglet Fight (plage DPS, visibilité sorts NPC) et l'onglet Infos (total debuff proéminent).
 
@@ -26,7 +26,7 @@
 **Files:**
 - Read: `src/core/npc_analysis.cpp:47`
 
-- [ ] **Step 1 : Confirmer le comportement serveur**
+- [x] **Step 1 : Confirmer le comportement serveur**
 
 Dans `EQMacEmu/zone/mob_ai.cpp` `DoMainHandRound()` :
 ```cpp
@@ -38,7 +38,7 @@ if (n_atk <= 1)
 
 Notre code : `float base = static_cast<float>(std::max(1, npc.attack_count));` est correct.
 
-- [ ] **Step 2 : Ajouter un commentaire explicatif dans npc_analysis.cpp**
+- [x] **Step 2 : Ajouter un commentaire explicatif dans npc_analysis.cpp**
 
 Dans `src/core/npc_analysis.cpp`, ligne 47, modifier :
 ```cpp
@@ -46,7 +46,7 @@ Dans `src/core/npc_analysis.cpp`, ligne 47, modifier :
 float base = static_cast<float>(std::max(1, npc.attack_count));
 ```
 
-- [ ] **Step 3 : Commit**
+- [x] **Step 3 : Commit**
 ```bash
 git add src/core/npc_analysis.cpp
 git commit -m "docs(fight): attack_count=-1 signifie 1 attaque — commentaire ajouté"
@@ -60,7 +60,7 @@ git commit -m "docs(fight): attack_count=-1 signifie 1 attaque — commentaire a
 - Modify: `src/core/types.h:87-91`
 - Modify: `src/core/npc_analysis.cpp:125-180`
 
-- [ ] **Step 1 : Étendre IncomingDamageResult dans types.h**
+- [x] **Step 1 : Étendre IncomingDamageResult dans types.h**
 
 Remplacer :
 ```cpp
@@ -79,7 +79,7 @@ struct IncomingDamageResult {
 };
 ```
 
-- [ ] **Step 2 : Calculer min/max dans incomingDamage() (npc_analysis.cpp)**
+- [x] **Step 2 : Calculer min/max dans incomingDamage() (npc_analysis.cpp)**
 
 Après la ligne `r.est_dps = baseDps * discMult;`, ajouter :
 ```cpp
@@ -91,14 +91,14 @@ r.min_dps = minHit * attacks * baseHC / delaySec * discMult;
 r.max_dps = maxHit * attacks * baseHC / delaySec * discMult;
 ```
 
-- [ ] **Step 3 : Build debug**
+- [x] **Step 3 : Build debug**
 ```powershell
 $env:PATH = "C:\Qt\Tools\mingw1310_64\bin;C:\Qt\6.11.1\mingw_64\bin;C:\Qt\Tools\CMake_64\bin;C:\Qt\Tools\Ninja;" + $env:PATH
 & "C:\Qt\Tools\CMake_64\bin\cmake.exe" --build build/debug
 ```
 Attendu : 0 erreur.
 
-- [ ] **Step 4 : Commit**
+- [x] **Step 4 : Commit**
 ```bash
 git add src/core/types.h src/core/npc_analysis.cpp
 git commit -m "feat(fight): IncomingDamageResult + min_dps/max_dps calcules"
@@ -113,7 +113,7 @@ La table `buildDpsSlowTable()` affiche actuellement `~X/s · ~Ys`. On ajoute `[m
 **Files:**
 - Modify: `src/ui/fight_tab.cpp:771-776`
 
-- [ ] **Step 1 : Étendre la signature de buildDpsSlowTable**
+- [x] **Step 1 : Étendre la signature de buildDpsSlowTable**
 
 Dans `fight_tab.h`, la signature :
 ```cpp
@@ -124,7 +124,7 @@ QWidget* buildDpsSlowTable(
 ```
 Ne change pas — `IncomingDamageResult` contient maintenant `min_dps` et `max_dps`.
 
-- [ ] **Step 2 : Modifier le rendu de chaque cellule (fight_tab.cpp)**
+- [x] **Step 2 : Modifier le rendu de chaque cellule (fight_tab.cpp)**
 
 Dans `buildDpsSlowTable`, remplacer le bloc de création de cellule (ligne ~771) :
 ```cpp
@@ -146,13 +146,13 @@ auto* cell = new QLabel(
     .arg(dpsC).arg(total, 0, 'f', 0).arg(sc).arg(survStr).arg(chLine).arg(rangeStr));
 ```
 
-- [ ] **Step 3 : Build + vérification visuelle**
+- [x] **Step 3 : Build + vérification visuelle**
 ```powershell
 & "C:\Qt\Tools\CMake_64\bin\cmake.exe" --build build/debug
 ```
 Lancer l'app, onglet Fight, sélectionner un NPC. Vérifier que chaque cellule montre `~X/s · ~Ys` + `[min–max/s]` en gris en dessous.
 
-- [ ] **Step 4 : Commit**
+- [x] **Step 4 : Commit**
 ```bash
 git add src/ui/fight_tab.cpp
 git commit -m "feat(fight): plage DPS min-max affichée dans chaque cellule"
@@ -167,7 +167,7 @@ Actuellement le DPS sorts est affiché comme note sous la table (`+ ~X/s spell D
 **Files:**
 - Modify: `src/ui/fight_tab.cpp:560-588`
 
-- [ ] **Step 1 : Ajouter une ligne spellDPS dans le bloc Incoming Damage**
+- [x] **Step 1 : Ajouter une ligne spellDPS dans le bloc Incoming Damage**
 
 Dans `buildRightPanel()`, le bloc `gridWidget` pour "Incoming Damage" (ligne ~565) :
 
@@ -194,7 +194,7 @@ if (spDps > 0.f)
 flDmg->addWidget(gridWidget(dmgRows, 1));
 ```
 
-- [ ] **Step 2 : Supprimer la note "spell DPS" en bas de table**
+- [x] **Step 2 : Supprimer la note "spell DPS" en bas de table**
 
 Dans `buildDpsSlowTable`, supprimer le bloc (lignes ~780-787) :
 ```cpp
@@ -207,13 +207,13 @@ if (spDps > 0.f) {
 }
 ```
 
-- [ ] **Step 3 : Build + vérification visuelle**
+- [x] **Step 3 : Build + vérification visuelle**
 ```powershell
 & "C:\Qt\Tools\CMake_64\bin\cmake.exe" --build build/debug
 ```
 Lancer l'app. Vérifier : "Spell DPS" apparaît dans le bloc Incoming Damage en violet si le NPC a des sorts.
 
-- [ ] **Step 4 : Commit**
+- [x] **Step 4 : Commit**
 ```bash
 git add src/ui/fight_tab.cpp
 git commit -m "feat(fight): Spell DPS NPC dans l en-tete Incoming Damage"
@@ -228,7 +228,7 @@ Le total par résistance existe déjà (`totalVal`) mais est affiché en petite 
 **Files:**
 - Modify: `src/ui/infos_tab.cpp:251-262`
 
-- [ ] **Step 1 : Remplacer le label total par un affichage proéminent**
+- [x] **Step 1 : Remplacer le label total par un affichage proéminent**
 
 Dans `buildResistSection()`, remplacer la fin (lignes ~251-261) :
 ```cpp
@@ -266,13 +266,13 @@ if (totalVal < 0) {
 }
 ```
 
-- [ ] **Step 2 : Build + vérification visuelle**
+- [x] **Step 2 : Build + vérification visuelle**
 ```powershell
 & "C:\Qt\Tools\CMake_64\bin\cmake.exe" --build build/debug
 ```
 Lancer l'app, onglet Infos. Le total de chaque résistance doit être lisible en grand en bas de chaque section.
 
-- [ ] **Step 3 : Commit**
+- [x] **Step 3 : Commit**
 ```bash
 git add src/ui/infos_tab.cpp
 git commit -m "design(infos): total debuff proéminent en bas de chaque section"

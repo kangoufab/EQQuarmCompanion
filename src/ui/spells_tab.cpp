@@ -31,6 +31,7 @@
 static const std::vector<std::string> BUFF_CASTER_CLASSES = {
     "Cleric","Paladin","Ranger","Druid","Shaman","Bard",
     "Necromancer","Wizard","Magician","Enchanter","Beastlord","Shadowknight",
+    "Clickies",
 };
 
 static const std::map<std::string, int> SPELL_CLASS_ID_UI = {
@@ -113,6 +114,7 @@ void SpellsTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* baseTotals,
     _currentClassSpells.clear();
     _currentClass.clear();
 
+    loadClickies();
     rebuildClassList();   // vide le panneau gauche et remet le compteur à 0
     refreshStats();       // réémet les stats sans buffs pour le nouveau perso
 
@@ -311,10 +313,16 @@ int SpellsTab::expansionMaxLevel() const {
 // ── onClassSelected ───────────────────────────────────────────────────────
 
 void SpellsTab::onClassSelected(int row) {
-    qDebug() << "[SpellsTab] onClassSelected row=" << row;
     if (row < 0 || row >= (int)BUFF_CASTER_CLASSES.size()) return;
     _currentClass = BUFF_CASTER_CLASSES[row];
-    loadSpellsForClass(_currentClass);
+    if (_currentClass == "Clickies") {
+        _currentClassSpells.clear();
+        for (auto& e : _clickieSpells)
+            _currentClassSpells.push_back(e.spell);
+        rebuildRightPanel();
+    } else {
+        loadSpellsForClass(_currentClass);
+    }
 }
 
 // ── loadSpellsForClass ────────────────────────────────────────────────────
@@ -340,6 +348,37 @@ void SpellsTab::loadSpellsForClass(const std::string& className) {
 
     qDebug() << "[SpellsTab] after filter:" << _currentClassSpells.size() << "spells";
     rebuildRightPanel();
+}
+
+// ── loadClickies ──────────────────────────────────────────────────────────
+
+void SpellsTab::loadClickies() {
+    _clickieSpells.clear();
+    _clickieItemNames.clear();
+    if (!_charInfo || !_itemDb) return;
+
+    // Paires (nom_item, spell_id) : d'abord les items équipés (déjà en mémoire)
+    QList<QPair<QString,int>> allPairs;
+    for (auto& [slot, item] : _equippedItems)
+        if (item.clickeffect > 0)
+            allPairs.append({QString::fromStdString(item.name), item.clickeffect});
+
+    // Puis les items des sacs (General1-8), requête DB batch
+    QList<int> bagIds;
+    bagIds.reserve((int)_charInfo->bag_item_ids.size());
+    for (int id : _charInfo->bag_item_ids) bagIds.append(id);
+    allPairs.append(_itemDb->getItemClickeffects(bagIds));
+
+    // Dédoublonner par spell_id, récupérer le SpellData
+    std::set<int> seen;
+    for (auto& [itemName, spellId] : allPairs) {
+        if (seen.count(spellId)) continue;
+        seen.insert(spellId);
+        auto sd = _itemDb->getSpellById(spellId);
+        if (!sd) continue;
+        _clickieSpells.push_back({itemName.toStdString(), *sd});
+        _clickieItemNames[spellId] = itemName.toStdString();
+    }
 }
 
 // ── rebuildRightPanel ─────────────────────────────────────────────────────
@@ -369,6 +408,7 @@ void SpellsTab::rebuildRightPanel()
     std::vector<SpellData> activePool;
     for (auto& b : _activeBuffs) activePool.push_back(b.spell);
 
+    bool isClickies = (_currentClass == "Clickies");
     auto it = SPELL_CLASS_ID_UI.find(_currentClass);
 
     // ── Groupement par catégorie (STAT_CATS) ──────────────────────────────
@@ -398,8 +438,15 @@ void SpellsTab::rebuildRightPanel()
         bool isSelected = selectedIds.count(spell.id);
         bool isBlocked  = _conflicts.count(spell.id);
 
-        QString label = QString::fromStdString(spell.name)
-                        + QString(" (Niv. %1)").arg(minLvl);
+        QString label;
+        if (isClickies) {
+            auto iit = _clickieItemNames.find(spell.id);
+            QString itemName = iit != _clickieItemNames.end()
+                ? QString::fromStdString(iit->second) : "?";
+            label = QString::fromStdString(spell.name) + " (" + itemName + ")";
+        } else {
+            label = QString::fromStdString(spell.name) + QString(" (Niv. %1)").arg(minLvl);
+        }
         auto* cb = new QCheckBox(label);
         cb->setChecked(isSelected);
         cb->setToolTip(formatSpellTooltip(spell, tooltipLevel));
@@ -559,7 +606,9 @@ void SpellsTab::rebuildActiveBuffsList()
         rl->addWidget(nameLbl, 1);
 
         // Classe source (petit, grisé)
-        auto* clsLbl = new QLabel(QString::fromStdString(b.buffClass).left(3));
+        QString shortCls = (b.buffClass == "Clickies")
+            ? "Clk" : QString::fromStdString(b.buffClass).left(3);
+        auto* clsLbl = new QLabel(shortCls);
         clsLbl->setStyleSheet(
             "font-size: 14px; color: #555; border: none; background: transparent;");
         rl->addWidget(clsLbl);

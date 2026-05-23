@@ -156,6 +156,9 @@ std::optional<CharacterInfo> parseCharacterFile(const std::filesystem::path& pat
                     result->equipped.emplace_back(slots[idx], itemId);
             } else if (EQUIPPED_LOCATIONS.count(location)) {
                 result->equipped.emplace_back(location, itemId);
+            } else if (location.rfind("General", 0) == 0
+                       && location.find("-Slot") != std::string::npos) {
+                result->bag_item_ids.push_back(itemId);
             }
         }
     }
