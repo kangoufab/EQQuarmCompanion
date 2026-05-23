@@ -93,7 +93,7 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
     : QMainWindow(parent), _config(config), _npcDb(npcDb), _itemDb(itemDb)
 {
     setWindowTitle("EQ Quarm Companion");
-    resize(1280, 800);
+    resize(1480, 800);
 
     // ── Toolbar ──────────────────────────────────────────────────────────────
     auto* toolbar = addToolBar("Main");

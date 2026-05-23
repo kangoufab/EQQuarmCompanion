@@ -21,7 +21,7 @@
 #include <QFutureWatcher>
 #include <QtConcurrent/QtConcurrent>
 #include <algorithm>
-#include <algorithm>
+#include <functional>
 #include <set>
 
 // ── Constantes portées depuis Python stat_caps.py et character_tab.py ─────
@@ -179,21 +179,48 @@ void CharacterTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* totals,
     _charInfo      = charInfo;
     _totals        = totals;
     _equippedItems = equipped;
-    clearComparison(false); // nettoie sans émettre (MainWindow gère le bandeau global)
+
+    _bagItems.clear();
+    if (_charInfo && _itemDb) {
+        for (int id : _charInfo->bag_item_ids) {
+            auto item = _itemDb->getItemById(id);
+            if (item) {
+                applyWornStats(*item, _charInfo->level);
+                _bagItems.append(*item);
+            }
+        }
+    }
+
+    rebuildInventoryPanel();
+    clearComparison(false);
 }
 
 // ── buildUi ───────────────────────────────────────────────────────────────
 
 void CharacterTab::buildUi()
 {
-    auto* outerLayout = new QVBoxLayout(this);
+    auto* outerLayout = new QHBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
+    outerLayout->setSpacing(0);
 
+    // ── Colonne gauche : inventaire ──────────────────────────────────────────
+    _inventoryScroll = new QScrollArea;
+    _inventoryScroll->setFixedWidth(190);
+    _inventoryScroll->setWidgetResizable(true);
+    _inventoryScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    _inventoryScroll->setStyleSheet(
+        "QScrollArea { border: none; border-right: 1px solid #2a3a5a; background: #0b1120; }");
+    _inventoryContent = new QWidget;
+    _inventoryContent->setStyleSheet("background: #0b1120;");
+    _inventoryScroll->setWidget(_inventoryContent);
+    outerLayout->addWidget(_inventoryScroll);
+
+    // ── Colonne droite : recherche + comparaison ─────────────────────────────
     auto* scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scroll->setStyleSheet("QScrollArea { border: none; background: transparent; }");
-    outerLayout->addWidget(scroll);
+    outerLayout->addWidget(scroll, 1);
 
     auto* container = new QWidget;
     container->setStyleSheet("background: #0f1624;");
@@ -279,6 +306,117 @@ void CharacterTab::buildUi()
     }
 
     layout->addStretch();
+}
+
+// ── rebuildInventoryPanel ─────────────────────────────────────────────────
+
+static const std::map<std::string, const char*> SLOT_ABBREV = {
+    {"Charm","Charm"},{"Left Ear","L.Ear"},{"Head","Head"},{"Face","Face"},
+    {"Right Ear","R.Ear"},{"Neck","Neck"},{"Shoulders","Shoul."},{"Arms","Arms"},
+    {"Back","Back"},{"Left Wrist","L.Wrist"},{"Right Wrist","R.Wrist"},
+    {"Range","Range"},{"Hands","Hands"},{"Primary","Primry"},
+    {"Secondary","Second."},{"Left Finger","L.Ring"},{"Right Finger","R.Ring"},
+    {"Chest","Chest"},{"Legs","Legs"},{"Feet","Feet"},{"Waist","Waist"},{"Ammo","Ammo"},
+};
+
+void CharacterTab::rebuildInventoryPanel()
+{
+    if (!_inventoryContent) return;
+
+    if (auto* old = _inventoryContent->layout()) {
+        QLayoutItem* child;
+        while ((child = old->takeAt(0))) {
+            if (child->widget()) child->widget()->deleteLater();
+            delete child;
+        }
+        delete old;
+    }
+
+    auto* vl = new QVBoxLayout(_inventoryContent);
+    vl->setContentsMargins(0, 0, 0, 0);
+    vl->setSpacing(0);
+
+    auto addTitle = [&](const QString& title) {
+        auto* lbl = new QLabel(title);
+        lbl->setStyleSheet(
+            "background: #141f35; color: #64b5f6; font-size: 11px; font-weight: bold; "
+            "padding: 4px 8px; border-bottom: 1px solid #2a3a5a; border-top: 1px solid #2a3a5a;");
+        vl->addWidget(lbl);
+    };
+
+    auto addRow = [&](const std::string& slotName, const QString& itemName,
+                      bool isEmpty, std::function<void()> onClick) {
+        auto* w = new QWidget;
+        w->setStyleSheet("background: transparent; border-bottom: 1px solid #131d2e;");
+        auto* rl = new QHBoxLayout(w);
+        rl->setContentsMargins(6, 2, 4, 2);
+        rl->setSpacing(4);
+
+        auto abIt = SLOT_ABBREV.find(slotName);
+        const char* ab = (abIt != SLOT_ABBREV.end()) ? abIt->second : slotName.c_str();
+        auto* slotLbl = new QLabel(ab);
+        slotLbl->setFixedWidth(46);
+        slotLbl->setStyleSheet("color: #3a4a5a; font-size: 11px; background: transparent;");
+        rl->addWidget(slotLbl);
+
+        if (isEmpty) {
+            auto* nameLbl = new QLabel(QString::fromUtf8("\xe2\x80\x94 vide \xe2\x80\x94"));
+            nameLbl->setStyleSheet("color: #222a3a; font-size: 12px; background: transparent;");
+            rl->addWidget(nameLbl, 1);
+        } else {
+            auto* nameBtn = new QPushButton(itemName);
+            nameBtn->setFlat(true);
+            nameBtn->setStyleSheet(
+                "QPushButton { text-align: left; color: #c0c0c0; background: transparent; "
+                "border: none; font-size: 12px; padding: 0; }"
+                "QPushButton:hover { color: #81c784; }");
+            if (onClick) connect(nameBtn, &QPushButton::clicked, onClick);
+            rl->addWidget(nameBtn, 1);
+        }
+        vl->addWidget(w);
+    };
+
+    // ── Équipé ───────────────────────────────────────────────────────────────
+    addTitle(QString::fromUtf8("\xe2\x9a\x94  \xc3\x89quip\xc3\xa9"));
+    for (auto& [slotName, bit] : SLOT_BITMASK) {
+        auto it = _equippedItems.find(slotName);
+        if (it != _equippedItems.end()) {
+            ItemData item = it->second;
+            std::string sn = slotName;
+            addRow(slotName, QString::fromStdString(item.name), false,
+                   [this, item, sn]() {
+                       clearComparison(false);
+                       showComparison(item, QString::fromStdString(sn),
+                                      {QString::fromStdString(sn)});
+                   });
+        } else {
+            addRow(slotName, QString(), true, nullptr);
+        }
+    }
+
+    // ── Sacs ─────────────────────────────────────────────────────────────────
+    addTitle(QString("Sacs (%1 items)").arg(_bagItems.size()));
+    for (const auto& bagItem : _bagItems) {
+        auto allSlots = detectSlots(bagItem);
+        if (allSlots.empty()) {
+            addRow(std::string(), QString::fromStdString(bagItem.name), true, nullptr);
+        } else {
+            ItemData item = bagItem;
+            QString firstSlot = allSlots[0];
+            addRow(std::string(), QString::fromStdString(item.name), false,
+                   [this, item, firstSlot, allSlots]() {
+                       clearComparison(false);
+                       showComparison(item, firstSlot, allSlots);
+                   });
+        }
+    }
+    if (_bagItems.isEmpty()) {
+        auto* lbl = new QLabel(QString::fromUtf8("(vide)"));
+        lbl->setStyleSheet("color: #2a3a4a; font-size: 12px; padding: 4px 8px;");
+        vl->addWidget(lbl);
+    }
+
+    vl->addStretch();
 }
 
 // ── makeStatsBar ─────────────────────────────────────────────────────────

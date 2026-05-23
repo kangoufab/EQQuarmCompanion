@@ -16,6 +16,7 @@ class QPushButton;
 class QVBoxLayout;
 class QFrame;
 class QComboBox;
+class QScrollArea;
 
 class CharacterTab : public QWidget {
     Q_OBJECT
@@ -64,4 +65,9 @@ private:
 
     QList<ItemData> _searchResults;
     QComboBox*      _slotFilter{nullptr};
+
+    QScrollArea*    _inventoryScroll{nullptr};
+    QWidget*        _inventoryContent{nullptr};
+    QList<ItemData> _bagItems;
+    void rebuildInventoryPanel();
 };
