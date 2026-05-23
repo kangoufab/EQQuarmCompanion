@@ -9,6 +9,7 @@
 #include <QVBoxLayout>
 #include <QLineEdit>
 #include <QHBoxLayout>
+#include <QSplitter>
 #include <QGridLayout>
 #include <QScrollArea>
 #include <QFrame>
@@ -199,13 +200,19 @@ void CharacterTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* totals,
 
 void CharacterTab::buildUi()
 {
-    auto* outerLayout = new QHBoxLayout(this);
+    auto* outerLayout = new QVBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
-    outerLayout->setSpacing(0);
+
+    auto* splitter = new QSplitter(Qt::Horizontal);
+    splitter->setHandleWidth(4);
+    splitter->setStyleSheet(
+        "QSplitter::handle { background: #2a3a5a; }"
+        "QSplitter::handle:hover { background: #4a6a9a; }");
+    outerLayout->addWidget(splitter);
 
     // ── Colonne gauche : inventaire ──────────────────────────────────────────
     _inventoryScroll = new QScrollArea;
-    _inventoryScroll->setFixedWidth(250);
+    _inventoryScroll->setMinimumWidth(120);
     _inventoryScroll->setWidgetResizable(true);
     _inventoryScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     _inventoryScroll->setStyleSheet(
@@ -213,14 +220,18 @@ void CharacterTab::buildUi()
     _inventoryContent = new QWidget;
     _inventoryContent->setStyleSheet("background: #0b1120;");
     _inventoryScroll->setWidget(_inventoryContent);
-    outerLayout->addWidget(_inventoryScroll);
+    splitter->addWidget(_inventoryScroll);
 
     // ── Colonne droite : recherche + comparaison ─────────────────────────────
     auto* scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scroll->setStyleSheet("QScrollArea { border: none; background: transparent; }");
-    outerLayout->addWidget(scroll, 1);
+    splitter->addWidget(scroll);
+
+    splitter->setSizes({250, 1000});
+    splitter->setStretchFactor(0, 0);
+    splitter->setStretchFactor(1, 1);
 
     auto* container = new QWidget;
     container->setStyleSheet("background: #0f1624;");
