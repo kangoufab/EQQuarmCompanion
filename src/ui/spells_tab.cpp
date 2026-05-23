@@ -366,7 +366,7 @@ void SpellsTab::loadClickies() {
     // Puis les items des sacs (General1-8), requête DB batch
     QList<int> bagIds;
     bagIds.reserve((int)_charInfo->bag_item_ids.size());
-    for (int id : _charInfo->bag_item_ids) bagIds.append(id);
+    for (auto& [bagNum, id] : _charInfo->bag_item_ids) bagIds.append(id);
     allPairs.append(_itemDb->getItemClickeffects(bagIds));
 
     // Dédoublonner par spell_id, récupérer le SpellData

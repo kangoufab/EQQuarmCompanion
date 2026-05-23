@@ -68,6 +68,6 @@ private:
 
     QScrollArea*    _inventoryScroll{nullptr};
     QWidget*        _inventoryContent{nullptr};
-    QList<ItemData> _bagItems;
+    QList<std::pair<int,ItemData>> _bagItems;  // {bag_number, item}
     void rebuildInventoryPanel();
 };

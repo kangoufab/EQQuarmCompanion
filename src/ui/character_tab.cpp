@@ -182,11 +182,11 @@ void CharacterTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* totals,
 
     _bagItems.clear();
     if (_charInfo && _itemDb) {
-        for (int id : _charInfo->bag_item_ids) {
+        for (auto& [bagNum, id] : _charInfo->bag_item_ids) {
             auto item = _itemDb->getItemById(id);
             if (item) {
                 applyWornStats(*item, _charInfo->level);
-                _bagItems.append(*item);
+                _bagItems.append({bagNum, *item});
             }
         }
     }
@@ -205,7 +205,7 @@ void CharacterTab::buildUi()
 
     // ── Colonne gauche : inventaire ──────────────────────────────────────────
     _inventoryScroll = new QScrollArea;
-    _inventoryScroll->setFixedWidth(190);
+    _inventoryScroll->setFixedWidth(250);
     _inventoryScroll->setWidgetResizable(true);
     _inventoryScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     _inventoryScroll->setStyleSheet(
@@ -394,26 +394,35 @@ void CharacterTab::rebuildInventoryPanel()
         }
     }
 
-    // ── Sacs ─────────────────────────────────────────────────────────────────
-    addTitle(QString("Sacs (%1 items)").arg(_bagItems.size()));
-    for (const auto& bagItem : _bagItems) {
-        auto allSlots = detectSlots(bagItem);
-        if (allSlots.empty()) {
-            addRow(std::string(), QString::fromStdString(bagItem.name), true, nullptr);
-        } else {
-            ItemData item = bagItem;
-            QString firstSlot = allSlots[0];
-            addRow(std::string(), QString::fromStdString(item.name), false,
-                   [this, item, firstSlot, allSlots]() {
-                       clearComparison(false);
-                       showComparison(item, firstSlot, allSlots);
-                   });
-        }
-    }
-    if (_bagItems.isEmpty()) {
+    // ── Sacs — groupés par numéro de bag ─────────────────────────────────────
+    // Construire la map {bagNum → [items]}
+    std::map<int, std::vector<const ItemData*>> byBag;
+    for (auto& [bagNum, item] : _bagItems)
+        byBag[bagNum].push_back(&item);
+
+    if (byBag.empty()) {
+        addTitle(QString::fromUtf8("Sacs"));
         auto* lbl = new QLabel(QString::fromUtf8("(vide)"));
         lbl->setStyleSheet("color: #2a3a4a; font-size: 12px; padding: 4px 8px;");
         vl->addWidget(lbl);
+    } else {
+        for (auto& [bagNum, items] : byBag) {
+            addTitle(QString("Bag %1  (%2)").arg(bagNum).arg(items.size()));
+            for (const auto* bagItem : items) {
+                auto allSlots = detectSlots(*bagItem);
+                if (allSlots.empty()) {
+                    addRow(std::string(), QString::fromStdString(bagItem->name), true, nullptr);
+                } else {
+                    ItemData item = *bagItem;
+                    QString firstSlot = allSlots[0];
+                    addRow(std::string(), QString::fromStdString(item.name), false,
+                           [this, item, firstSlot, allSlots]() {
+                               clearComparison(false);
+                               showComparison(item, firstSlot, allSlots);
+                           });
+                }
+            }
+        }
     }
 
     vl->addStretch();

@@ -158,7 +158,10 @@ std::optional<CharacterInfo> parseCharacterFile(const std::filesystem::path& pat
                 result->equipped.emplace_back(location, itemId);
             } else if (location.rfind("General", 0) == 0
                        && location.find("-Slot") != std::string::npos) {
-                result->bag_item_ids.push_back(itemId);
+                int bagNum = 0;
+                try { bagNum = std::stoi(location.substr(7, location.find('-') - 7)); }
+                catch (...) {}
+                result->bag_item_ids.emplace_back(bagNum, itemId);
             }
         }
     }

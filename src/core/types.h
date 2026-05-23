@@ -16,8 +16,8 @@ struct CharacterInfo {
     int         base_agi{}, base_int{}, base_wis{}, base_cha{};
     // Equipped items from the .quarmy file: (slot_name, item_id)
     std::vector<std::pair<std::string, int>> equipped;
-    // Item IDs from General1-8 bag slots (not bank/shared bank)
-    std::vector<int> bag_item_ids;
+    // {bag_number, item_id} from General1-8 bag slots (not bank/shared bank)
+    std::vector<std::pair<int,int>> bag_item_ids;
     // AAs achetés depuis la section AAIndex du fichier .quarmy: (eqmacid, rank)
     std::vector<std::pair<int,int>> aa_purchases;
 };
