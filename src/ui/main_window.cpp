@@ -238,6 +238,9 @@ void MainWindow::onBuffStatsChanged(PlayerTotals totals, PlayerTotalsExtra spell
 // ── Chargement des personnages ────────────────────────────────────────────
 
 void MainWindow::loadCharacterFiles() {
+    // Preserve current selection so file-watcher reloads don't reset the combo
+    std::string previousName = _currentChar.name;
+
     auto eqDir = std::filesystem::path(
         QString::fromStdString(_config->get("eq_files_dir")).toStdWString());
     auto files = findCharacterFiles(eqDir);
@@ -259,7 +262,17 @@ void MainWindow::loadCharacterFiles() {
             _fileWatcher->addPath(QString::fromStdWString(f.wstring()));
     }
     _charSelector->blockSignals(false);
-    if (!_characters.empty()) onCharacterChanged(0);
+
+    if (!_characters.empty()) {
+        int restoreIdx = 0;
+        if (!previousName.empty()) {
+            for (int i = 0; i < (int)_characters.size(); ++i) {
+                if (_characters[i].name == previousName) { restoreIdx = i; break; }
+            }
+        }
+        _charSelector->setCurrentIndex(restoreIdx);
+        onCharacterChanged(restoreIdx);
+    }
 }
 
 void MainWindow::onCharacterChanged(int index) {

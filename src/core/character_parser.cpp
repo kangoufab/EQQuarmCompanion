@@ -128,7 +128,7 @@ std::optional<CharacterInfo> parseCharacterFile(const std::filesystem::path& pat
                     int rank    = std::stoi(ap[1]);
                     if (result.has_value())
                         result->aa_purchases.emplace_back(eqmacid, rank);
-                } catch (...) { break; }
+                } catch (...) { continue; }
             }
             continue;
         }

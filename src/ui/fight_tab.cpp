@@ -29,7 +29,7 @@ static const std::vector<std::tuple<QString,int,int>> kSlowSpells = {
     {"Turgur", 1, 25},
     {"Plague", 5, 75},
 };
-static const int   kChMaxClr  = 6;
+static const int   kChMaxClr  = 12;
 static const float kChHpFloor = 0.30f;
 
 static const std::vector<std::pair<const char*, int>> kSlotBits = {
@@ -719,12 +719,15 @@ QWidget* FightTab::buildDpsSlowTable(
             QString survStr = surv > 0.f ? QString("~%1s").arg(surv, 0, 'f', 0) : "?";
             const char* dpsC = !landPct ? "#888888" : "#e0e0e0";
 
+            float minTotal = dmg.min_dps * (atkSpeed / 100.f) + spDps;
+            float maxTotal = dmg.max_dps * (atkSpeed / 100.f) + spDps;
+
             QString chLine;
-            if (hp > 0 && total > 0.f) {
-                float safePause = hp * (1.f - kChHpFloor) * 10.f / total;
+            if (hp > 0 && maxTotal > 0.f) {
+                float safePause = hp * (1.f - kChHpFloor) * 10.f / maxTotal;
                 int n = -1, pause = 0;
                 for (int nn = 1; nn <= kChMaxClr; ++nn) {
-                    int p = static_cast<int>(std::round(100.f / nn));
+                    int p = static_cast<int>(std::ceil(100.f / nn));
                     if (p <= safePause) { n = nn; pause = p; break; }
                 }
                 if (n > 0) {
@@ -736,9 +739,6 @@ QWidget* FightTab::buildDpsSlowTable(
                              .arg(kRed).arg(kChMaxClr);
                 }
             }
-
-            float minTotal = dmg.min_dps * (atkSpeed / 100.f) + spDps;
-            float maxTotal = dmg.max_dps * (atkSpeed / 100.f) + spDps;
             QString rangeStr = (minTotal > 0.f && maxTotal > minTotal)
                 ? QString("<br><span style='color:#555555;font-size:12px'>[%1–%2/s]</span>")
                     .arg(minTotal, 0, 'f', 0).arg(maxTotal, 0, 'f', 0)

@@ -114,6 +114,7 @@ struct SpecialAbility { std::string tag, severity; }; // severity: "red"|"orange
 
 struct SpellData {
     int id{}, resist_type{}, spell_type{}, recast_delay{}, targettype{};
+    int skill{};  // instrument skill (41=Singing, 49=Stringed, 54=Wind, 12=Brass, 70=Percussion)
     std::string name;
     std::array<int, 12> effect_base_value{};
     std::array<int, 12> effect_limit_value{};

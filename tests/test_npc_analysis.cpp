@@ -52,6 +52,29 @@ TEST(NpcAnalysis, DecodeSpecialAbilitiesSummon) {
     EXPECT_EQ(abilities[0].severity, "orange");
 }
 
+TEST(NpcAnalysis, DefensiveDisciplineDBUnaffected) {
+    // DI = (max-min)/19, DB = min-DI. Server applies SE_MeleeMitigation only on DI,
+    // not DB. disc_max = DB + 10*DI = min + 9*DI. With AoW params (min=299,max=1154):
+    // DI=45, DB=254, disc_max=704 → disc reduction is ~39%, not 50%.
+    NpcData npc;
+    npc.min_hit = 299; npc.max_hit = 1154;
+    npc.attack_delay = 17; npc.attack_count = -1;
+    npc.level = 70; npc.npc_class = 1;
+    PlayerTotals pt; pt.mitigation = 0; pt.agi = 82;
+
+    auto base = incomingDamage(npc, pt, "Warrior", 60, "none");
+    auto def  = incomingDamage(npc, pt, "Warrior", 60, "defensive");
+
+    EXPECT_EQ(def.disc_note, "defensive");
+    EXPECT_LT(def.est_dps, base.est_dps);
+    EXPECT_GT(def.disc_mult, 0.5f);  // disc_mult > 0.5 because DB is unaffected
+    EXPECT_LT(def.disc_mult, 1.0f);
+    // disc_max_hit = DB + 10*DI = 254 + 450 = 704; base max_hit = 1154
+    // Verify via max_dps ratio ≈ 704/1154
+    if (base.max_dps > 0.f)
+        EXPECT_NEAR(def.max_dps / base.max_dps, 704.f / 1154.f, 0.02f);
+}
+
 TEST(NpcAnalysis, ResistRatingGoodWhenHighResist) {
     NpcData npc; npc.level = 60;
     PlayerTotals pt; pt.mr = 320;

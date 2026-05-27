@@ -8,6 +8,31 @@
 
 NpcDatabase::NpcDatabase(QObject* parent) : QObject(parent) {}
 
+static bool s_npcsFulltext = false;
+static bool s_npcsFulltextChecked = false;
+
+static bool hasNpcsFulltextIndex(const QSqlDatabase& db) {
+    if (s_npcsFulltextChecked) return s_npcsFulltext;
+    QSqlQuery chk(db);
+    chk.exec(
+        "SELECT 1 FROM information_schema.STATISTICS"
+        " WHERE table_schema = DATABASE()"
+        "   AND table_name   = 'npc_types'"
+        "   AND index_name   = 'ft_name' LIMIT 1"
+    );
+    s_npcsFulltext = chk.next();
+    if (!s_npcsFulltext) {
+        QSqlQuery create(db);
+        s_npcsFulltext = create.exec("ALTER TABLE npc_types ADD FULLTEXT INDEX ft_name (name)");
+        if (s_npcsFulltext)
+            qInfo() << "[NpcDatabase] FULLTEXT index créé sur npc_types.name";
+        else
+            qDebug() << "[NpcDatabase] FULLTEXT index indisponible:" << create.lastError().text();
+    }
+    s_npcsFulltextChecked = true;
+    return s_npcsFulltext;
+}
+
 // ── Helper: fallback zone for script-spawned NPCs ─────────────────────────
 
 static QString fallbackZone(const QString& name) {
@@ -39,18 +64,33 @@ static QString fallbackZone(const QString& name) {
 
 QList<NpcData> NpcDatabase::searchNpcs(const QString& nameFragment) {
     QList<NpcData> result;
-    QSqlQuery q(DbConnection::instance().db());
-    q.prepare(
-        "SELECT nt.id, nt.name, nt.level, MIN(z.long_name) AS zone_long_name"
-        " FROM npc_types nt"
-        " LEFT JOIN spawnentry se ON se.npcID = nt.id"
-        " LEFT JOIN spawn2 s2 ON s2.spawngroupID = se.spawngroupID"
-        " LEFT JOIN zone z ON z.short_name = s2.zone"
-        " WHERE nt.name LIKE :name"
-        " GROUP BY nt.id, nt.name, nt.level"
-        " ORDER BY CHAR_LENGTH(nt.name) ASC LIMIT 50"
-    );
-    q.bindValue(":name", QString("%%1%").arg(nameFragment));
+    auto& db = DbConnection::instance().db();
+    QSqlQuery q(db);
+    if (hasNpcsFulltextIndex(db)) {
+        q.prepare(
+            "SELECT nt.id, nt.name, nt.level, MIN(z.long_name) AS zone_long_name"
+            " FROM npc_types nt"
+            " LEFT JOIN spawnentry se ON se.npcID = nt.id"
+            " LEFT JOIN spawn2 s2 ON s2.spawngroupID = se.spawngroupID"
+            " LEFT JOIN zone z ON z.short_name = s2.zone"
+            " WHERE MATCH(nt.name) AGAINST (:name IN BOOLEAN MODE)"
+            " GROUP BY nt.id, nt.name, nt.level"
+            " ORDER BY CHAR_LENGTH(nt.name) ASC LIMIT 50"
+        );
+        q.bindValue(":name", nameFragment.trimmed() + "*");
+    } else {
+        q.prepare(
+            "SELECT nt.id, nt.name, nt.level, MIN(z.long_name) AS zone_long_name"
+            " FROM npc_types nt"
+            " LEFT JOIN spawnentry se ON se.npcID = nt.id"
+            " LEFT JOIN spawn2 s2 ON s2.spawngroupID = se.spawngroupID"
+            " LEFT JOIN zone z ON z.short_name = s2.zone"
+            " WHERE nt.name LIKE :name"
+            " GROUP BY nt.id, nt.name, nt.level"
+            " ORDER BY CHAR_LENGTH(nt.name) ASC LIMIT 50"
+        );
+        q.bindValue(":name", QString("%%1%").arg(nameFragment));
+    }
     if (!q.exec()) {
         qWarning() << "searchNpcs failed:" << q.lastError().text();
         return result;

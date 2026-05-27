@@ -43,16 +43,19 @@ parseSa(std::string_view raw) {
 }
 
 static float npcAttacksPerRound(const NpcData& npc) {
-    // Mirrors Python _npc_attacks_per_round (zone/mob_ai.cpp DoMainHandRound+Flurry)
+    // Mirrors EQMacEmu mob_ai.cpp DoMainHandRound + DoOffhandRound + Flurry
     auto sa    = parseSa(npc.special_abilities);
-    // attack_count = -1 in DB means "default" = 1 attack (mob_ai.cpp:1184: n_atk <= 1 → single Attack())
+    // attack_count = -1 in DB means "default" = 1 attack (mob_ai.cpp: n_atk <= 1 → single Attack())
     float base = static_cast<float>(std::max(1, npc.attack_count));
     float da   = npcDoubleAttackChance(npc.level);
 
-    // Triple attack: Warrior/WarriorGM NPCs at lv60+ — 13.5% of DA swings
-    bool hasTriple  = (npc.level >= 60 && (npc.npc_class == 1 || npc.npc_class == 32));
-    float triple    = hasTriple ? da * 0.135f : 0.f;
-    float mainAtk   = base + da + triple;
+    // Triple attack (SA 6, or warrior/warriorGM class lv60+ fallback):
+    // fires at the same probability as double attack — a second independent DA roll.
+    // Log-verified: AoW lv70 (SA6+SA7+SA5_6%) → 1306 swings / 328 rounds ≈ 3.98 hits/round.
+    bool hasTriple = sa.count(6) > 0 ||
+                     (npc.level >= 60 && (npc.npc_class == 1 || npc.npc_class == 32));
+    float triple   = hasTriple ? da : 0.f;
+    float mainAtk  = base + da + triple;
 
     // Dual Wield (SA 7): off-hand is 1 base attack + DA (off-hand also double-attacks)
     float offAtk = sa.count(7) > 0 ? (1.f + da) : 0.f;
@@ -166,28 +169,38 @@ IncomingDamageResult incomingDamage(const NpcData& npc,
     int baseAv  = (level > 0) ? playerAvoidanceScore(className, level, player.agi) : 300;
     float baseHC = avoidanceHitChance(npcTh, baseAv, 0);
 
-    // Discipline modifiers (mirrors incoming_damage() in npc_analysis.py)
-    float discMult = 1.f;
+    // Discipline modifiers
+    // Server: damage = DamageBonus + CalcMeleeDamage(baseDamage=DI*10)
+    //   DB = mindmg - DI (added after, unaffected by spells)
+    //   CalcMeleeDamage applies SE_MeleeMitigation(-50) to baseDamage only
+    //   Defensive disc: hit = DB + roll*(DI/2), not roll*(DI/2+DB/2)
+    //   → max capped at DB+10*DI = mindmg+9*DI, avg reduced by ~27% not 50%
+    // attack.cpp: CalcMeleeDamage + GetDamageBonus (zone/attack.cpp:948-994)
+    float disc_effHit = effHit;
+    float disc_minHit = (r.avg_hit > 0.f) ? std::max(1.f, static_cast<float>(npc.min_hit)) : 0.f;
+    float disc_maxHit = (r.avg_hit > 0.f) ? static_cast<float>(npc.max_hit) : 0.f;
+    float effectiveHC = baseHC;
+    float discMult    = 1.f;
+
     if (discipline == "defensive") {
-        discMult = 0.5f;
-        r.disc_note = "defensive";
+        // DB is unaffected; only the DI component is halved.
+        float db     = npc.min_hit - di;
+        disc_effHit  = db + expRollF * di / 2.f;
+        disc_minHit  = r.avg_hit > 0.f ? std::max(1.f, db + di / 2.f) : 0.f;
+        disc_maxHit  = r.avg_hit > 0.f ? db + 10.f * di : 0.f;
+        discMult     = effHit > 0.f ? disc_effHit / effHit : 0.5f;
+        r.disc_note  = "defensive";
     } else if (discipline == "evasive") {
         float evasHC = avoidanceHitChance(npcTh, baseAv, 50);
-        discMult = (baseHC > 0.f) ? evasHC / baseHC : 1.f;
-        r.disc_note = "evasive";
+        effectiveHC  = evasHC;
+        discMult     = (baseHC > 0.f) ? evasHC / baseHC : 1.f;
+        r.disc_note  = "evasive";
     }
     r.disc_mult = discMult;
 
-    // Base DPS = eff_hit × attacks × hit_chance / delay
-    float baseDps = effHit * attacks * baseHC / delaySec;
-    r.est_dps     = baseDps * discMult;
-
-    // Min DPS : roll = 1, hit = min_hit
-    float minHit = (r.avg_hit > 0.f) ? std::max(1.f, static_cast<float>(npc.min_hit)) : 0.f;
-    // Max DPS : roll = 20, hit = max_hit
-    float maxHit = (r.avg_hit > 0.f) ? static_cast<float>(npc.max_hit) : 0.f;
-    r.min_dps = minHit * attacks * baseHC / delaySec * discMult;
-    r.max_dps = maxHit * attacks * baseHC / delaySec * discMult;
+    r.est_dps = disc_effHit * attacks * effectiveHC / delaySec;
+    r.min_dps = disc_minHit * attacks * effectiveHC / delaySec;
+    r.max_dps = disc_maxHit * attacks * effectiveHC / delaySec;
 
     return r;
 }

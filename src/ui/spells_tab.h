@@ -56,6 +56,8 @@ private:
     void refreshSetsCombo();
     void rebuildActiveBuffsList();
     int  expansionMaxLevel() const;
+    // Amplification multiplier for a bard song (effectmod/10.0), uses _bardMods.
+    float bardAmplifier(const SpellData& song) const;
 
     Config*        _config;
     ItemDatabase*  _itemDb;
@@ -83,4 +85,5 @@ private:
     std::string              _currentClass;
     std::vector<ClickieEntry> _clickieSpells;
     std::map<int, std::string> _clickieItemNames; // spell_id → item_name
+    std::map<int, int>       _bardMods;          // bardtype → max bardvalue for current expansion
 };

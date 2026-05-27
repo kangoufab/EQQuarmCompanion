@@ -2,7 +2,7 @@
 
 **Serveur :** Project Quarm (EQMacEmu, base Planes of Power)  
 **Référence serveur :** `common/emu_constants.h`, `zone/client_mods.cpp`, `zone/attack.cpp`, `zone/buffstacking.cpp`, `zone/mob.cpp`  
-**Mis à jour :** 2026-05-21 (révision 4)
+**Mis à jour :** 2026-05-27 (révision 5)
 
 ---
 
@@ -578,11 +578,17 @@ da        = min(1.0, effective / 500.0)    ← probabilité 0–100%
 
 #### Triple Attack
 
-Uniquement pour les NPCs guerriers (npc_class = 1 ou 32) de niveau ≥ 60.
+SA 6 présent dans le champ `special_abilities`, OU fallback : NPC guerrier (npc_class = 1 ou 32) de niveau ≥ 60.
+
+Triple attack = un second DA roll indépendant → même probabilité que le double attack.
 
 ```
-triple = da × 0.135    ← 13,5% des swings DA
+hasTriple = sa[6] présent OU (level ≥ 60 AND npc_class ∈ {1, 32})
+triple    = hasTriple ? da : 0.0
 ```
+
+> Vérifié sur log AoW (lv70, SA6+SA7+SA5_6%) : 1306 swings / (557 s / 1,7 s) = **3,98 attaques/round** ✓  
+> L'ancienne valeur `da × 0,135` était incorrecte.
 
 #### Round principal (main hand)
 
@@ -680,7 +686,13 @@ else:
 |------------|-------|
 | Aucune | avoidancePct = 0 |
 | Evasive | avoidancePct = +50 → hitChance réduite |
-| Defensive | hitChance × 0.5 (dégâts réduits de 50%) |
+| Defensive | SE_MeleeMitigation −50 : divise la composante DI par 2 (DB inchangé). Réduction effective ~33%, pas 50%. |
+
+> **Defensive — mécanique exacte :**  
+> `DB = min_hit − DI` (Damage Bonus, inchangé par la discipline)  
+> `DI = (max_hit − min_hit) / 19`  
+> Sous Defensive : `hit = DB + roll × (DI / 2)` → `max_hit_def = DB + 10 × DI = min_hit + 9 × DI`  
+> Ex. AoW (min=299, max=1154, DI=45, DB=254) : max sous def = 704 ✓ (observé en log)
 
 ---
 
@@ -696,18 +708,27 @@ expRollF = clamp(1 + 10 × (3×npcOff − mit + 10) / (npcOff + mit + 10), 1, 20
 di       = (max_hit > min_hit) ? (max_hit − min_hit) / 19.0 : 0
 effHit   = max(1, min_hit + (expRollF − 1) × di)
 
-// DPS moyen / min / max
-baseDPS      = effHit       × total_attacks × hitChance / delaySec
-minDPS       = min_hit      × total_attacks × hitChance / delaySec   ← roll=1
-maxDPS       = max_hit      × total_attacks × hitChance / delaySec   ← roll=20
+// Sans discipline
+est_dps = effHit   × total_attacks × hitChance / delaySec
+min_dps = min_hit  × total_attacks × hitChance / delaySec   ← roll=1
+max_dps = max_hit  × total_attacks × hitChance / delaySec   ← roll=20
 
-// Avec discipline
-DPS_final = baseDPS × discMult
-min_dps   = minDPS  × discMult
-max_dps   = maxDPS  × discMult
+// Discipline Defensive (SE_MeleeMitigation −50 : DI/2, DB inchangé)
+db         = min_hit − di
+disc_eff   = db + expRollF × di / 2
+disc_min   = db + di / 2                   ← roll=1 sous def
+disc_max   = db + 10 × di                  ← roll=20 sous def = min_hit + 9×DI
+est_dps  = disc_eff × total_attacks × hitChance / delaySec
+min_dps  = disc_min × total_attacks × hitChance / delaySec
+max_dps  = disc_max × total_attacks × hitChance / delaySec
+
+// Discipline Evasive (SE_AvoidMeleeChance +50)
+hitChance_evasive = avoidanceHitChance(npcToHit, avoidance, 50)
+est/min/max_dps   = … × hitChance_evasive / delaySec
 ```
 
-> La formule `expRollF` remplace l'ancienne `off×20/(off+mit)` — elle correspond à l'espérance réelle du dé biaisé `RollD20` du serveur (biais en faveur de l'attaquant quand offense > mitigation).
+> La formule `expRollF` remplace l'ancienne `off×20/(off+mit)` — elle correspond à l'espérance réelle du dé biaisé `RollD20` du serveur (biais en faveur de l'attaquant quand offense > mitigation).  
+> La Defensive divise uniquement la composante DI, pas le DB — réduction réelle ~33% (log AoW : 854 DPS sous def vs 1096 sans, soit −22% en DPS moyen avoidance incluse).
 
 ---
 

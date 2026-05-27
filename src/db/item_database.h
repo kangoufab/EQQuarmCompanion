@@ -3,6 +3,7 @@
 #include <QList>
 #include <QObject>
 #include <optional>
+#include <unordered_map>
 
 class ItemDatabase : public QObject {
     Q_OBJECT
@@ -30,4 +31,11 @@ public:
 
     // Retourne les paires (item_name, clickeffect_spell_id) pour les items avec clickeffect > 0.
     [[nodiscard]] QList<QPair<QString,int>> getItemClickeffects(const QList<int>& itemIds);
+
+    // Retourne le meilleur bardvalue par bardtype (23/24/25/26/50/51) pour les items
+    // dont reqlevel <= maxReqlevel. Utilisé pour calculer l'amplification des songs bard.
+    [[nodiscard]] std::map<int, int> getBardInstrumentMods(int maxReqlevel);
+
+private:
+    std::unordered_map<int, ItemData> _itemCache;
 };

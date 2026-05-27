@@ -166,6 +166,7 @@ static SpellData rowToSpellData(QSqlQuery& q, int minLevelCol = -1) {
     sd.id         = q.value("id").toInt();
     sd.name       = q.value("name").toString().toStdString();
     sd.targettype = q.value("targettype").toInt();
+    sd.skill      = q.value("skill").toInt();
     for (int i = 0; i < 12; ++i) {
         int n = i + 1;
         sd.spa[i]               = q.value(QString("effectid%1").arg(n)).toInt();
@@ -181,6 +182,9 @@ static SpellData rowToSpellData(QSqlQuery& q, int minLevelCol = -1) {
 ItemDatabase::ItemDatabase(QObject* parent) : QObject(parent) {}
 
 std::optional<ItemData> ItemDatabase::getItemById(int id) {
+    auto cit = _itemCache.find(id);
+    if (cit != _itemCache.end()) return cit->second;
+
     QString cols = buildCols();
     QString from = buildFrom();
 
@@ -194,25 +198,65 @@ std::optional<ItemData> ItemDatabase::getItemById(int id) {
         return std::nullopt;
     }
     if (!q.next()) return std::nullopt;
-    return rowToItemData(q);
+    auto item = rowToItemData(q);
+    _itemCache[id] = item;
+    return item;
+}
+
+// Détecte une fois si l'index FULLTEXT existe (docs/sql_migrations/add_fulltext_indexes.sql).
+// FULLTEXT passe de O(n) full-scan à O(log n) sur la colonne Name.
+static bool s_itemsFulltext = false;
+static bool s_itemsFulltextChecked = false;
+
+static bool hasItemsFulltextIndex(const QSqlDatabase& db) {
+    if (s_itemsFulltextChecked) return s_itemsFulltext;
+    QSqlQuery chk(db);
+    chk.exec(
+        "SELECT 1 FROM information_schema.STATISTICS"
+        " WHERE table_schema = DATABASE()"
+        "   AND table_name   = 'items'"
+        "   AND index_name   = 'ft_name' LIMIT 1"
+    );
+    s_itemsFulltext = chk.next();
+    if (!s_itemsFulltext) {
+        QSqlQuery create(db);
+        s_itemsFulltext = create.exec("ALTER TABLE items ADD FULLTEXT INDEX ft_name (Name)");
+        if (s_itemsFulltext)
+            qInfo() << "[ItemDatabase] FULLTEXT index créé sur items.Name";
+        else
+            qDebug() << "[ItemDatabase] FULLTEXT index indisponible:" << create.lastError().text();
+    }
+    s_itemsFulltextChecked = true;
+    return s_itemsFulltext;
 }
 
 QList<ItemData> ItemDatabase::searchItems(const QString& nameFragment, int limit, int slotFilter) {
     QList<ItemData> result;
     QString cols = buildCols();
     QString from = buildFrom();
+    auto& db = DbConnection::instance().db();
 
     QString slotCond = (slotFilter > 0)
         ? QString(" AND (i.slots & %1) != 0").arg(slotFilter)
         : QString();
 
-    QSqlQuery q(DbConnection::instance().db());
-    q.prepare(
-        QString("SELECT %1 FROM %2 WHERE i.Name LIKE :name%3"
-                " ORDER BY CHAR_LENGTH(i.Name) ASC LIMIT :lim")
-            .arg(cols).arg(from).arg(slotCond)
-    );
-    q.bindValue(":name", QString("%%1%").arg(nameFragment));
+    QSqlQuery q(db);
+    if (hasItemsFulltextIndex(db)) {
+        q.prepare(
+            QString("SELECT %1 FROM %2"
+                    " WHERE MATCH(i.Name) AGAINST (:name IN BOOLEAN MODE)%3"
+                    " ORDER BY CHAR_LENGTH(i.Name) ASC LIMIT :lim")
+                .arg(cols).arg(from).arg(slotCond)
+        );
+        q.bindValue(":name", nameFragment.trimmed() + "*");
+    } else {
+        q.prepare(
+            QString("SELECT %1 FROM %2 WHERE i.Name LIKE :name%3"
+                    " ORDER BY CHAR_LENGTH(i.Name) ASC LIMIT :lim")
+                .arg(cols).arg(from).arg(slotCond)
+        );
+        q.bindValue(":name", QString("%%1%").arg(nameFragment));
+    }
     q.bindValue(":lim", limit);
     if (!q.exec()) {
         qWarning() << "searchItems failed:" << q.lastError().text();
@@ -267,7 +311,7 @@ std::optional<SpellData> ItemDatabase::getSpellById(int id) {
         effectCols += QString("effectid%1, effect_base_value%1, max%1, formula%1, ").arg(i);
     effectCols.chop(2);
     QString sql = QString(
-        "SELECT id, name, targettype, resisttype AS resist_type, %1 FROM spells_new WHERE id = :id").arg(effectCols);
+        "SELECT id, name, targettype, skill, resisttype AS resist_type, %1 FROM spells_new WHERE id = :id").arg(effectCols);
     QSqlQuery q(DbConnection::instance().db());
     q.prepare(sql);
     q.bindValue(":id", id);
@@ -276,6 +320,7 @@ std::optional<SpellData> ItemDatabase::getSpellById(int id) {
     sd.id        = q.value("id").toInt();
     sd.name      = q.value("name").toString().toStdString();
     sd.targettype  = q.value("targettype").toInt();
+    sd.skill       = q.value("skill").toInt();
     sd.resist_type = q.value("resist_type").toInt();
     for (int i = 0; i < 12; ++i) {
         int n = i + 1;
@@ -294,11 +339,13 @@ AaStats ItemDatabase::getAaStats(const std::vector<std::pair<int,int>>& purchase
     auto& db = DbConnection::instance().db();
 
     // ── 1. altadv_vars : eqmacid → {name, skill_id, max_level} ────────────
-    QStringList idList;
-    for (auto& [id, rank] : purchases) idList << QString::number(id);
+    QStringList ph1;
+    for (int i = 0; i < (int)purchases.size(); ++i) ph1 << "?";
     QSqlQuery q1(db);
-    if (!q1.exec(QString("SELECT eqmacid, name, skill_id, max_level FROM altadv_vars"
-                         " WHERE eqmacid IN (%1)").arg(idList.join(','))))
+    q1.prepare(QString("SELECT eqmacid, name, skill_id, max_level FROM altadv_vars"
+                       " WHERE eqmacid IN (%1)").arg(ph1.join(',')));
+    for (auto& [id, rank] : purchases) q1.addBindValue(id);
+    if (!q1.exec())
         qWarning() << "[getAaStats] q1 failed:" << q1.lastError().text();
     struct AvEntry { std::string name; int skillId{}; int maxLevel{}; };
     std::map<int, AvEntry> avMap; // eqmacid → {name, skill_id, max_level}
@@ -309,7 +356,7 @@ AaStats ItemDatabase::getAaStats(const std::vector<std::pair<int,int>>& purchase
 
     // ── 2. Calculer les aaid et construire aaidToName ─────────────────────
     std::map<int, std::string> aaidToName; // aaid → aa_name
-    QStringList aaidList;
+    QList<int> aaidInts;
     for (auto& [eqmacid, rank] : purchases) {
         auto it = avMap.find(eqmacid);
         if (it == avMap.end()) continue;
@@ -317,15 +364,18 @@ AaStats ItemDatabase::getAaStats(const std::vector<std::pair<int,int>>& purchase
         int effectiveRank = std::min(rank, maxLevel);
         int aaid = skillId + effectiveRank - 1;
         aaidToName[aaid] = aaName;
-        aaidList << QString::number(aaid);
+        aaidInts << aaid;
     }
 
     // ── 3. Une seule requête aa_effects avec aaid retourné ────────────────
-    if (!aaidList.isEmpty()) {
+    if (!aaidInts.isEmpty()) {
+        QStringList ph2;
+        for (int i = 0; i < aaidInts.size(); ++i) ph2 << "?";
         QSqlQuery q2(db);
-        if (!q2.exec(QString("SELECT aaid, effectid, SUM(base1) AS total FROM aa_effects"
-                             " WHERE aaid IN (%1) GROUP BY aaid, effectid")
-                     .arg(aaidList.join(','))))
+        q2.prepare(QString("SELECT aaid, effectid, SUM(base1) AS total FROM aa_effects"
+                           " WHERE aaid IN (%1) GROUP BY aaid, effectid").arg(ph2.join(',')));
+        for (int a : aaidInts) q2.addBindValue(a);
+        if (!q2.exec())
             qWarning() << "[getAaStats] q2 failed:" << q2.lastError().text();
         while (q2.next()) {
             int aaid     = q2.value(0).toInt();
@@ -393,7 +443,7 @@ QList<SpellData> ItemDatabase::getBeneficialSpellsByClass(const QString& classNa
     classCols.chop(2); // remove trailing ", "
 
     QString sql = QString(
-        "SELECT id, name, targettype, %1 %2"
+        "SELECT id, name, targettype, skill, %1 %2"
         " FROM spells_new"
         " WHERE goodEffect = 1 AND classes%3 > 0 AND classes%3 <= :maxlvl"
         " ORDER BY classes%3 DESC, name ASC")
@@ -432,5 +482,29 @@ QList<QPair<QString,int>> ItemDatabase::getItemClickeffects(const QList<int>& it
     }
     while (q.next())
         result.append({q.value("Name").toString(), q.value("clickeffect").toInt()});
+    return result;
+}
+
+// ── getBardInstrumentMods ─────────────────────────────────────────────────────
+// Retourne le bardvalue max par bardtype pour les items accessibles dans l'extension.
+// Bardtype 51 (All) booste tous les types d'instruments.
+
+std::map<int, int> ItemDatabase::getBardInstrumentMods(int maxReqlevel) {
+    std::map<int, int> result;
+    auto& db = DbConnection::instance().db();
+    if (!db.isOpen()) return result;
+    QSqlQuery q(db);
+    q.prepare(
+        "SELECT bardtype, MAX(bardvalue) FROM items"
+        " WHERE bardtype IN (23,24,25,26,50,51) AND bardvalue >= 10 AND reqlevel <= ?"
+        " GROUP BY bardtype"
+    );
+    q.addBindValue(maxReqlevel);
+    if (!q.exec()) {
+        qWarning() << "getBardInstrumentMods failed:" << q.lastError().text();
+        return result;
+    }
+    while (q.next())
+        result[q.value(0).toInt()] = q.value(1).toInt();
     return result;
 }

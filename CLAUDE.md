@@ -105,7 +105,7 @@ L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
 | `src/core/config.h/cpp` | JSON config read/write, DbConfig, getResistDebuffs |
 | `src/core/character_parser.h/cpp` | Parse EQ TSV character files; extrait `{bag_number, item_id}` depuis `GeneralN-SlotM` → `bag_item_ids` |
 | `src/core/stats_calculator.h/cpp` | HP/Mana/ATK/AC caps, `applyWornStats`, `calculateTotalsWithSpells` (inclut AAs) |
-| `src/core/npc_analysis.h/cpp` | Incoming damage, resist ratings, slow land %, special abilities |
+| `src/core/npc_analysis.h/cpp` | Incoming damage, resist ratings, slow land %, special abilities. Triple attack (SA 6) = DA chance (pas DA×0.135). Defensive disc : DB inchangé, seul DI/2 — réduction ~33%, pas 50%. Vérifiés sur log AoW lv70. |
 | `src/core/spell_stats.h/cpp` | spellValue, spellIncomingDps |
 | `src/core/spell_stacking.h/cpp` | spellsStack() — bard vs non-bard logic |
 | `src/db/item_database.h/cpp` | Item DB queries; `getItemClickeffects(QList<int>)` → clickeffect spell IDs for given item IDs |
@@ -123,5 +123,5 @@ At runtime, the app loads `config.json` from the same directory as the executabl
 
 ## Database
 
-MySQL database named `quarm` (Project Quarm server DB). Connection params in `config.json` under `"db"`. Default: `localhost:3306` user `root` no password. Tables used: `npc_types`, `spells_new`, `loottable`, `lootdrop`, `items`, `races`, `global_loot`.
+MySQL database named `quarm` (Project Quarm server DB). Connection params in `config.json` under `"db"`. Default: `localhost:3306` user `root` password `rooteq`. Tables used: `npc_types`, `spells_new`, `loottable`, `lootdrop`, `items`, `races`, `global_loot`.
 

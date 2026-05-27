@@ -42,6 +42,7 @@ static const std::map<std::string, int> SPELL_CLASS_ID_UI = {
 };
 
 static const int MAX_BUFF_SLOTS = 15;
+static const int MAX_SONG_SLOTS = 5;
 
 // Catégories stats pour l'affichage
 struct CatColors { const char* bg; const char* border; const char* accent; };
@@ -113,6 +114,9 @@ void SpellsTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* baseTotals,
     _conflicts.clear();
     _currentClassSpells.clear();
     _currentClass.clear();
+
+    if (_itemDb)
+        _bardMods = _itemDb->getBardInstrumentMods(expansionMaxLevel());
 
     loadClickies();
     rebuildClassList();   // vide le panneau gauche et remet le compteur à 0
@@ -214,7 +218,8 @@ void SpellsTab::buildUi()
         leftL->setSpacing(4);
 
         _headerLabel = new QLabel(
-            QString::fromUtf8("Buffs actifs (0/%1)").arg(MAX_BUFF_SLOTS));
+            QString::fromUtf8("Buffs (0/%1)  \xe2\x99\xaa 0/%2")
+                .arg(MAX_BUFF_SLOTS).arg(MAX_SONG_SLOTS));
         _headerLabel->setStyleSheet(
             "font-size: 14px; color: #64b5f6; font-variant: small-caps; font-weight: bold;"
             "border: none; background: transparent;");
@@ -310,6 +315,39 @@ int SpellsTab::expansionMaxLevel() const {
     return 60; // Kunark / Velious / Luclin
 }
 
+// ── bardAmplifier ─────────────────────────────────────────────────────────
+// Returns effectmod/10.0 for the given bard song using the best available
+// instrument for the current expansion. Server formula: EQMacEmu GetInstrumentMod().
+// Skill→bardtype: 41→50(Singing), 49→24(Stringed), 54→23(Wind), 12→25(Brass), 70→26(Percussion).
+// Bardtype 51 (All) applies to every instrument type.
+// Singing also benefits from the Amplification song: base=2, formula=119, max=28.
+// Cap: BaseInstrumentSoftCap = 36.
+
+float SpellsTab::bardAmplifier(const SpellData& song) const {
+    static const std::pair<int,int> SKILL_BARDTYPE[] = {
+        {41, 50}, {49, 24}, {54, 23}, {12, 25}, {70, 26}
+    };
+    int primaryBardtype = -1;
+    for (auto& [sk, bt] : SKILL_BARDTYPE)
+        if (sk == song.skill) { primaryBardtype = bt; break; }
+    if (primaryBardtype < 0) return 1.0f;
+
+    int effectmod = 10; // no instrument = 1.0x baseline
+    auto bdIt = _bardMods.find(primaryBardtype);
+    if (bdIt != _bardMods.end()) effectmod = std::max(effectmod, bdIt->second);
+    auto allIt = _bardMods.find(51); // bardtype 51 = All instruments
+    if (allIt != _bardMods.end())   effectmod = std::max(effectmod, allIt->second);
+
+    if (song.skill == 41) { // SkillSinging: add Amplification song bonus
+        int charLevel  = _charInfo ? _charInfo->level : expansionMaxLevel();
+        int amplBonus  = std::min(28, 2 + charLevel / 8); // formula 119, cap 28
+        effectmod += amplBonus;
+    }
+
+    effectmod = std::max(10, std::min(36, effectmod)); // clamp [10, BaseInstrumentSoftCap]
+    return effectmod / 10.0f;
+}
+
 // ── onClassSelected ───────────────────────────────────────────────────────
 
 void SpellsTab::onClassSelected(int row) {
@@ -395,7 +433,12 @@ void SpellsTab::rebuildRightPanel()
 
     int charLevel    = _charInfo ? _charInfo->level : 0;
     int tooltipLevel = charLevel > 0 ? charLevel : expansionMaxLevel();
-    int atCap        = (int)_activeBuffs.size() >= MAX_BUFF_SLOTS;
+    int buffCount = 0, songCount = 0;
+    for (auto& b : _activeBuffs)
+        (b.buffClass == "Bard" ? songCount : buffCount)++;
+    bool isBardBrowse = (_currentClass == "Bard");
+    bool atCap        = isBardBrowse ? (songCount >= MAX_SONG_SLOTS)
+                                     : (buffCount >= MAX_BUFF_SLOTS);
 
     std::set<int> selectedIds;
     for (auto& b : _activeBuffs) selectedIds.insert(b.spell.id);
@@ -478,7 +521,10 @@ void SpellsTab::rebuildRightPanel()
         std::string cls = _currentClass;
         connect(cb, &QCheckBox::toggled, this, [this, spellCopy, cls, minLvl](bool checked) {
             if (checked) {
-                if ((int)_activeBuffs.size() >= MAX_BUFF_SLOTS) return;
+                bool isBardSpell = (cls == "Bard");
+                int cnt = 0;
+                for (auto& b : _activeBuffs) if ((b.buffClass == "Bard") == isBardSpell) cnt++;
+                if (cnt >= (isBardSpell ? MAX_SONG_SLOTS : MAX_BUFF_SLOTS)) return;
                 if (std::any_of(_activeBuffs.begin(), _activeBuffs.end(),
                                 [&](const ActiveBuff& b) { return b.spell.id == spellCopy.id; }))
                     return;
@@ -532,9 +578,13 @@ void SpellsTab::rebuildRightPanel()
 
 void SpellsTab::rebuildClassList()
 {
+    int buffCount = 0, songCount = 0;
+    for (auto& b : _activeBuffs)
+        (b.buffClass == "Bard" ? songCount : buffCount)++;
     _headerLabel->setText(
-        QString::fromUtf8("Buffs actifs (%1/%2)")
-            .arg((int)_activeBuffs.size()).arg(MAX_BUFF_SLOTS));
+        QString::fromUtf8("Buffs (%1/%2)  \xe2\x99\xaa %3/%4")
+            .arg(buffCount).arg(MAX_BUFF_SLOTS)
+            .arg(songCount).arg(MAX_SONG_SLOTS));
 
     std::map<std::string, int> countByClass;
     for (auto& b : _activeBuffs)
@@ -561,40 +611,40 @@ void SpellsTab::rebuildActiveBuffsList()
 {
     if (!_activeBuffsLayout) return;
 
-    // Vider (sauf le stretch final)
     while (_activeBuffsLayout->count() > 1) {
         auto* child = _activeBuffsLayout->takeAt(0);
         if (child->widget()) child->widget()->deleteLater();
         delete child;
     }
 
-    // Tri : ordre classe dans BUFF_CASTER_CLASSES, puis level DESC, puis nom ASC
     auto classOrder = [](const std::string& cls) {
         for (int i = 0; i < (int)BUFF_CASTER_CLASSES.size(); ++i)
             if (BUFF_CASTER_CLASSES[i] == cls) return i;
         return (int)BUFF_CASTER_CLASSES.size();
     };
-    std::vector<const ActiveBuff*> sorted;
-    sorted.reserve(_activeBuffs.size());
-    for (auto& b : _activeBuffs) sorted.push_back(&b);
-    std::sort(sorted.begin(), sorted.end(), [&](const ActiveBuff* a, const ActiveBuff* b) {
-        int oa = classOrder(a->buffClass), ob = classOrder(b->buffClass);
-        if (oa != ob) return oa < ob;
-        if (a->minLevel != b->minLevel) return a->minLevel > b->minLevel; // DESC
-        return a->spell.name < b->spell.name;
-    });
+    auto sortGroup = [&](std::vector<const ActiveBuff*>& v) {
+        std::sort(v.begin(), v.end(), [&](const ActiveBuff* a, const ActiveBuff* b) {
+            int oa = classOrder(a->buffClass), ob = classOrder(b->buffClass);
+            if (oa != ob) return oa < ob;
+            if (a->minLevel != b->minLevel) return a->minLevel > b->minLevel;
+            return a->spell.name < b->spell.name;
+        });
+    };
 
-    for (auto* bp : sorted) {
-        auto& b = *bp;
+    std::vector<const ActiveBuff*> regularBuffs, songs;
+    for (auto& b : _activeBuffs)
+        (b.buffClass == "Bard" ? songs : regularBuffs).push_back(&b);
+    sortGroup(regularBuffs);
+    sortGroup(songs);
+
+    auto makeRow = [&](const ActiveBuff& b) -> QWidget* {
         bool blocked = _conflicts.count(b.spell.id) > 0;
-
         auto* row = new QWidget;
         row->setStyleSheet("background: transparent;");
         auto* rl = new QHBoxLayout(row);
         rl->setContentsMargins(2, 1, 2, 1);
         rl->setSpacing(4);
 
-        // Nom du sort
         auto* nameLbl = new QLabel(QString::fromStdString(b.spell.name));
         nameLbl->setStyleSheet(
             blocked
@@ -605,7 +655,6 @@ void SpellsTab::rebuildActiveBuffsList()
             _charInfo ? _charInfo->level : expansionMaxLevel()));
         rl->addWidget(nameLbl, 1);
 
-        // Classe source (petit, grisé)
         QString shortCls = (b.buffClass == "Clickies")
             ? "Clk" : QString::fromStdString(b.buffClass).left(3);
         auto* clsLbl = new QLabel(shortCls);
@@ -613,7 +662,6 @@ void SpellsTab::rebuildActiveBuffsList()
             "font-size: 14px; color: #555; border: none; background: transparent;");
         rl->addWidget(clsLbl);
 
-        // Bouton ×
         auto* removeBtn = new QPushButton("\xc3\x97");
         removeBtn->setFixedSize(16, 16);
         removeBtn->setStyleSheet(
@@ -636,9 +684,32 @@ void SpellsTab::rebuildActiveBuffsList()
         });
         rl->addWidget(removeBtn);
 
-        // Insérer avant le stretch
-        _activeBuffsLayout->insertWidget(_activeBuffsLayout->count() - 1, row);
+        return row;
+    };
+
+    auto addSection = [&](const char* title, const char* color,
+                          const std::vector<const ActiveBuff*>& items) {
+        if (items.empty()) return;
+        auto* hdr = new QLabel(QString::fromUtf8(title));
+        hdr->setStyleSheet(
+            QString("font-size: 11px; color: %1; font-variant: small-caps; font-weight: bold;"
+                    " border: none; background: transparent; padding: 2px 0px; margin-top: 2px;")
+                .arg(color));
+        _activeBuffsLayout->insertWidget(_activeBuffsLayout->count() - 1, hdr);
+        for (auto* bp : items)
+            _activeBuffsLayout->insertWidget(_activeBuffsLayout->count() - 1, makeRow(*bp));
+    };
+
+    addSection("Buffs", "#64b5f6", regularBuffs);
+
+    if (!regularBuffs.empty() && !songs.empty()) {
+        auto* sep = new QFrame;
+        sep->setFrameShape(QFrame::HLine);
+        sep->setStyleSheet("QFrame { color: #2a3a5a; margin: 3px 0; }");
+        _activeBuffsLayout->insertWidget(_activeBuffsLayout->count() - 1, sep);
     }
+
+    addSection("\xe2\x99\xaa Songs", "#ffd54f", songs);
 }
 
 // ── refreshStats ──────────────────────────────────────────────────────────
@@ -648,24 +719,33 @@ void SpellsTab::refreshStats()
     if (!_charInfo || _charInfo->level <= 0) return;
 
     // Sorts effectifs (non bloqués)
-    std::vector<SpellData> effective;
+    std::vector<const ActiveBuff*> effectiveBuffs;
     for (auto& b : _activeBuffs)
         if (!_conflicts.count(b.spell.id))
-            effective.push_back(b.spell);
+            effectiveBuffs.push_back(&b);
 
     // Sans buffs actifs : utiliser _baseTotals directement.
     // calculateTotalsWithSpells n'inclut pas les AAs — sans buff à afficher,
     // on évite de passer des totaux partiels qui faussent le bandeau.
-    if (effective.empty()) {
+    if (effectiveBuffs.empty()) {
         if (_baseTotals) emit statsChanged(*_baseTotals, {});
         return;
     }
 
     int casterLvl = expansionMaxLevel();
+    std::vector<SpellData> effective;
     std::vector<std::map<std::string, int>> spellDicts;
-    for (auto& sp : effective) {
-        int lvl = (sp.targettype == 6) ? _charInfo->level : casterLvl;
-        spellDicts.push_back(spellToStatDict(sp, lvl));
+    for (auto* b : effectiveBuffs) {
+        int lvl = (b->spell.targettype == 6) ? _charInfo->level : casterLvl;
+        auto sd = spellToStatDict(b->spell, lvl);
+        if (b->buffClass == "Bard") {
+            float amp = bardAmplifier(b->spell);
+            if (amp != 1.0f)
+                for (auto& [k, v] : sd)
+                    v = static_cast<int>(v * amp);
+        }
+        spellDicts.push_back(std::move(sd));
+        effective.push_back(b->spell);
     }
 
     std::vector<ItemData> items;
@@ -775,6 +855,11 @@ void SpellsTab::onLoadSet()
 
         auto sd = _itemDb->getSpellById(spellId);
         if (!sd) continue;
+
+        bool isBardSpell = (cls == "Bard");
+        int cnt = 0;
+        for (auto& b : _activeBuffs) if ((b.buffClass == "Bard") == isBardSpell) cnt++;
+        if (cnt >= (isBardSpell ? MAX_SONG_SLOTS : MAX_BUFF_SLOTS)) continue;
 
         _activeBuffs.push_back({*sd, cls, minLvl});
     }
