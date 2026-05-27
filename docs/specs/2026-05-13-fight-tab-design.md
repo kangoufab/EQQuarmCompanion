@@ -301,12 +301,15 @@ exp_dps = base_dps × (1 − land_pct/100 × (1 − atk_speed/100))
 Intégrée dans chaque cellule du tableau. En EQ, tous les clerics utilisent le **même** `/pause` :
 
 ```
-usable_hp   = hp × (1 − 0.30)         # tank doit rester au-dessus de 30% HP
-safe_pause  = usable_hp × 10 / dps    # pause max en dixièmes de secondes
-# N minimum = premier N (1..6) tel que round(100/N) ≤ safe_pause
+safe_pause  = floor(hp × 0.70 × 10 / dps)   # pause max (dixièmes) avant que HP < 30%
+# N minimum = premier N (1..12) tel que ceil(100/N) ≤ safe_pause
+# P affiché  = safe_pause   (pause maximale garantissant HP ≥ 30% au pire DPS)
 ```
 
-Affichage : `/pause P · Nclr` — rouge si >6 clerics requis.
+`safe_pause` est la limite exacte : au-delà HP descend sous 30%. `ceil(100/N)` est la
+pause minimale pour que la rotation soit soutenable (chaque clerc a ≥ 10s entre ses lancers).
+
+Affichage : `/pause P · Nclr` — rouge si >12 clerics requis.
 
 ### Rating résistances
 

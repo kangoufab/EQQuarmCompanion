@@ -732,16 +732,17 @@ QWidget* FightTab::buildDpsSlowTable(
 
             QString chLine;
             if (hp > 0 && maxTotal > 0.f) {
-                float safePause = hp * (1.f - kChHpFloor) * 10.f / maxTotal;
-                int n = -1, pause = 0;
+                // safeP = floor of max gap (tenths) before HP hits 30% at maxTotal DPS
+                int safeP = static_cast<int>(hp * (1.f - kChHpFloor) * 10.f / maxTotal);
+                int n = -1;
                 for (int nn = 1; nn <= kChMaxClr; ++nn) {
-                    int p = static_cast<int>(std::ceil(100.f / nn));
-                    if (p <= safePause) { n = nn; pause = p; break; }
+                    int minP = static_cast<int>(std::ceil(100.f / nn));
+                    if (minP <= safeP) { n = nn; break; }
                 }
                 if (n > 0) {
                     const char* chC = !landPct ? "#4a7aa8" : "#64b5f6";
                     chLine = QString("<br><span style='color:%1;font-size:13px'>/pause %2 · %3clr</span>")
-                             .arg(chC).arg(pause).arg(n);
+                             .arg(chC).arg(safeP).arg(n);
                 } else {
                     chLine = QString("<br><span style='color:%1;font-size:13px'>&gt;%2clr</span>")
                              .arg(kRed).arg(kChMaxClr);

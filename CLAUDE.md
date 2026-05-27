@@ -112,7 +112,7 @@ L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
 | `src/ui/main_window.h/cpp` | App shell; `_playerTotals` (base+items+AAs), `_buffedTotals` (+ active buffs); file watcher |
 | `src/ui/item_card.h/cpp` | Widget item unifié (carte compacte Option B) — utilisé par Stuff et Fight |
 | `src/ui/character_tab.h/cpp` | Stuff tab — layout 3 colonnes (QSplitter) : inventaire équipé+sacs / recherche / comparaison; `rebuildInventoryPanel()` |
-| `src/ui/fight_tab.h/cpp` | 2D DPS×slow table, loot, NPC tags, resists; `refreshStats()` rebuilds right panel with buffed totals |
+| `src/ui/fight_tab.h/cpp` | 2D DPS×slow table, loot, NPC tags, resists; `refreshStats()` rebuilds right panel with buffed totals. CH rotation: `safeP = floor(hp×0.70×10/maxDPS)` = pause max (dixièmes) pour HP ≥ 30% ; affiché pour N min clerics tel que `ceil(100/N) ≤ safeP`. |
 | `src/ui/infos_tab.h/cpp` | Expansion selector + resist debuff groups |
 | `src/ui/spells_tab.h/cpp` | Buffs tab — class list, checkboxes, stacking, sets save/load, search bar, Clickies (ClickieEntry, loadClickies, _clickieSpells) |
 | `src/ui/infos_spell_data.h` | Données statiques sorts debuff + bestInGroup() + spellResistVal() |
