@@ -203,6 +203,36 @@ std::optional<ItemData> ItemDatabase::getItemById(int id) {
     return item;
 }
 
+QMap<int, ItemData> ItemDatabase::getItemsByIds(const QList<int>& ids) {
+    QMap<int, ItemData> result;
+    if (ids.isEmpty()) return result;
+
+    QList<int> missing;
+    for (int id : ids) {
+        auto cit = _itemCache.find(id);
+        if (cit != _itemCache.end())
+            result[id] = cit->second;
+        else
+            missing.append(id);
+    }
+    if (missing.isEmpty()) return result;
+
+    QStringList idStrs;
+    for (int id : missing) idStrs << QString::number(id);
+    QSqlQuery q(DbConnection::instance().db());
+    if (!q.exec(QString("SELECT %1 FROM %2 WHERE i.id IN (%3)")
+                .arg(buildCols()).arg(buildFrom()).arg(idStrs.join(",")))) {
+        qWarning() << "getItemsByIds failed:" << q.lastError().text();
+        return result;
+    }
+    while (q.next()) {
+        auto item = rowToItemData(q);
+        _itemCache[item.id] = item;
+        result[item.id] = item;
+    }
+    return result;
+}
+
 // Détecte une fois si l'index FULLTEXT existe (docs/sql_migrations/add_fulltext_indexes.sql).
 // FULLTEXT passe de O(n) full-scan à O(log n) sur la colonne Name.
 static bool s_itemsFulltext = false;

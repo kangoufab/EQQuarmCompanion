@@ -214,10 +214,18 @@ QList<SpellData> NpcDatabase::getNpcSpells(int npcSpellsId) {
         " CASE WHEN nse.recast_delay > 0 THEN nse.recast_delay ELSE sn.recast_time END AS recast_delay,"
         " sn.targettype, sn.aoerange, sn.cast_time,"
         " sn.buffduration, sn.buffdurationformula,"
-        " sn.effectid1, sn.effect_base_value1,"
-        " sn.effectid2, sn.effect_base_value2,"
-        " sn.effectid3, sn.effect_base_value3,"
-        " sn.effectid4, sn.effect_base_value4"
+        " sn.effectid1,  sn.effect_base_value1,  sn.formula1,  sn.max1,"
+        " sn.effectid2,  sn.effect_base_value2,  sn.formula2,  sn.max2,"
+        " sn.effectid3,  sn.effect_base_value3,  sn.formula3,  sn.max3,"
+        " sn.effectid4,  sn.effect_base_value4,  sn.formula4,  sn.max4,"
+        " sn.effectid5,  sn.effect_base_value5,  sn.formula5,  sn.max5,"
+        " sn.effectid6,  sn.effect_base_value6,  sn.formula6,  sn.max6,"
+        " sn.effectid7,  sn.effect_base_value7,  sn.formula7,  sn.max7,"
+        " sn.effectid8,  sn.effect_base_value8,  sn.formula8,  sn.max8,"
+        " sn.effectid9,  sn.effect_base_value9,  sn.formula9,  sn.max9,"
+        " sn.effectid10, sn.effect_base_value10, sn.formula10, sn.max10,"
+        " sn.effectid11, sn.effect_base_value11, sn.formula11, sn.max11,"
+        " sn.effectid12, sn.effect_base_value12, sn.formula12, sn.max12"
         " FROM npc_spells_entries nse"
         " JOIN spells_new sn ON sn.id = nse.spellid"
         " WHERE nse.npc_spells_id = :id"
@@ -240,11 +248,12 @@ QList<SpellData> NpcDatabase::getNpcSpells(int npcSpellsId) {
         sd.buffduration        = q.value("buffduration").toInt();
         sd.buffdurationformula = q.value("buffdurationformula").toInt();
 
-        // Map effectid1-4 to spa[] and effect_base_value1-4 to effect_base_value[]
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 12; ++i) {
             int slot = i + 1;
-            sd.spa[i]              = q.value(QString("effectid%1").arg(slot)).toInt();
-            sd.effect_base_value[i] = q.value(QString("effect_base_value%1").arg(slot)).toInt();
+            sd.spa[i]               = q.value(QString("effectid%1").arg(slot)).toInt();
+            sd.effect_base_value[i]  = q.value(QString("effect_base_value%1").arg(slot)).toInt();
+            sd.effect_formula[i]     = q.value(QString("formula%1").arg(slot)).toInt();
+            sd.effect_limit_value[i] = q.value(QString("max%1").arg(slot)).toInt();
         }
         result.append(sd);
     }

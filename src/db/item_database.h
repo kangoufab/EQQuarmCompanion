@@ -1,6 +1,7 @@
 #pragma once
 #include "core/types.h"
 #include <QList>
+#include <QMap>
 #include <QObject>
 #include <optional>
 #include <unordered_map>
@@ -11,6 +12,7 @@ public:
     explicit ItemDatabase(QObject* parent = nullptr);
 
     [[nodiscard]] std::optional<ItemData> getItemById(int id);
+    [[nodiscard]] QMap<int, ItemData>    getItemsByIds(const QList<int>& ids);
     [[nodiscard]] QList<ItemData>         searchItems(const QString& nameFragment,
                                                        int limit = 30,
                                                        int slotFilter = 0);

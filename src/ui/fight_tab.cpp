@@ -406,11 +406,16 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
         if (_lootSort == "score" && _charInfo) {
             auto weights = _config->getClassWeights(_charInfo->class_name);
             if (!weights.empty()) {
+                QList<int> lootIds;
+                for (const auto& li : loot) lootIds.append(li.item_id);
+                auto itemMap = _itemDb->getItemsByIds(lootIds);
                 std::vector<float> scores(loot.size(), 0.f);
-                for (int i = 0; i < loot.size(); ++i)
-                    if (auto it = _itemDb->getItemById(loot[i].item_id))
+                for (int i = 0; i < (int)loot.size(); ++i) {
+                    auto it = itemMap.find(loot[i].item_id);
+                    if (it != itemMap.end())
                         for (auto& [k, w] : weights)
                             scores[i] += itemStatVal(*it, k) * w;
+                }
                 std::vector<int> idx(loot.size());
                 std::iota(idx.begin(), idx.end(), 0);
                 std::sort(idx.begin(), idx.end(), [&](int a, int b){ return scores[a] > scores[b]; });
@@ -635,9 +640,12 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
                    : off.melee.rating == OffenseRating::MEDIUM ? kOrange : kRed;
     const char* ml = off.melee.rating == OffenseRating::EASY   ? "EASY"
                    : off.melee.rating == OffenseRating::MEDIUM ? "MEDIUM" : "HARD";
+    QString acStr = off.melee.npc_avoidance > 0
+        ? QString("AC %1 +%2av").arg(off.melee.npc_ac).arg(off.melee.npc_avoidance)
+        : QString("AC %1").arg(off.melee.npc_ac);
     std::vector<std::pair<QString,QString>> offPairs = {
-        {"ATK", QString("%1  <span style='color:%2'>%3 vs AC %4</span>")
-                .arg(off.melee.player_atk).arg(mc).arg(ml).arg(off.melee.npc_ac)},
+        {"ATK", QString("%1  <span style='color:%2'>%3 vs %4</span>")
+                .arg(off.melee.player_atk).arg(mc).arg(ml).arg(acStr)},
     };
     auto addSpellOff = [&](const char* label, const char* key, const std::optional<SpellOffense>& so) {
         if (!so) return;

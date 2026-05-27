@@ -228,10 +228,14 @@ OffenseRatings offenseRatings(const NpcData& npc, const PlayerTotals& pt,
                                std::string_view className)
 {
     OffenseRatings r;
-    float ratio       = (npc.ac > 0 && pt.atk > 0)
-                        ? static_cast<float>(npc.ac) / pt.atk : 0.f;
-    r.melee.player_atk = pt.atk;
-    r.melee.npc_ac     = npc.ac;
+    // avoidance adds to mob's dodge score (EQMacEmu attack.cpp AvoidanceCheck)
+    // — treated as equivalent AC for rating purposes since both reduce effective hit rate
+    int effectiveAc   = npc.ac + npc.avoidance;
+    float ratio       = (effectiveAc > 0 && pt.atk > 0)
+                        ? static_cast<float>(effectiveAc) / pt.atk : 0.f;
+    r.melee.player_atk    = pt.atk;
+    r.melee.npc_ac        = npc.ac;
+    r.melee.npc_avoidance = npc.avoidance;
     r.melee.rating = ratio < 0.6f ? OffenseRating::EASY
                    : ratio < 0.9f ? OffenseRating::MEDIUM
                    : OffenseRating::HARD;
@@ -262,7 +266,8 @@ std::optional<float> slowLandPct(const NpcData& npc, int playerLevel,
     if (sa.count(12)) return std::nullopt;  // immune to slow
 
     int npcRes = (resistType == 1) ? npc.mr : npc.dr;
-    npcRes = std::max(0, npcRes + resistDiff);
+    // slow_mitigation adds directly to resist check (EQMacEmu CalcResistChance)
+    npcRes = std::max(0, npcRes + resistDiff + npc.slow_mitigation);
 
     int levelMod     = (playerLevel - npc.level) * 2;
     int check        = std::max(0, npcRes - levelMod);

@@ -101,7 +101,7 @@ enum class OffenseRating { EASY, MEDIUM, HARD };
 struct ResistRating  { int value{}; float pct{}; Rating rating{}; };
 struct ResistRatings { ResistRating mr, fr, cr, dr, pr; };
 
-struct MeleeOffense  { int player_atk{}, npc_ac{}; OffenseRating rating{}; };
+struct MeleeOffense  { int player_atk{}, npc_ac{}, npc_avoidance{}; OffenseRating rating{}; };
 struct SpellOffense  { int npc_resist{};            OffenseRating rating{}; };
 struct OffenseRatings {
     MeleeOffense melee;
