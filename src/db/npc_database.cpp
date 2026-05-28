@@ -263,6 +263,77 @@ QList<SpellData> NpcDatabase::getNpcSpells(int npcSpellsId) {
     return result;
 }
 
+// ── computeLootChances ────────────────────────────────────────────────────
+// Lit les lignes d'un QSqlQuery déjà exécuté et calcule les drop chances
+// selon l'algorithme EQMacEmu loot.cpp. Colonnes requises : item_id, name,
+// item_chance, table_probability, table_multiplier, droplimit, mindrop,
+// lootdrop_id, slots, nodrop, classes, races, reqlevel.
+static QList<LootItem> computeLootChances(QSqlQuery& q) {
+    struct RawRow {
+        int    item_id{}, slots{}, nodrop{};
+        int    classes{65535}, races{65535}, reqlevel{};
+        double item_chance{}, table_probability{}, table_multiplier{};
+        int    droplimit{}, mindrop{}, lootdrop_id{};
+        QString name;
+    };
+    QList<RawRow> rows;
+    QMap<int, double> totals;
+
+    while (q.next()) {
+        RawRow r;
+        r.item_id           = q.value("item_id").toInt();
+        r.name              = q.value("name").toString();
+        r.item_chance       = q.value("item_chance").toDouble();
+        r.table_probability = q.value("table_probability").toDouble();
+        r.table_multiplier  = q.value("table_multiplier").toDouble();
+        r.droplimit         = q.value("droplimit").toInt();
+        r.mindrop           = q.value("mindrop").toInt();
+        r.lootdrop_id       = q.value("lootdrop_id").toInt();
+        r.slots             = q.value("slots").toInt();
+        r.nodrop            = q.value("nodrop").toInt();
+        r.classes           = q.value("classes").isNull() ? 65535 : q.value("classes").toInt();
+        r.races             = q.value("races").isNull()   ? 65535 : q.value("races").toInt();
+        r.reqlevel          = q.value("reqlevel").toInt();
+        totals[r.lootdrop_id] += r.item_chance;
+        rows.append(r);
+    }
+
+    QList<LootItem> result;
+    for (const auto& r : rows) {
+        double table_prob   = r.table_probability / 100.0;
+        double multiplier   = (r.table_multiplier > 1) ? r.table_multiplier : 1.0;
+        double total_chance = totals.value(r.lootdrop_id, 0.0);
+
+        double p_in_call;
+        if (r.droplimit == 0 && r.mindrop == 0) {
+            p_in_call = r.item_chance / 100.0;
+        } else {
+            int n_draws = (r.droplimit > 0) ? r.droplimit : 1;
+            p_in_call = (total_chance > 0.0)
+                ? 1.0 - std::pow(1.0 - r.item_chance / total_chance, n_draws)
+                : 0.0;
+        }
+
+        double p_not_drop = std::pow(1.0 - table_prob * p_in_call, multiplier);
+        double chance = std::max(0.0, (1.0 - p_not_drop) * 100.0);
+
+        LootItem li;
+        li.item_id    = r.item_id;
+        li.name       = r.name.toStdString();
+        li.chance     = static_cast<float>(chance);
+        li.item_slots = r.slots;
+        li.nodrop     = r.nodrop;
+        li.classes    = r.classes;
+        li.races      = r.races;
+        li.reqlevel   = r.reqlevel;
+        result.append(li);
+    }
+
+    std::sort(result.begin(), result.end(),
+              [](const LootItem& a, const LootItem& b) { return a.chance > b.chance; });
+    return result;
+}
+
 // ── getNpcLoot ─────────────────────────────────────────────────────────────
 
 QList<LootItem> NpcDatabase::getNpcLoot(int loottableId) {
@@ -287,71 +358,40 @@ QList<LootItem> NpcDatabase::getNpcLoot(int loottableId) {
         qWarning() << "getNpcLoot failed:" << q.lastError().text();
         return result;
     }
+    return computeLootChances(q);
+}
 
-    // Collect raw rows to compute loot chances (EQMacEmu algorithm)
-    struct RawRow {
-        int    item_id{}, slots{}, nodrop{};
-        int    classes{65535}, races{65535}, reqlevel{};
-        double item_chance{}, table_probability{}, table_multiplier{};
-        int    droplimit{}, mindrop{}, lootdrop_id{};
-        QString name;
-    };
-    QList<RawRow> rows;
-    QMap<int, double> totals; // lootdrop_id -> sum of item_chance
+// ── getNpcGlobalLoot ──────────────────────────────────────────────────────
 
-    while (q.next()) {
-        RawRow r;
-        r.item_id          = q.value("item_id").toInt();
-        r.name             = q.value("name").toString();
-        r.item_chance      = q.value("item_chance").toDouble();
-        r.table_probability = q.value("table_probability").toDouble();
-        r.table_multiplier  = q.value("table_multiplier").toDouble();
-        r.droplimit        = q.value("droplimit").toInt();
-        r.mindrop          = q.value("mindrop").toInt();
-        r.lootdrop_id      = q.value("lootdrop_id").toInt();
-        r.slots            = q.value("slots").toInt();
-        r.nodrop           = q.value("nodrop").toInt();
-        r.classes          = q.value("classes").isNull() ? 65535 : q.value("classes").toInt();
-        r.races            = q.value("races").isNull()   ? 65535 : q.value("races").toInt();
-        r.reqlevel         = q.value("reqlevel").toInt();
-        totals[r.lootdrop_id] += r.item_chance;
-        rows.append(r);
+QList<LootItem> NpcDatabase::getNpcGlobalLoot(int level, int race,
+                                              int bodytype, int zone_id) {
+    QList<LootItem> result;
+    QSqlQuery q(DbConnection::instance().db());
+    q.prepare(
+        "SELECT i.id AS item_id, i.Name AS name,"
+        " lde.chance AS item_chance, lde.equip_item, lde.lootdrop_id,"
+        " lte.probability AS table_probability,"
+        " lte.multiplier  AS table_multiplier,"
+        " lte.droplimit, lte.mindrop,"
+        " i.slots, i.nodrop, i.classes, i.races, i.reqlevel"
+        " FROM global_loot gl"
+        " JOIN loottable_entries lte ON lte.loottable_id = gl.loottable_id"
+        " JOIN lootdrop_entries  lde ON lde.lootdrop_id  = lte.lootdrop_id"
+        " JOIN items             i   ON i.id             = lde.item_id"
+        " WHERE gl.enabled = 1"
+        "   AND (gl.min_level = 0 OR gl.min_level <= :level)"
+        "   AND (gl.max_level = 0 OR gl.max_level >= :level)"
+        "   AND (gl.race     IS NULL OR gl.race     = '' OR gl.race     = :race)"
+        "   AND (gl.bodytype IS NULL OR gl.bodytype = '' OR gl.bodytype = :bodytype)"
+        "   AND (gl.zone     IS NULL OR gl.zone     = '' OR gl.zone     = :zone_id)"
+    );
+    q.bindValue(":level",    level);
+    q.bindValue(":race",     QString::number(race));
+    q.bindValue(":bodytype", QString::number(bodytype));
+    q.bindValue(":zone_id",  QString::number(zone_id));
+    if (!q.exec()) {
+        qWarning() << "getNpcGlobalLoot failed:" << q.lastError().text();
+        return result;
     }
-
-    // Compute effective drop chance per EQMacEmu loot.cpp algorithm
-    for (const auto& r : rows) {
-        double table_prob  = r.table_probability / 100.0;
-        double multiplier  = (r.table_multiplier > 1) ? r.table_multiplier : 1.0;
-        double total_chance = totals.value(r.lootdrop_id, 0.0);
-
-        double p_in_call;
-        if (r.droplimit == 0 && r.mindrop == 0) {
-            p_in_call = r.item_chance / 100.0;
-        } else {
-            int n_draws = (r.droplimit > 0) ? r.droplimit : 1;
-            p_in_call = (total_chance > 0.0)
-                ? 1.0 - std::pow(1.0 - r.item_chance / total_chance, n_draws)
-                : 0.0;
-        }
-
-        double p_not_drop = std::pow(1.0 - table_prob * p_in_call, multiplier);
-        double chance = std::max(0.0, (1.0 - p_not_drop) * 100.0);
-
-        LootItem li;
-        li.item_id = r.item_id;
-        li.name    = r.name.toStdString();
-        li.chance  = static_cast<float>(chance);
-        li.item_slots = r.slots;
-        li.nodrop   = r.nodrop;
-        li.classes  = r.classes;
-        li.races    = r.races;
-        li.reqlevel = r.reqlevel;
-        result.append(li);
-    }
-
-    // Sort descending by chance
-    std::sort(result.begin(), result.end(),
-              [](const LootItem& a, const LootItem& b) { return a.chance > b.chance; });
-
-    return result;
+    return computeLootChances(q);
 }
