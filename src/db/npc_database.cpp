@@ -177,11 +177,13 @@ std::optional<NpcData> NpcDatabase::getNpcById(int id) {
     npc.raid_target     = q.value("raid_target").toBool();
     npc.is_quest        = q.value("is_quest").toBool();
     npc.encounter       = q.value("encounter").toBool();
+    npc.bodytype        = q.value("bodytype").toInt();
 
     // Zone lookup
     QSqlQuery zq(DbConnection::instance().db());
     zq.prepare(
-        "SELECT MIN(z.long_name) AS zone_long_name, MIN(z.type) AS zone_type"
+        "SELECT MIN(z.long_name) AS zone_long_name, MIN(z.type) AS zone_type,"
+        " MIN(z.zoneidnumber) AS zone_id"
         " FROM spawnentry se"
         " JOIN spawn2 s2 ON s2.spawngroupID = se.spawngroupID"
         " JOIN zone z ON z.short_name = s2.zone"
@@ -192,6 +194,7 @@ std::optional<NpcData> NpcDatabase::getNpcById(int id) {
     if (zq.exec() && zq.next()) {
         zone = zq.value("zone_long_name").toString();
         npc.zone_type = zq.value("zone_type").isNull() ? -1 : zq.value("zone_type").toInt();
+        npc.zone_id   = zq.value("zone_id").toInt();
     }
     if (zone.isEmpty())
         zone = fallbackZone(QString::fromStdString(npc.name));

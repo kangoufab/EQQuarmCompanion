@@ -37,9 +37,11 @@ struct NpcData {
     int  min_hit{}, max_hit{}, attack_delay{10}, attack_count{1};
     int  mr{}, fr{}, cr{}, dr{}, pr{};
     int  npc_spells_id{}, loottable_id{}, race{}, npc_class{};
-    int  avoidance{}, slow_mitigation{};          // H
-    bool raid_target{}, is_quest{}, encounter{};  // E
-    int  zone_type{-1};                           // F (-1=unknown, 0=dungeon, 1=outdoor, 2=city)
+    int  avoidance{}, slow_mitigation{};
+    bool raid_target{}, is_quest{}, encounter{};
+    int  zone_type{-1};
+    int  bodytype{};
+    int  zone_id{};
     std::string name, special_abilities, zone_long_name, race_name, class_name;
 };
 
