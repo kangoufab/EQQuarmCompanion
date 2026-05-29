@@ -183,31 +183,6 @@ TEST_F(NpcIntegrationTest, B4_IncomingDamage_HighMitIncreasesMitPct) {
         << "est_dps doit diminuer quand player_mit augmente";
 }
 
-// ── Groupe C : getNpcGlobalLoot ───────────────────────────────────────────
-
-TEST_F(NpcIntegrationTest, C1_GlobalLoot_Lv35NpcGetsResults) {
-    auto items = s_npcDb->getNpcGlobalLoot(35, 0, 0, 0);
-    EXPECT_GT(items.size(), 0)
-        << "Un NPC lv35 sans filtre zone/race doit avoir des world drops";
-}
-
-TEST_F(NpcIntegrationTest, C2_GlobalLoot_ChancesInValidRange) {
-    auto items = s_npcDb->getNpcGlobalLoot(50, 0, 0, 0);
-    for (const auto& item : items) {
-        EXPECT_GT(item.chance, 0.f)
-            << "Chance > 0 pour " << item.name;
-        EXPECT_LE(item.chance, 100.f)
-            << "Chance <= 100 pour " << item.name;
-    }
-}
-
-TEST_F(NpcIntegrationTest, C3_GlobalLoot_LevelFilterWorks) {
-    auto lv1  = s_npcDb->getNpcGlobalLoot(1,  0, 0, 0);
-    auto lv50 = s_npcDb->getNpcGlobalLoot(50, 0, 0, 0);
-    EXPECT_LE(lv1.size(), lv50.size())
-        << "NPC lv1 doit avoir <= world drops qu'un NPC lv50";
-}
-
 // ── main ──────────────────────────────────────────────────────────────────
 
 int main(int argc, char** argv) {

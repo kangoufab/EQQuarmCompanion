@@ -361,38 +361,4 @@ QList<LootItem> NpcDatabase::getNpcLoot(int loottableId) {
     return computeLootChances(q);
 }
 
-// ── getNpcGlobalLoot ──────────────────────────────────────────────────────
 
-QList<LootItem> NpcDatabase::getNpcGlobalLoot(int level, int race,
-                                              int bodytype, int zone_id) {
-    QList<LootItem> result;
-    QSqlQuery q(DbConnection::instance().db());
-    q.prepare(
-        "SELECT i.id AS item_id, i.Name AS name,"
-        " lde.chance AS item_chance, lde.equip_item, lde.lootdrop_id,"
-        " lte.probability AS table_probability,"
-        " lte.multiplier  AS table_multiplier,"
-        " lte.droplimit, lte.mindrop,"
-        " i.slots, i.nodrop, i.classes, i.races, i.reqlevel"
-        " FROM global_loot gl"
-        " JOIN loottable_entries lte ON lte.loottable_id = gl.loottable_id"
-        " JOIN lootdrop_entries  lde ON lde.lootdrop_id  = lte.lootdrop_id"
-        " JOIN items             i   ON i.id             = lde.item_id"
-        " WHERE gl.enabled = 1"
-        "   AND (gl.min_level = 0 OR gl.min_level <= :level)"
-        "   AND (gl.max_level = 0 OR gl.max_level >= :level)"
-        "   AND (gl.race     IS NULL OR gl.race     = '' OR gl.race     = :race)"
-        "   AND (gl.bodytype IS NULL OR gl.bodytype = '' OR gl.bodytype = :bodytype)"
-        "   AND (gl.zone     IS NULL OR gl.zone     = '' OR gl.zone     = :zone_id)"
-        " LIMIT 50"
-    );
-    q.bindValue(":level",    level);
-    q.bindValue(":race",     QString::number(race));
-    q.bindValue(":bodytype", QString::number(bodytype));
-    q.bindValue(":zone_id",  QString::number(zone_id));
-    if (!q.exec()) {
-        qWarning() << "getNpcGlobalLoot failed:" << q.lastError().text();
-        return result;
-    }
-    return computeLootChances(q);
-}

@@ -465,53 +465,6 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
     }
     layout->addWidget(fLoot);
 
-    // World drops (global_loot)
-    {
-        auto globalLoot = _npcDb->getNpcGlobalLoot(
-            npc.level, npc.race, npc.bodytype, npc.zone_id);
-        if (!globalLoot.isEmpty()) {
-            auto [fGlobal, flGlobal] = sectionFrame("#78909c");
-            flGlobal->addWidget(sectionLabel("World drops", "#78909c"));
-            auto* note = new QLabel("(filtres zone/race appliqu\xc3\xa9s)");
-            note->setStyleSheet(
-                "color:#444444;font-size:11px;font-style:italic;background:transparent;");
-            flGlobal->addWidget(note);
-            for (const auto& item : globalLoot) {
-                bool equippable = item.item_slots > 0;
-                bool usable     = charCanEquip(item, _charInfo);
-                auto* row = new QWidget;
-                row->setStyleSheet("background:transparent;");
-                auto* rowL = new QHBoxLayout(row);
-                rowL->setContentsMargins(0, 1, 0, 1); rowL->setSpacing(4);
-
-                auto* btn = new QPushButton(
-                    QString("%1  %2%")
-                        .arg(QString::fromStdString(item.name))
-                        .arg(item.chance, 0, 'f', 0));
-                btn->setFlat(true);
-                btn->setStyleSheet(QString(
-                    "QPushButton{color:%1;background:transparent;text-align:left;"
-                    "font-size:13px;padding:0 2px;border:none;}"
-                    "QPushButton:hover{color:#ffffff;}")
-                    .arg(!equippable ? "#555555" : usable ? "#e0e0e0" : "#666666"));
-                if (item.item_id > 0)
-                    connect(btn, &QPushButton::clicked,
-                            [this, id = item.item_id] { onLootClicked(id); });
-                rowL->addWidget(btn);
-
-                if (item.nodrop) {
-                    auto* nd = new QLabel("NO DROP");
-                    nd->setStyleSheet(
-                        "color:#ef5350;font-size:10px;background:transparent;");
-                    rowL->addWidget(nd);
-                }
-                rowL->addStretch();
-                flGlobal->addWidget(row);
-            }
-            layout->addWidget(fGlobal);
-        }
-    }
-
     layout->addStretch();
     return container;
 }
