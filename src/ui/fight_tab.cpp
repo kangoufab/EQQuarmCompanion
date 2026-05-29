@@ -767,16 +767,33 @@ QWidget* FightTab::buildDpsSlowTable(
 
         for (int ci = 0; ci < static_cast<int>(slowScenarios.size()); ++ci) {
             const auto& [_label, landPct, atkSpeed] = slowScenarios[ci];
+            float minTotal = dmg.min_dps * (atkSpeed / 100.f) + spDps;
+            float maxTotal = dmg.max_dps * (atkSpeed / 100.f) + spDps;
+
             float meleeSlowed = dmg.est_dps * (atkSpeed / 100.f);
             float total = meleeSlowed + spDps;
-            float surv  = (total > 0.f && hp > 0) ? hp / total : 0.f;
+            float surv  = (total > 0.f && hp > 0) ? static_cast<float>(hp) / total : 0.f;
 
             const char* sc = surv >= 120.f ? kGreen : (surv >= 60.f ? kOrange : kRed);
             QString survStr = surv > 0.f ? QString("~%1s").arg(surv, 0, 'f', 0) : "?";
-            const char* dpsC = !landPct ? "#888888" : "#e0e0e0";
 
-            float minTotal = dmg.min_dps * (atkSpeed / 100.f) + spDps;
-            float maxTotal = dmg.max_dps * (atkSpeed / 100.f) + spDps;
+            // Plage survie min–max (affichée si écart > 10%)
+            {
+                float survMin = (maxTotal > 0.f && hp > 0)
+                                ? static_cast<float>(hp) / maxTotal : 0.f;
+                float survMax = (minTotal > 0.f && hp > 0)
+                                ? static_cast<float>(hp) / minTotal : 0.f;
+                if (survMin > 0.f && survMax > survMin * 1.10f) {
+                    QString capStr = (survMax >= 999.f)
+                        ? "&gt;999"
+                        : QString::number(static_cast<int>(survMax));
+                    survStr += QString(" <span style='color:#555555;font-size:12px'>"
+                                       "[%1\xe2\x80\x93%2s]</span>")
+                               .arg(static_cast<int>(survMin)).arg(capStr);
+                }
+            }
+
+            const char* dpsC = !landPct ? "#888888" : "#e0e0e0";
 
             QString chLine;
             if (hp > 0 && maxTotal > 0.f) {
