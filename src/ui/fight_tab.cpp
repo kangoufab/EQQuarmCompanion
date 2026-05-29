@@ -487,7 +487,7 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
                 auto* btn = new QPushButton(
                     QString("%1  %2%")
                         .arg(QString::fromStdString(item.name))
-                        .arg(item.chance, 0, 'f', 1));
+                        .arg(item.chance, 0, 'f', 0));
                 btn->setFlat(true);
                 btn->setStyleSheet(QString(
                     "QPushButton{color:%1;background:transparent;text-align:left;"

@@ -384,6 +384,7 @@ QList<LootItem> NpcDatabase::getNpcGlobalLoot(int level, int race,
         "   AND (gl.race     IS NULL OR gl.race     = '' OR gl.race     = :race)"
         "   AND (gl.bodytype IS NULL OR gl.bodytype = '' OR gl.bodytype = :bodytype)"
         "   AND (gl.zone     IS NULL OR gl.zone     = '' OR gl.zone     = :zone_id)"
+        " LIMIT 50"
     );
     q.bindValue(":level",    level);
     q.bindValue(":race",     QString::number(race));
