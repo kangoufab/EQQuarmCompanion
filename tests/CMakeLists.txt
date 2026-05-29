@@ -9,3 +9,16 @@ target_link_libraries(eq_tests PRIVATE eq_core GTest::gtest_main)
 target_include_directories(eq_tests PRIVATE "${CMAKE_SOURCE_DIR}/src")
 include(GoogleTest)
 gtest_discover_tests(eq_tests)
+
+option(BUILD_INTEGRATION_TESTS "Build DB integration tests (requires live Quarm DB)" OFF)
+
+if(BUILD_INTEGRATION_TESTS)
+    add_executable(eq_integration_tests
+        test_integration_npc.cpp)
+    target_link_libraries(eq_integration_tests PRIVATE
+        eq_core eq_db GTest::gtest
+        Qt6::Core Qt6::Sql Qt6::Network Qt6::Concurrent)
+    target_include_directories(eq_integration_tests PRIVATE
+        "${CMAKE_SOURCE_DIR}/src")
+    # Pas de gtest_discover_tests → n'apparaît pas dans ctest standard
+endif()
