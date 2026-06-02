@@ -38,9 +38,18 @@ add_library(eq_db STATIC
 target_include_directories(eq_db PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(eq_db PUBLIC Qt6::Sql Qt6::Network eq_core)
 
+# ── Windows app icon (embed into exe via windres) ────────────────────────────
+configure_file(
+    "${CMAKE_SOURCE_DIR}/resources/app.rc.in"
+    "${CMAKE_BINARY_DIR}/app.rc"
+    @ONLY
+)
+
 # ── Executable ───────────────────────────────────────────────────────
 add_executable(EqQuarmCompanion WIN32
     src/main.cpp
+    resources/resources.qrc
+    "${CMAKE_BINARY_DIR}/app.rc"
     src/ui/main_window.cpp
     src/ui/character_tab.cpp
     src/ui/fight_tab.cpp

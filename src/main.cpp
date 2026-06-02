@@ -31,17 +31,21 @@ static void messageHandler(QtMsgType type, const QMessageLogContext&, const QStr
 }
 
 static QSplashScreen* makeSplash() {
-    QPixmap pix(420, 180);
+    QPixmap logo(":/app_icon.png");
+    const int W = 480, H = 200;
+    QPixmap pix(W, H);
     pix.fill(QColor("#1a1a2e"));
     QPainter p(&pix);
+    if (!logo.isNull()) {
+        QPixmap scaled = logo.scaled(160, 160, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        p.drawPixmap(20, (H - scaled.height()) / 2, scaled);
+    }
     p.setPen(QColor("#64b5f6"));
     p.setFont(QFont("Arial", 20, QFont::Bold));
-    p.drawText(pix.rect().adjusted(0, -30, 0, 0),
-               Qt::AlignCenter, "EQ Quarm Companion");
+    p.drawText(QRect(200, 50, 260, 50), Qt::AlignLeft | Qt::AlignVCenter, "EQ Quarm Companion");
     p.setPen(QColor("#888888"));
     p.setFont(QFont("Arial", 10));
-    p.drawText(pix.rect().adjusted(0, 50, 0, 0),
-               Qt::AlignCenter, "Chargement en cours...");
+    p.drawText(QRect(200, 110, 260, 30), Qt::AlignLeft | Qt::AlignVCenter, "Chargement en cours...");
     p.end();
     auto* s = new QSplashScreen(pix);
     s->setWindowFlags(Qt::SplashScreen | Qt::WindowStaysOnTopHint);
@@ -51,6 +55,7 @@ static QSplashScreen* makeSplash() {
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     app.setApplicationName("EQ Quarm Companion");
+    app.setWindowIcon(QIcon(":/app_icon.png"));
 
     auto exeDirForLog = std::filesystem::path(
         QCoreApplication::applicationDirPath().toStdWString());
