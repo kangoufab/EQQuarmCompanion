@@ -44,6 +44,7 @@ var
   WillInstallMariaDB: Boolean;
   MariaDBDownloadUrl: String;
   DumpDownloadUrl: String;
+  DownloadPage: TDownloadWizardPage;
 
 function DetectMySQL(): Boolean;
 begin
@@ -216,6 +217,12 @@ begin
   CredPage.Values[1] := '3306';
   CredPage.Values[2] := 'root';
   CredPage.Values[3] := '';
+
+  DownloadPage := CreateDownloadPage(
+    'Téléchargement',
+    'Téléchargement des composants sélectionnés...',
+    nil
+  );
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
@@ -231,11 +238,71 @@ begin
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  Msg: String;
+  DownloadCount: Integer;
 begin
   Result := True;
+
+  { Lire les choix de la page Composants }
   if CurPageID = CompPage.ID then begin
     WillImportDB := (IdxImportDB >= 0) and CompPage.Values[IdxImportDB];
     WillInstallMariaDB :=
       (IdxInstallMariaDB >= 0) and CompPage.Values[IdxInstallMariaDB];
+  end;
+
+  { Déclencher les téléchargements depuis la page Récapitulatif }
+  if CurPageID = wpReady then begin
+    DownloadPage.Clear;
+    DownloadCount := 0;
+
+    if WillInstallMariaDB then begin
+      Msg := 'Résolution de l''URL MariaDB...';
+      WizardForm.StatusLabel.Caption := Msg;
+      MariaDBDownloadUrl := GetMariaDBUrl();
+      if MariaDBDownloadUrl = '' then begin
+        MsgBox(
+          'Impossible de récupérer l''URL de MariaDB.' + #13#10 +
+          'Vérifiez votre connexion internet.',
+          mbError, MB_OK);
+        Result := False;
+        Exit;
+      end;
+      DownloadPage.Add(MariaDBDownloadUrl, 'mariadb-setup.msi', '');
+      DownloadCount := DownloadCount + 1;
+    end;
+
+    if WillImportDB then begin
+      WizardForm.StatusLabel.Caption :=
+        'Résolution de l''URL du dump Quarm...';
+      DumpDownloadUrl := GetLatestDumpUrl();
+      if DumpDownloadUrl = '' then begin
+        MsgBox(
+          'Impossible de récupérer l''URL du dump Quarm sur GitHub.' + #13#10 +
+          'Vérifiez votre connexion internet.',
+          mbError, MB_OK);
+        Result := False;
+        Exit;
+      end;
+      DownloadPage.Add(DumpDownloadUrl, 'quarm_dump.tar.gz', '');
+      DownloadCount := DownloadCount + 1;
+    end;
+
+    if DownloadCount > 0 then begin
+      DownloadPage.Show;
+      try
+        try
+          DownloadPage.Download;
+        except
+          MsgBox(
+            'Erreur lors du téléchargement :' + #13#10 +
+            GetExceptionMessage,
+            mbError, MB_OK);
+          Result := False;
+        end;
+      finally
+        DownloadPage.Hide;
+      end;
+    end;
   end;
 end;
