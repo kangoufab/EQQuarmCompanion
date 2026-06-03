@@ -9,4 +9,5 @@ x64/
 .superpowers/
 tools/
 *.ps1
+!installer/build_installer.ps1
 config.json
