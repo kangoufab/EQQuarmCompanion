@@ -198,7 +198,8 @@ begin
     ' /quiet' +
     ' SERVICENAME=MariaDB' +
     ' ROOTPASSWORD="' + Password + '"' +
-    ' ADDLOCAL=ALL';
+    ' ADDLOCAL=ALL' +
+    ' /log "%TEMP%\MariaDB_install.log"';
 
   if not Exec(
       ExpandConstant('{sys}\msiexec.exe'),
@@ -224,13 +225,44 @@ begin
 end;
 
 { Localise mysql.exe sur le système.
-  Cherche dans les répertoires courants de MariaDB et MySQL. }
+  Cherche d'abord via PowerShell (scan dynamique MariaDB*/MySQL*),
+  puis dans les répertoires statiques connus. }
 function FindMysqlExe(): String;
 var
   Candidates: TArrayOfString;
   I: Integer;
+  PSFile, ResultFile: String;
+  PSScript: String;
+  ResultCode: Integer;
+  RawPath: AnsiString;
 begin
   Result := '';
+
+  { Chemin retourné par la détection dynamique post-install via PowerShell }
+  PSFile     := ExpandConstant('{tmp}\find_mysql.ps1');
+  ResultFile := ExpandConstant('{tmp}\mysql_path.txt');
+  PSScript :=
+    '$dirs = @()' + #13#10 +
+    '$dirs += Get-ChildItem "C:\Program Files" -Directory -Filter "MariaDB*" -ErrorAction SilentlyContinue' + #13#10 +
+    '$dirs += Get-ChildItem "C:\Program Files" -Directory -Filter "MySQL*" -ErrorAction SilentlyContinue' + #13#10 +
+    '$found = $dirs | ForEach-Object { Join-Path $_.FullName "bin\mysql.exe" } | Where-Object { Test-Path $_ } | Select-Object -First 1' + #13#10 +
+    'if ($found) { $found | Out-File "' + ResultFile + '" -Encoding utf8 -NoNewline }' + #13#10 +
+    'else { exit 1 }';
+  SaveStringToFile(PSFile, PSScript, False);
+  if Exec('powershell.exe',
+      '-NoProfile -ExecutionPolicy Bypass -File "' + PSFile + '"',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then begin
+    if (ResultCode = 0) and FileExists(ResultFile) then begin
+      LoadStringFromFile(ResultFile, RawPath);
+      Result := Trim(String(RawPath));
+    end;
+  end;
+  DeleteFile(PSFile);
+  DeleteFile(ResultFile);
+
+  if Result <> '' then Exit;
+
+  { Fallback : chemins statiques connus }
   SetArrayLength(Candidates, 8);
   Candidates[0] := ExpandConstant('{pf}\MariaDB 11.4\bin\mysql.exe');
   Candidates[1] := ExpandConstant('{pf}\MariaDB 10.11\bin\mysql.exe');
@@ -268,6 +300,10 @@ begin
       if not DoInstallMariaDB() then
         Exit;
     end;
+
+  end;
+
+  if CurStep = ssPostInstall then begin
 
     { --- Import de la BDD Quarm --- }
     if WillImportDB then begin
