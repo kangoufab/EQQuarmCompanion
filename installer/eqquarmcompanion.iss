@@ -17,6 +17,7 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
 SetupIconFile=..\resources\app_icon.ico
+WizardSmallImageFile=..\resources\app_icon.ico
 
 [Languages]
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
@@ -371,8 +372,26 @@ begin
   end;
 end;
 
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = wpFinished then begin
+    if WillImportDB then
+      WizardForm.FinishedLabel.Caption :=
+        'EqQuarmCompanion a été installé.' + #13#10 + #13#10 +
+        'La base de données quarm a été importée.' + #13#10 +
+        'Configurez la connexion (host/port/user/password)' + #13#10 +
+        'dans l''onglet Infos de l''application.';
+  end;
+end;
+
 procedure InitializeWizard;
 begin
+  WizardForm.WelcomeLabel2.Caption :=
+    'Cet assistant va installer EqQuarmCompanion sur votre ordinateur.' + #13#10 + #13#10 +
+    'EqQuarmCompanion est un outil d''analyse d''items et de combat' + #13#10 +
+    'pour le serveur EverQuest Project Quarm.' + #13#10 + #13#10 +
+    'Cliquez sur Suivant pour continuer.';
+
   MySQLDetected := DetectMySQL();
 
   { --- Page Composants --- }

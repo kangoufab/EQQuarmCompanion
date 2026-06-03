@@ -11,3 +11,4 @@ tools/
 *.ps1
 !installer/build_installer.ps1
 config.json
+installer/output/
