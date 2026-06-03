@@ -34,6 +34,14 @@ Filename: "{app}\EqQuarmCompanion.exe"; Description: "Lancer {#AppName}"; Flags:
 [Code]
 var
   MySQLDetected: Boolean;
+  CompPage: TInputOptionWizardPage;
+  CredPage: TInputQueryWizardPage;
+  { indices dans CompPage.CheckListBox — -1 si option absente }
+  IdxImportDB: Integer;
+  IdxInstallMariaDB: Integer;
+  { résultats lus depuis les pages }
+  WillImportDB: Boolean;
+  WillInstallMariaDB: Boolean;
 
 function DetectMySQL(): Boolean;
 begin
@@ -88,4 +96,61 @@ end;
 procedure InitializeWizard;
 begin
   MySQLDetected := DetectMySQL();
+
+  { --- Page Composants --- }
+  CompPage := CreateInputOptionPage(
+    wpSelectDir,
+    'Composants',
+    'Sélectionnez les composants à installer',
+    '',
+    False,   { checkboxes, pas boutons radio }
+    False    { checklist style }
+  );
+
+  IdxImportDB := CompPage.Add('Importer la base de données Quarm');
+  CompPage.Values[IdxImportDB] := True;
+
+  if not MySQLDetected then begin
+    IdxInstallMariaDB := CompPage.Add('Installer MariaDB (serveur de base de données)');
+    CompPage.Values[IdxInstallMariaDB] := True;
+  end else
+    IdxInstallMariaDB := -1;
+
+  { --- Page Credentials BDD --- }
+  CredPage := CreateInputQueryPage(
+    CompPage.ID,
+    'Connexion à la base de données',
+    'Paramètres utilisés pour créer et importer la base Quarm.',
+    'Ces paramètres ne sont PAS écrits dans config.json — vous les saisirez dans l''application après installation.'
+  );
+  CredPage.Add('Host :', False);
+  CredPage.Add('Port :', False);
+  CredPage.Add('User :', False);
+  CredPage.Add('Password :', True);   { True = masqué }
+  CredPage.Values[0] := 'localhost';
+  CredPage.Values[1] := '3306';
+  CredPage.Values[2] := 'root';
+  CredPage.Values[3] := '';
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  { Sauter Credentials si l'import DB n'est pas sélectionné }
+  if (PageID = CredPage.ID) then begin
+    if IdxImportDB >= 0 then
+      Result := not CompPage.Values[IdxImportDB]
+    else
+      Result := True;
+  end;
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if CurPageID = CompPage.ID then begin
+    WillImportDB := (IdxImportDB >= 0) and CompPage.Values[IdxImportDB];
+    WillInstallMariaDB :=
+      (IdxInstallMariaDB >= 0) and CompPage.Values[IdxInstallMariaDB];
+  end;
 end;
