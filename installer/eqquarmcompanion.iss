@@ -17,7 +17,6 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
 SetupIconFile=..\resources\app_icon.ico
-WizardSmallImageFile=..\resources\app_icon.ico
 
 [Languages]
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
