@@ -70,7 +70,7 @@ Génère `installer/output/EqQuarmCompanion-Setup.exe`.
 src/
   core/       # Pure C++17 — no Qt. All game logic, formulas, parsers.
   db/         # Qt SQL + Network. Database access (MySQL via ODBC or direct).
-  ui/         # Qt6 Widgets. 4 tabs: Stuff / Fight / Spells / Infos.
+  ui/         # Qt6 Widgets. 4 tabs: Stuff / Fight / Buffs / Infos.
   main.cpp
 resources/    # config_defaults.json, icons
 tests/        # GTest unit tests (core/ only)
@@ -115,21 +115,31 @@ L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
 
 | File | Purpose |
 |------|---------|
-| `src/core/types.h` | All shared structs (ItemData, LootItem, NpcData, CharacterInfo…); `CharacterInfo::bag_item_ids` = `vector<pair<int,int>>` {bag_number, item_id} |
-| `src/core/config.h/cpp` | JSON config read/write, DbConfig, getResistDebuffs |
+| `src/core/types.h` | All shared structs (ItemData, LootItem, NpcData, CharacterInfo, PlayerTotals, PlayerTotalsExtra, SpellData…); `CharacterInfo::bag_item_ids` = `vector<pair<int,int>>` {bag_number, item_id} |
+| `src/core/config.h/cpp` | JSON config read/write, DbConfig, getClassWeights, setClassWeights, getCharacterClass |
 | `src/core/character_parser.h/cpp` | Parse EQ TSV character files; extrait `{bag_number, item_id}` depuis `GeneralN-SlotM` → `bag_item_ids` |
 | `src/core/stats_calculator.h/cpp` | HP/Mana/ATK/AC caps, `applyWornStats`, `calculateTotalsWithSpells` (inclut AAs) |
 | `src/core/npc_analysis.h/cpp` | Incoming damage, resist ratings, slow land %, special abilities. Triple attack (SA 6) = DA chance (pas DA×0.135). Defensive disc : DB inchangé, seul DI/2 — réduction ~33%, pas 50%. Vérifiés sur log AoW lv70. |
 | `src/core/spell_stats.h/cpp` | spellValue, spellIncomingDps |
 | `src/core/spell_stacking.h/cpp` | spellsStack() — bard vs non-bard logic |
-| `src/db/item_database.h/cpp` | Item DB queries; `getItemClickeffects(QList<int>)` → clickeffect spell IDs for given item IDs |
+| `src/core/derived_metrics.h` | `offensivePower()`, `defensiveScore()` — scores offensifs/défensifs joueur pour le système d'upgrade |
+| `src/core/equipped_effects.h` | `getActiveEffects()` — effets worn/proc actifs depuis les items équipés |
+| `src/db/db_connection.h` | `DbConnection` singleton — gestion de `QSqlDatabase`; `connect()`, `testConnection()` |
+| `src/db/item_database.h/cpp` | Item DB queries; `getItemClickeffects(QList<int>)` → `QList<QPair<QString,int>>` (item_name, spell_id) |
+| `src/db/npc_database.h` | `NpcDatabase` — `searchNpcs()`, `getNpcById()`, `getNpcSpells()`, `getNpcLoot()` |
+| `src/db/bis_scraper.h` | `BisScaper` — scraper async HTML (QNetworkAccessManager) pour Best-in-Slot |
 | `src/ui/main_window.h/cpp` | App shell; `_playerTotals` (base+items+AAs), `_buffedTotals` (+ active buffs); file watcher |
 | `src/ui/item_card.h/cpp` | Widget item unifié (carte compacte Option B) — utilisé par Stuff et Fight |
 | `src/ui/character_tab.h/cpp` | Stuff tab — layout 3 colonnes (QSplitter) : inventaire équipé+sacs / recherche / comparaison; `rebuildInventoryPanel()` |
 | `src/ui/fight_tab.h/cpp` | 2D DPS×slow table, loot, NPC tags, resists; `refreshStats()` rebuilds right panel with buffed totals. CH rotation: `safeP = floor(hp×0.70×10/maxDPS)` = pause max (dixièmes) pour HP ≥ 30% ; affiché pour N min clerics tel que `ceil(100/N) ≤ safeP`. |
 | `src/ui/infos_tab.h/cpp` | Expansion selector + resist debuff groups |
 | `src/ui/spells_tab.h/cpp` | Buffs tab — class list, checkboxes, stacking, sets save/load, search bar, Clickies (ClickieEntry, loadClickies, _clickieSpells) |
-| `src/ui/infos_spell_data.h` | Données statiques sorts debuff + bestInGroup() + spellResistVal() |
+| `src/ui/infos_data.h` | `kExpCaps` (cap joueur par extension : Luclin=60, PoP=65), `kDebuffsByExp`, `getResistDebuffs()` |
+| `src/ui/infos_spell_data.h` | Données statiques sorts debuff; `getInfoGroups()`, `getCrossConflicts()`, `getResistGroupOrder()`, `getResistBardGroups()`, `bestInGroup()`, `spellResistVal()` |
+| `src/ui/settings_dialog.h` | `SettingsDialog` — dialog 3 onglets : DB / Fichiers / Poids (sliders stat par classe) |
+| `src/ui/stats_bar.h` | `makePlayerStatsBar()` — bandeau de stats avec tooltips par source; `formatSpellTooltip()` |
+| `src/ui/ui_helpers.h` | Helpers UI inline : `sectionFrame()`, `sectionLabel()`, `gridWidget()`, couleurs `kGreen/kOrange/kRed` |
+| `src/ui/widgets.h` | `SearchComboBox` — QComboBox avec signal `popup_requested()` |
 
 ## Config File
 

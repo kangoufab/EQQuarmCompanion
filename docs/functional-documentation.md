@@ -2,7 +2,7 @@
 
 **Serveur :** Project Quarm (EQMacEmu, base Planes of Power)  
 **Référence serveur :** `common/emu_constants.h`, `zone/client_mods.cpp`, `zone/attack.cpp`, `zone/buffstacking.cpp`, `zone/mob.cpp`  
-**Mis à jour :** 2026-05-27 (révision 5)
+**Mis à jour :** 2026-06-03 (révision 6)
 
 ---
 
@@ -518,7 +518,7 @@ puis cap :
 | 121 | `base + niveau / 3` |
 | autre | `base` |
 
-> **Niveau utilisé :** Niveau du caster (cap expansion = 60 pour Luclin/PoP sur Quarm).  
+> **Niveau utilisé :** Niveau du caster (cap extension : Classic/Kunark/Velious/Luclin = 60, PoP = 65 sur Quarm).  
 > Exception : sorts self-only (targettype = 6) → niveau du personnage lui-même.
 
 ---
