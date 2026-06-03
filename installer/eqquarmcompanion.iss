@@ -252,9 +252,12 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   MysqlExe: String;
   Host, Port, User, Pass, PassPart: String;
-  DumpPath, BatPath: String;
+  DumpArchive, DumpDir, DumpSql, BatPath: String;
   Params: String;
   ResultCode: Integer;
+  PSFile: String;
+  PSScript: String;
+  RawDumpSql: AnsiString;
 begin
   if CurStep = ssInstall then begin
 
@@ -262,10 +265,109 @@ begin
     if WillInstallMariaDB then begin
       WizardForm.StatusLabel.Caption := 'Installation de MariaDB...';
       if not DoInstallMariaDB() then
-        Exit;  { erreur déjà affichée dans DoInstallMariaDB }
+        Exit;
     end;
 
-    { L'import DB sera ajouté ici en Task 8 }
+    { --- Import de la BDD Quarm --- }
+    if WillImportDB then begin
+      MysqlExe := FindMysqlExe();
+      if MysqlExe = '' then begin
+        MsgBox(
+          'mysql.exe introuvable.' + #13#10 +
+          'Ajoutez le répertoire bin de MariaDB/MySQL au PATH' + #13#10 +
+          'et relancez l''import manuellement.',
+          mbError, MB_OK);
+        Exit;
+      end;
+
+      Host        := CredPage.Values[0];
+      Port        := CredPage.Values[1];
+      User        := CredPage.Values[2];
+      Pass        := CredPage.Values[3];
+      DumpArchive := ExpandConstant('{tmp}\quarm_dump.tar.gz');
+      DumpDir     := ExpandConstant('{tmp}\quarm_dump_extract');
+
+      if Pass <> '' then PassPart := ' -p' + Pass
+      else PassPart := '';
+
+      { Extraire l'archive .tar.gz via PowerShell (tar natif Windows 10/11) }
+      WizardForm.StatusLabel.Caption := 'Extraction du dump Quarm...';
+      PSFile   := ExpandConstant('{tmp}\extract_dump.ps1');
+      PSScript :=
+        '$archive = "' + DumpArchive + '"' + #13#10 +
+        '$dest = "' + DumpDir + '"' + #13#10 +
+        'if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }' + #13#10 +
+        'New-Item -ItemType Directory -Path $dest -Force | Out-Null' + #13#10 +
+        'tar -xzf $archive -C $dest' + #13#10 +
+        '# Trouver le premier fichier .sql dans l''arborescence extraite' + #13#10 +
+        '$sql = Get-ChildItem $dest -Recurse -Filter "*.sql" | Select-Object -First 1' + #13#10 +
+        'if ($sql) { $sql.FullName | Out-File "' + DumpDir + '\sql_path.txt" -Encoding utf8 -NoNewline }' + #13#10 +
+        'else { exit 1 }';
+      SaveStringToFile(PSFile, PSScript, False);
+      Exec('powershell.exe',
+        '-NoProfile -ExecutionPolicy Bypass -File "' + PSFile + '"',
+        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      DeleteFile(PSFile);
+
+      if ResultCode <> 0 then begin
+        MsgBox(
+          'Échec de l''extraction du dump Quarm.' + #13#10 +
+          'Vérifiez que l''archive a été correctement téléchargée.',
+          mbError, MB_OK);
+        Exit;
+      end;
+
+      { Lire le chemin du fichier SQL extrait }
+      if not LoadStringFromFile(DumpDir + '\sql_path.txt', RawDumpSql) then begin
+        MsgBox(
+          'Impossible de localiser le fichier .sql dans l''archive.',
+          mbError, MB_OK);
+        Exit;
+      end;
+      DumpSql := Trim(String(RawDumpSql));
+
+      { Créer la base }
+      WizardForm.StatusLabel.Caption := 'Création de la base quarm...';
+      Params :=
+        '-h ' + Host + ' -P ' + Port + ' -u ' + User + PassPart +
+        ' -e "CREATE DATABASE IF NOT EXISTS quarm CHARACTER SET utf8mb4"';
+      if not Exec(MysqlExe, Params, '', SW_HIDE,
+          ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then begin
+        MsgBox(
+          'Échec de la création de la base quarm (code ' +
+          IntToStr(ResultCode) + ').' + #13#10 +
+          'Vérifiez les credentials et l''état du serveur.',
+          mbError, MB_OK);
+        Exit;
+      end;
+
+      { Import dump via .bat temporaire (nécessaire pour la redirection <) }
+      WizardForm.StatusLabel.Caption :=
+        'Import du dump Quarm (peut prendre plusieurs minutes)...';
+      BatPath := ExpandConstant('{tmp}\import_quarm.bat');
+      SaveStringToFile(BatPath,
+        '@echo off' + #13#10 +
+        '"' + MysqlExe + '"' +
+        ' -h ' + Host + ' -P ' + Port +
+        ' -u ' + User + PassPart +
+        ' quarm < "' + DumpSql + '"',
+        False);
+      Exec(ExpandConstant('{sys}\cmd.exe'),
+        '/c "' + BatPath + '"',
+        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      if ResultCode <> 0 then
+        MsgBox(
+          'Import échoué (code ' + IntToStr(ResultCode) + ').' + #13#10 +
+          'La base quarm a été créée mais est vide.' + #13#10 +
+          'Réessayez manuellement : mysql -u root quarm < fichier.sql',
+          mbError, MB_OK);
+      DeleteFile(BatPath);
+
+      { Nettoyage du répertoire d'extraction }
+      if DirExists(DumpDir) then
+        DelTree(DumpDir, True, True, True);
+    end;
+
   end;
 end;
 
