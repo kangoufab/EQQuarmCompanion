@@ -30,3 +30,62 @@ Name: "{commondesktop}\{#AppName}"; Filename: "{app}\EqQuarmCompanion.exe"
 
 [Run]
 Filename: "{app}\EqQuarmCompanion.exe"; Description: "Lancer {#AppName}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+var
+  MySQLDetected: Boolean;
+
+function DetectMySQL(): Boolean;
+begin
+  Result := False;
+
+  { Vérifier les services Windows via le registre }
+  if RegKeyExists(HKLM,
+      'SYSTEM\CurrentControlSet\Services\MySQL') then begin
+    Result := True; Exit;
+  end;
+  if RegKeyExists(HKLM,
+      'SYSTEM\CurrentControlSet\Services\MariaDB') then begin
+    Result := True; Exit;
+  end;
+  if RegKeyExists(HKLM,
+      'SYSTEM\CurrentControlSet\Services\mariadb') then begin
+    Result := True; Exit;
+  end;
+
+  { Vérifier les clés d'installation }
+  if RegKeyExists(HKLM, 'SOFTWARE\MySQL AB') then begin
+    Result := True; Exit;
+  end;
+  if RegKeyExists(HKLM, 'SOFTWARE\MariaDB') then begin
+    Result := True; Exit;
+  end;
+  if RegKeyExists(HKLM,
+      'SOFTWARE\WOW6432Node\MariaDB') then begin
+    Result := True; Exit;
+  end;
+  if RegKeyExists(HKLM,
+      'SOFTWARE\WOW6432Node\MySQL AB') then begin
+    Result := True; Exit;
+  end;
+
+  { Vérifier la présence de mysql.exe dans les chemins courants }
+  if FileExists(
+      ExpandConstant('{pf}\MariaDB 10.6\bin\mysql.exe')) or
+     FileExists(
+      ExpandConstant('{pf}\MariaDB 10.11\bin\mysql.exe')) or
+     FileExists(
+      ExpandConstant('{pf}\MariaDB 11.4\bin\mysql.exe')) or
+     FileExists(
+      ExpandConstant('{pf}\MySQL\MySQL Server 8.0\bin\mysql.exe')) or
+     FileExists(
+      ExpandConstant('{pf}\MySQL\MySQL Server 5.7\bin\mysql.exe'))
+  then begin
+    Result := True; Exit;
+  end;
+end;
+
+procedure InitializeWizard;
+begin
+  MySQLDetected := DetectMySQL();
+end;
