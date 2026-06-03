@@ -50,6 +50,18 @@ ctest --output-on-failure
 
 28 tests across 5 suites: config, stats_calculator, npc_analysis, spell_stats, spell_stacking.
 
+### Installer
+
+Prérequis : Inno Setup 6 installé + build release à jour.
+
+```powershell
+$s = "$env:TEMP\build_installer.ps1"
+'Set-Location "D:\Games\quarm\source\EqQuarmCompanion"; & ".\installer\build_installer.ps1"' | Out-File $s -Encoding utf8
+& $s; Remove-Item $s
+```
+
+Génère `installer/output/EqQuarmCompanion-Setup.exe`.
+
 ## Architecture
 
 ```
