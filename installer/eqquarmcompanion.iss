@@ -42,6 +42,8 @@ var
   { résultats lus depuis les pages }
   WillImportDB: Boolean;
   WillInstallMariaDB: Boolean;
+  MariaDBDownloadUrl: String;
+  DumpDownloadUrl: String;
 
 function DetectMySQL(): Boolean;
 begin
@@ -90,6 +92,89 @@ begin
       ExpandConstant('{pf}\MySQL\MySQL Server 5.7\bin\mysql.exe'))
   then begin
     Result := True; Exit;
+  end;
+end;
+
+// Appelle l'API MariaDB pour obtenir l'URL du MSI Windows x64 le plus recent.
+// Retourne '' en cas d'erreur.
+// Structure API reelle :
+//   GET /rest-api/mariadb/         -> major_releases[]
+//   GET /rest-api/mariadb/VER/     -> releases.VER.files[]
+// Chaque file a : file_name, file_download_url
+function GetMariaDBUrl(): String;
+var
+  PSFile, UrlFile: String;
+  Script: String;
+  ResultCode: Integer;
+  RawContent: AnsiString;
+begin
+  Result := '';
+  PSFile  := ExpandConstant('{tmp}\get_mariadb_url.ps1');
+  UrlFile := ExpandConstant('{tmp}\mariadb_url.txt');
+
+  Script :=
+    '$ErrorActionPreference = "Stop"' + #13#10 +
+    'try {' + #13#10 +
+    '  $r = Invoke-RestMethod "https://downloads.mariadb.org/rest-api/mariadb/"' + #13#10 +
+    '  $stable = ($r.major_releases | Where-Object { $_.release_status -eq "Stable" } | Sort-Object release_id -Descending)[0]' + #13#10 +
+    '  $resp = Invoke-RestMethod "https://downloads.mariadb.org/rest-api/mariadb/$($stable.release_id)/"' + #13#10 +
+    '  $latestKey = ($resp.releases.PSObject.Properties.Name | Sort-Object { [Version]($_ -replace ''-.*'','''''') } -Descending)[0]' + #13#10 +
+    '  $files = $resp.releases.$latestKey.files' + #13#10 +
+    '  $msi = $files | Where-Object { $_.file_name -match "winx64\.msi$" } | Select-Object -First 1' + #13#10 +
+    '  $msi.file_download_url | Out-File "' + UrlFile + '" -Encoding utf8 -NoNewline' + #13#10 +
+    '} catch { exit 1 }';
+
+  SaveStringToFile(PSFile, Script, False);
+  try
+    if Exec('powershell.exe',
+        '-NoProfile -ExecutionPolicy Bypass -File "' + PSFile + '"',
+        '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then begin
+      if (ResultCode = 0) and FileExists(UrlFile) then begin
+        LoadStringFromFile(UrlFile, RawContent);
+        Result := Trim(String(RawContent));
+      end;
+    end;
+  finally
+    DeleteFile(PSFile);
+    DeleteFile(UrlFile);
+  end;
+end;
+
+{ Appelle l'API GitHub pour obtenir l'URL du dernier fichier dans
+  utils/sql/database_full. Retourne '' en cas d'erreur. }
+function GetLatestDumpUrl(): String;
+var
+  PSFile, UrlFile: String;
+  Script: String;
+  ResultCode: Integer;
+  RawContent: AnsiString;
+begin
+  Result := '';
+  PSFile  := ExpandConstant('{tmp}\get_dump_url.ps1');
+  UrlFile := ExpandConstant('{tmp}\dump_url.txt');
+
+  Script :=
+    '$ErrorActionPreference = "Stop"' + #13#10 +
+    'try {' + #13#10 +
+    '  $h = @{ "User-Agent" = "EqQuarmCompanion-Installer" }' + #13#10 +
+    '  $r = Invoke-RestMethod "https://api.github.com/repos/SecretsOTheP/EQMacEmu/contents/utils/sql/database_full" -Headers $h' + #13#10 +
+    '  $f = $r | Where-Object { $_.type -eq "file" } | Sort-Object name -Descending | Select-Object -First 1' + #13#10 +
+    '  $f.download_url | Out-File "' + UrlFile + '" -Encoding utf8 -NoNewline' + #13#10 +
+    '} catch { exit 1 }';
+
+  SaveStringToFile(PSFile, Script, False);
+  try
+    if Exec('powershell.exe',
+        '-NoProfile -ExecutionPolicy Bypass -File "' + PSFile + '"',
+        '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then begin
+      if (ResultCode = 0) and FileExists(UrlFile) then begin
+        LoadStringFromFile(UrlFile, RawContent);
+        Result := Trim(String(RawContent));
+      end;
+    end;
+  finally
+    DeleteFile(PSFile);
+    DeleteFile(UrlFile);
   end;
 end;
 
