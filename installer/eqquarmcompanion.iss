@@ -179,6 +179,96 @@ begin
   end;
 end;
 
+{ Lance l'installation silencieuse du MSI MariaDB téléchargé.
+  Le mot de passe root est celui saisi dans CredPage (peut être vide). }
+function DoInstallMariaDB(): Boolean;
+var
+  MsiPath: String;
+  Password: String;
+  Params: String;
+  ResultCode: Integer;
+begin
+  Result := False;
+  MsiPath  := ExpandConstant('{tmp}\mariadb-setup.msi');
+  Password := CredPage.Values[3];
+
+  Params :=
+    '/i "' + MsiPath + '"' +
+    ' /quiet' +
+    ' SERVICENAME=MariaDB' +
+    ' ROOTPASSWORD="' + Password + '"' +
+    ' ADDLOCAL=ALL';
+
+  if not Exec(
+      ExpandConstant('{sys}\msiexec.exe'),
+      Params,
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then begin
+    MsgBox(
+      'Impossible de lancer msiexec.' + #13#10 +
+      SysErrorMessage(ResultCode),
+      mbError, MB_OK);
+    Exit;
+  end;
+
+  if ResultCode <> 0 then begin
+    MsgBox(
+      'L''installation de MariaDB a échoué (code ' +
+      IntToStr(ResultCode) + ').' + #13#10 +
+      'Consultez le journal %TEMP%\MariaDB_install.log.',
+      mbError, MB_OK);
+    Exit;
+  end;
+
+  Result := True;
+end;
+
+{ Localise mysql.exe sur le système.
+  Cherche dans les répertoires courants de MariaDB et MySQL. }
+function FindMysqlExe(): String;
+var
+  Candidates: TArrayOfString;
+  I: Integer;
+begin
+  Result := '';
+  SetArrayLength(Candidates, 8);
+  Candidates[0] := ExpandConstant('{pf}\MariaDB 11.4\bin\mysql.exe');
+  Candidates[1] := ExpandConstant('{pf}\MariaDB 10.11\bin\mysql.exe');
+  Candidates[2] := ExpandConstant('{pf}\MariaDB 10.6\bin\mysql.exe');
+  Candidates[3] := ExpandConstant('{pf}\MariaDB\bin\mysql.exe');
+  Candidates[4] := ExpandConstant('{pf}\MySQL\MySQL Server 8.0\bin\mysql.exe');
+  Candidates[5] := ExpandConstant('{pf}\MySQL\MySQL Server 5.7\bin\mysql.exe');
+  Candidates[6] := 'C:\mariadb\bin\mysql.exe';
+  Candidates[7] := 'C:\mysql\bin\mysql.exe';
+
+  for I := 0 to GetArrayLength(Candidates) - 1 do begin
+    if FileExists(Candidates[I]) then begin
+      Result := Candidates[I];
+      Exit;
+    end;
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  MysqlExe: String;
+  Host, Port, User, Pass, PassPart: String;
+  DumpPath, BatPath: String;
+  Params: String;
+  ResultCode: Integer;
+begin
+  if CurStep = ssInstall then begin
+
+    { --- Installation MariaDB --- }
+    if WillInstallMariaDB then begin
+      WizardForm.StatusLabel.Caption := 'Installation de MariaDB...';
+      if not DoInstallMariaDB() then
+        Exit;  { erreur déjà affichée dans DoInstallMariaDB }
+    end;
+
+    { L'import DB sera ajouté ici en Task 8 }
+  end;
+end;
+
 procedure InitializeWizard;
 begin
   MySQLDetected := DetectMySQL();
