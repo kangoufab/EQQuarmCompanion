@@ -62,6 +62,8 @@ $s = "$env:TEMP\build_installer.ps1"
 
 Génère `installer/output/EqQuarmCompanion-Setup.exe`.
 
+**Règle :** toujours regénérer l'installer après un build release.
+
 ## Architecture
 
 ```
