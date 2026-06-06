@@ -55,6 +55,8 @@ add_executable(EqQuarmCompanion WIN32
     src/ui/fight_tab.cpp
     src/ui/spells_tab.cpp
     src/ui/spells_tab.h
+    src/ui/spell_tooltip.cpp
+    src/ui/spell_tooltip.h
     src/ui/stats_bar.cpp
     src/ui/stats_bar.h
     src/ui/infos_tab.cpp

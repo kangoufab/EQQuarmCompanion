@@ -271,22 +271,12 @@ QList<ItemData> ItemDatabase::searchItems(const QString& nameFragment, int limit
         : QString();
 
     QSqlQuery q(db);
-    if (hasItemsFulltextIndex(db)) {
-        q.prepare(
-            QString("SELECT %1 FROM %2"
-                    " WHERE MATCH(i.Name) AGAINST (:name IN BOOLEAN MODE)%3"
-                    " ORDER BY CHAR_LENGTH(i.Name) ASC LIMIT :lim")
-                .arg(cols).arg(from).arg(slotCond)
-        );
-        q.bindValue(":name", nameFragment.trimmed() + "*");
-    } else {
-        q.prepare(
-            QString("SELECT %1 FROM %2 WHERE i.Name LIKE :name%3"
-                    " ORDER BY CHAR_LENGTH(i.Name) ASC LIMIT :lim")
-                .arg(cols).arg(from).arg(slotCond)
-        );
-        q.bindValue(":name", QString("%%1%").arg(nameFragment));
-    }
+    q.prepare(
+        QString("SELECT %1 FROM %2 WHERE i.Name LIKE :name%3"
+                " ORDER BY CHAR_LENGTH(i.Name) ASC LIMIT :lim")
+            .arg(cols).arg(from).arg(slotCond)
+    );
+    q.bindValue(":name", nameFragment.trimmed() + "%");
     q.bindValue(":lim", limit);
     if (!q.exec()) {
         qWarning() << "searchItems failed:" << q.lastError().text();

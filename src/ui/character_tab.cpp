@@ -10,6 +10,9 @@
 #include <QVBoxLayout>
 #include <QLineEdit>
 #include <QHBoxLayout>
+#include <QCompleter>
+#include <QStringListModel>
+#include "ui/spell_tooltip.h"
 #include <QSplitter>
 #include <QGridLayout>
 #include <QScrollArea>
@@ -271,18 +274,29 @@ void CharacterTab::buildUi()
         row->addWidget(_slotFilter);
 
         _searchCombo = new SearchComboBox;
-        _searchCombo->setEditable(true);
-        _searchCombo->setInsertPolicy(QComboBox::NoInsert);
-        _searchCombo->setCompleter(nullptr);
         _searchCombo->setMinimumWidth(300);
         _searchCombo->lineEdit()->setPlaceholderText(
             QString::fromUtf8("Rechercher un item\xe2\x80\xa6"));
         _searchCombo->setStyleSheet(kComboStyle);
         _searchCombo->setAccessibleName("Rechercher un item");
+
+        _searchModel = new QStringListModel(this);
+        auto* completer = new QCompleter(_searchModel, this);
+        completer->setCompletionMode(QCompleter::UnfilteredPopupCompletion);
+        completer->setCaseSensitivity(Qt::CaseInsensitive);
+        _searchCombo->setCompleter(completer);
+
         connect(_searchCombo, &SearchComboBox::popup_requested,
                 this, &CharacterTab::onSearchPopup);
-        connect(_searchCombo, qOverload<int>(&QComboBox::activated),
-                this, &CharacterTab::onItemSelected);
+        connect(completer, QOverload<const QString&>::of(&QCompleter::activated),
+                this, [this](const QString& text) {
+            for (int i = 0; i < _searchResults.size(); ++i) {
+                if (QString::fromStdString(_searchResults[i].name) == text) {
+                    onItemSelected(i);
+                    return;
+                }
+            }
+        });
         row->addWidget(_searchCombo);
 
         _clearBtn = new QPushButton("Clear");
@@ -294,9 +308,10 @@ void CharacterTab::buildUi()
             "QPushButton:hover { border-color: #64b5f6; color: #64b5f6; }"
             "QPushButton:disabled { color: #444; border-color: #2a3045; }");
         connect(_clearBtn, &QPushButton::clicked, this, [this]() {
-            _searchCombo->clear();
             _searchCombo->lineEdit()->clear();
             _searchResults.clear();
+            _searchModel->setStringList({});
+            _clearBtn->setEnabled(false);
             clearComparison();
         });
         row->addWidget(_clearBtn);
@@ -594,37 +609,38 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
 // ── makeItemCard (supprimé — utilise ui/item_card.h) ─────────────────────
 
 static QFrame* buildSlotCard(const ItemData* item, const ItemData* refItem,
-                               const QString& slotTitle)
+                               const QString& slotTitle,
+                               const std::map<int,SpellData>*  spells          = nullptr,
+                               const std::map<int,QString>*    limitSpellNames = nullptr)
 {
-    return makeItemCard(item, refItem, nullptr, slotTitle);
+    return makeItemCard(item, refItem, spells, slotTitle, limitSpellNames);
 }
 
 // ── onSearchPopup ─────────────────────────────────────────────────────────
 
 void CharacterTab::onSearchPopup()
 {
-    QString rawQuery = _searchCombo->lineEdit()->text();
-    QString query    = rawQuery.trimmed();
+    QString query = _searchCombo->lineEdit()->text().trimmed();
     if (query.length() < 2) return;
 
-    int cursor = _searchCombo->lineEdit()->cursorPosition();
     int slotBit = _slotFilter ? _slotFilter->currentData().toInt() : 0;
     auto results = _itemDb->searchItems(query, 50, slotBit);
     _searchResults.clear();
-    _searchCombo->blockSignals(true);
-    _searchCombo->clear();
 
     int charLevel = _charInfo ? _charInfo->level : 65;
+    QStringList names;
     for (auto item : results) {
         if (!canEquip(item)) continue;
         applyWornStats(item, charLevel);
         _searchResults.append(item);
-        _searchCombo->addItem(QString::fromStdString(item.name));
+        names << QString::fromStdString(item.name);
     }
 
-    _searchCombo->lineEdit()->setText(rawQuery);
-    _searchCombo->lineEdit()->setCursorPosition(cursor);
-    _searchCombo->blockSignals(false);
+    _searchModel->setStringList(names);
+    if (!_searchResults.isEmpty()) {
+        _clearBtn->setEnabled(true);
+        _searchCombo->completer()->complete();
+    }
 }
 
 // ── onItemSelected ────────────────────────────────────────────────────────
@@ -713,11 +729,54 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
     colL->setSpacing(6);
     colL->setContentsMargins(0, 0, 0, 0);
 
+    // Précharge les spells pour les tooltips
+    auto loadItemSpells = [&](const ItemData& it) {
+        std::map<int,SpellData> m;
+        auto load = [&](int id) {
+            if (id > 0 && !m.count(id)) {
+                auto s = _itemDb->getSpellById(id);
+                if (s) m[id] = std::move(*s);
+            }
+        };
+        load(it.worneffect); load(it.focuseffect);
+        load(it.proceffect); load(it.clickeffect); load(it.scrolleffect);
+        return m;
+    };
+    // Build limit spell name lookups for SE_LimitSpell (SPA 139) in tooltips
+    auto buildLimitNames = [&](const std::map<int,SpellData>& spells) {
+        std::map<int,QString> names;
+        for (auto& [sid_key, sp] : spells) {
+            for (int i = 0; i < 12; ++i) {
+                if (sp.spa[i] == 254) break;
+                if (sp.spa[i] == 139) {
+                    int sid = std::abs(sp.effect_base_value[i]);
+                    if (sid > 0 && !names.count(sid)) {
+                        auto ref = _itemDb->getSpellById(sid);
+                        if (ref) names[sid] = QString::fromStdString(ref->name);
+                    }
+                }
+            }
+        }
+        return names;
+    };
+
+    auto newSpells = loadItemSpells(newItem);
+    std::map<int,SpellData> curSpells;
+    if (curItem) curSpells = loadItemSpells(*curItem);
+
+    auto newLimitNames = buildLimitNames(newSpells);
+    auto curLimitNames = buildLimitNames(curSpells);
+
     QString curName = curItem
         ? QString::fromStdString(curItem->name)
         : QString::fromUtf8("(vide)");
-    colL->addWidget(buildSlotCard(curItem,  nullptr, curName));
-    colL->addWidget(makeItemCard(&newItem, curItem));
+    colL->addWidget(buildSlotCard(curItem, nullptr, curName,
+                                  curItem ? &curSpells : nullptr,
+                                  curItem ? &curLimitNames : nullptr));
+    colL->addWidget(makeItemCard(&newItem, curItem,
+                                 newSpells.empty() ? nullptr : &newSpells,
+                                 {},
+                                 newLimitNames.empty() ? nullptr : &newLimitNames));
     _comparisonLayout->addWidget(colW);
 
     // Résumé : score + UPGRADE/DOWNGRADE

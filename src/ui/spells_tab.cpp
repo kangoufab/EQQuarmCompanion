@@ -1,5 +1,6 @@
 ﻿#include "ui/spells_tab.h"
 #include "ui/stats_bar.h"
+#include "ui/spell_tooltip.h"
 #include "core/config.h"
 #include "core/spell_stacking.h"
 #include "core/spell_stats.h"

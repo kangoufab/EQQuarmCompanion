@@ -8,9 +8,6 @@
 #include <utility>
 #include <vector>
 
-// Tooltip HTML pour un sort (effets SPA décodés).
-QString formatSpellTooltip(const SpellData& spell, int level);
-
 // Entrée d'effet worn ou focus : (nom_effet, spell_id, nom_item_source)
 // spell_id=0 → pas de tooltip SPA. nom_item_source peut être vide.
 using EffectEntry = std::tuple<std::string, int, std::string>;

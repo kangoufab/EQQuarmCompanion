@@ -9,6 +9,6 @@ public:
 signals:
     void popup_requested();
 
-protected:
+public:
     void showPopup() override;
 };

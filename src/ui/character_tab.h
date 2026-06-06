@@ -17,6 +17,7 @@ class QVBoxLayout;
 class QFrame;
 class QComboBox;
 class QScrollArea;
+class QStringListModel;
 
 class CharacterTab : public QWidget {
     Q_OBJECT
@@ -58,8 +59,9 @@ private:
     PlayerTotals*   _totals{nullptr};
     std::map<std::string, ItemData> _equippedItems;
 
-    SearchComboBox* _searchCombo{nullptr};
-    QPushButton*    _clearBtn{nullptr};
+    SearchComboBox*  _searchCombo{nullptr};
+    QStringListModel* _searchModel{nullptr};
+    QPushButton*     _clearBtn{nullptr};
     QWidget*        _comparisonArea{nullptr};
     QVBoxLayout*    _comparisonLayout{nullptr};
 

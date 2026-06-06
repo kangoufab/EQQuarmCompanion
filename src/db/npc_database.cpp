@@ -66,31 +66,17 @@ QList<NpcData> NpcDatabase::searchNpcs(const QString& nameFragment) {
     QList<NpcData> result;
     auto& db = DbConnection::instance().db();
     QSqlQuery q(db);
-    if (hasNpcsFulltextIndex(db)) {
-        q.prepare(
-            "SELECT nt.id, nt.name, nt.level, MIN(z.long_name) AS zone_long_name"
-            " FROM npc_types nt"
-            " LEFT JOIN spawnentry se ON se.npcID = nt.id"
-            " LEFT JOIN spawn2 s2 ON s2.spawngroupID = se.spawngroupID"
-            " LEFT JOIN zone z ON z.short_name = s2.zone"
-            " WHERE MATCH(nt.name) AGAINST (:name IN BOOLEAN MODE)"
-            " GROUP BY nt.id, nt.name, nt.level"
-            " ORDER BY CHAR_LENGTH(nt.name) ASC LIMIT 50"
-        );
-        q.bindValue(":name", nameFragment.trimmed() + "*");
-    } else {
-        q.prepare(
-            "SELECT nt.id, nt.name, nt.level, MIN(z.long_name) AS zone_long_name"
-            " FROM npc_types nt"
-            " LEFT JOIN spawnentry se ON se.npcID = nt.id"
-            " LEFT JOIN spawn2 s2 ON s2.spawngroupID = se.spawngroupID"
-            " LEFT JOIN zone z ON z.short_name = s2.zone"
-            " WHERE nt.name LIKE :name"
-            " GROUP BY nt.id, nt.name, nt.level"
-            " ORDER BY CHAR_LENGTH(nt.name) ASC LIMIT 50"
-        );
-        q.bindValue(":name", QString("%%1%").arg(nameFragment));
-    }
+    q.prepare(
+        "SELECT nt.id, nt.name, nt.level, MIN(z.long_name) AS zone_long_name"
+        " FROM npc_types nt"
+        " LEFT JOIN spawnentry se ON se.npcID = nt.id"
+        " LEFT JOIN spawn2 s2 ON s2.spawngroupID = se.spawngroupID"
+        " LEFT JOIN zone z ON z.short_name = s2.zone"
+        " WHERE nt.name LIKE :name"
+        " GROUP BY nt.id, nt.name, nt.level"
+        " ORDER BY CHAR_LENGTH(nt.name) ASC LIMIT 50"
+    );
+    q.bindValue(":name", QString("%%1%").arg(nameFragment));
     if (!q.exec()) {
         qWarning() << "searchNpcs failed:" << q.lastError().text();
         return result;

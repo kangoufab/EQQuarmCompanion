@@ -1,4 +1,5 @@
 #include "ui/item_card.h"
+#include "ui/spell_tooltip.h"
 #include "core/npc_analysis.h"
 #include <QFrame>
 #include <QGridLayout>
@@ -79,7 +80,8 @@ static const std::vector<std::pair<const char*,int>> RACE_BITS_IC = {
 // ── makeItemCard ──────────────────────────────────────────────────────────
 
 QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
-                     const SpellData* clickSpell, const QString& titleOverride)
+                     const std::map<int,SpellData>* spells, const QString& titleOverride,
+                     const std::map<int,QString>* limitSpellNames)
 {
     auto* frame = new QFrame;
     frame->setStyleSheet(
@@ -328,6 +330,16 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
                 "font-size: 13px; font-style: italic; "
                 "border: none; background: transparent;");
             lbl->setWordWrap(true);
+            if (spells) {
+                auto it = spells->find(id);
+                if (it != spells->end()) {
+                    static const std::map<int,QString> kEmpty;
+                    const auto& names = limitSpellNames ? *limitSpellNames : kEmpty;
+                    QString tip = formatSpellTooltip(it->second, 0, names);
+                    if (!tip.isEmpty())
+                        lbl->setToolTip(tip);
+                }
+            }
             bodyL->addWidget(lbl);
         };
 
@@ -361,32 +373,42 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
         }
     }
 
-    // ── SORT (scroll/click spell details) ─────────────────────────────────
-    if (clickSpell) {
-        static const std::map<int,const char*> RESIST_LBL = {
-            {1,"MR"},{2,"FR"},{3,"CR"},{4,"PR"},{5,"DR"},
-            {6,"Chromatic"},{7,"Prismatic"},
-        };
-        addSep();
-        addTitle(QString("SORT  %1").arg(QString::fromStdString(clickSpell->name)),
-                 "#7e57c2");
+    // ── SORT (click/scroll spell details inline) ──────────────────────────
+    {
+        const SpellData* clickSpell = nullptr;
+        if (spells) {
+            int id = item->clickeffect > 0 ? item->clickeffect : item->scrolleffect;
+            if (id > 0) {
+                auto it = spells->find(id);
+                if (it != spells->end()) clickSpell = &it->second;
+            }
+        }
+        if (clickSpell) {
+            static const std::map<int,const char*> RESIST_LBL = {
+                {1,"MR"},{2,"FR"},{3,"CR"},{4,"PR"},{5,"DR"},
+                {6,"Chromatic"},{7,"Prismatic"},
+            };
+            addSep();
+            addTitle(QString("SORT  %1").arg(QString::fromStdString(clickSpell->name)),
+                     "#7e57c2");
 
-        QStringList meta;
-        auto rit = RESIST_LBL.find(clickSpell->resist_type);
-        if (rit != RESIST_LBL.end())
-            meta << QString("Resist: %1").arg(rit->second);
-        meta << QString("Cible: %1").arg(
-            QString::fromStdString(targetTypeLabel(clickSpell->targettype)));
-        auto* metaLbl = new QLabel(meta.join("  \xc2\xb7  "));
-        metaLbl->setStyleSheet("color: #555577; font-size: 11px; background: transparent;");
-        bodyL->addWidget(metaLbl);
+            QStringList meta;
+            auto rit = RESIST_LBL.find(clickSpell->resist_type);
+            if (rit != RESIST_LBL.end())
+                meta << QString("Resist: %1").arg(rit->second);
+            meta << QString("Cible: %1").arg(
+                QString::fromStdString(targetTypeLabel(clickSpell->targettype)));
+            auto* metaLbl = new QLabel(meta.join("  \xc2\xb7  "));
+            metaLbl->setStyleSheet("color: #555577; font-size: 11px; background: transparent;");
+            bodyL->addWidget(metaLbl);
 
-        QString summary = QString::fromStdString(formatSpellSummary(*clickSpell, 0));
-        if (summary.isEmpty()) summary = "\xe2\x80\x94";
-        auto* effLbl = new QLabel(summary);
-        effLbl->setStyleSheet("color: #aaaaaa; font-size: 13px; background: transparent;");
-        effLbl->setWordWrap(true);
-        bodyL->addWidget(effLbl);
+            QString summary = QString::fromStdString(formatSpellSummary(*clickSpell, 0));
+            if (summary.isEmpty()) summary = "\xe2\x80\x94";
+            auto* effLbl = new QLabel(summary);
+            effLbl->setStyleSheet("color: #aaaaaa; font-size: 13px; background: transparent;");
+            effLbl->setWordWrap(true);
+            bodyL->addWidget(effLbl);
+        }
     }
 
     // ── Classes / Races ───────────────────────────────────────────────────

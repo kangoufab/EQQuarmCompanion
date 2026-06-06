@@ -1,4 +1,5 @@
 ﻿#include "ui/stats_bar.h"
+#include "ui/spell_tooltip.h"
 #include "core/spell_stats.h"
 #include "core/stats_calculator.h"
 #include <QFrame>
@@ -20,118 +21,7 @@
 #include <string>
 #include <vector>
 
-// ── formatSpellTooltip ────────────────────────────────────────────────────
-
-QString formatSpellTooltip(const SpellData& spell, int level)
-{
-    static const std::map<int, const char*> SPA_DESC = {
-        {0,"HP"}, {1,"AC"}, {2,"ATK"}, {3,"Movement Speed"},
-        {4,"STR"}, {5,"DEX"}, {6,"AGI"}, {7,"STA"}, {8,"INT"}, {9,"WIS"},
-        {11,"Haste"},
-        {35,"Disease Counter"}, {36,"Poison Counter"},
-        {46,"Fire Resistance"}, {47,"Cold Resistance"},
-        {48,"Poison Resistance"}, {49,"Disease Resistance"}, {50,"Magic Resistance"},
-        {55,"Rune"}, {59,"Damage Shield"}, {69,"Max HP"},
-        {92,"Hate"}, {97,"Max Mana"}, {98,"Haste"}, {100,"HP Regen"},
-        {111,"All Resist"}, {116,"Curse Counter"},
-        {124,"Spell Damage"}, {125,"Healing"}, {126,"Spell Haste"},
-        {127,"Spell Haste"}, {128,"Spell Duration"}, {129,"Spell Range"},
-        {130,"Healing"}, {131,"Spell Mana Cost"}, {132,"Spell Mana Cost"},
-        {133,"Spell Damage"}, {159,"All Stats"},
-        {169,"Critical Hit Chance"}, {170,"Spell Critical Chance"},
-        {171,"Crippling Blow Chance"}, {172,"Avoidance"},
-        {173,"Riposte Chance"}, {174,"Dodge Chance"},
-        {175,"Parry Chance"}, {176,"Dual Wield Chance"},
-        {177,"Double Attack Chance"}, {182,"Hundred Hands Effect"},
-        {184,"Hit Chance"}, {185,"Damage Modifier"}, {188,"Block Chance"},
-        {189,"Endurance"}, {190,"Max Endurance"}, {196,"Strikethrough"},
-    };
-    static const std::map<int, const char*> SPA_BOOL = {
-        {12,"Invisibility"}, {13,"See Invisible"}, {14,"Water Breathing"},
-        {18,"Pacify"}, {22,"Charm"}, {23,"Fear"}, {27,"Dispel Magic"},
-        {28,"Invisible to Undead"}, {29,"Invisible to Animals"},
-        {31,"Mesmerize"}, {57,"Levitate"}, {61,"Identify"},
-        {64,"Spin"}, {65,"Infravision"}, {66,"Ultravision"},
-        {71,"Necro Pet"}, {74,"Feign Death"},
-    };
-    static const std::set<int> SPA_PCT = {
-        3, 98, 169, 170, 171, 172, 173, 174, 175, 176, 177, 182, 184, 185, 188, 196
-    };
-
-    QStringList parts;
-    for (int i = 0; i < 12; ++i) {
-        int spa     = spell.spa[i];
-        int base    = spell.effect_base_value[i];
-        int mx      = spell.effect_limit_value[i];
-        int formula = spell.effect_formula[i];
-
-        if (spa == 254) break;
-        if (spa == 10)  continue;
-
-        if (spa == 11) {
-            int val = level ? calcSpellEffectValue(base, mx, formula, level) : (mx ? std::min(base, mx) : base);
-            if (val != 0) parts << QString("Haste +%1%").arg(val - 100);
-        } else if (spa == 98) {
-            if (base != 0) parts << QString("Haste +%1%").arg(std::abs(base) - 100);
-        } else if (spa == 119) {
-            int val = level ? calcSpellEffectValue(base, mx, formula, level) : std::abs(base);
-            parts << QString("Haste V3 (overcap) +%1%").arg(val);
-        } else if (spa == 0) {
-            if (base > 0) {
-                int val = level ? calcSpellEffectValue(base, mx, formula, level) : (mx ? std::min(base, mx) : base);
-                parts << QString("Increase HP by +%1 per tick").arg(val);
-            } else if (base < 0) {
-                parts << QString("Decrease HP by %1").arg(std::abs(base));
-            }
-        } else if (spa == 15) {
-            if (base != 0) {
-                const char* verb = base > 0 ? "Increase" : "Decrease";
-                QString sfx = base > 0 ? " per tick" : "";
-                parts << QString("%1 Mana by %2%3").arg(verb).arg(std::abs(base)).arg(sfx);
-            }
-        } else if (spa == 21) {
-            if (base > 0) parts << QString("Stun for %1 sec").arg(base / 1000);
-        } else if (spa == 79) {
-            if (base != 0) {
-                const char* verb = base < 0 ? "Decrease" : "Increase";
-                int val = (mx != 0 && formula != 100) ? std::abs(mx) : std::abs(base);
-                parts << QString("%1 HP by %2").arg(verb).arg(val);
-            }
-        } else if (spa == 92) {
-            if (base != 0) {
-                const char* verb = base > 0 ? "Increase" : "Decrease";
-                parts << QString("%1 Hate by %2").arg(verb).arg(std::abs(base));
-            }
-        } else if (spa == 100) {
-            if (base != 0) parts << QString("Increase HP by +%1 per tick").arg(base);
-        } else if (spa >= 120 && spa <= 150) {
-            auto it = SPA_DESC.find(spa);
-            if (it != SPA_DESC.end() && base != 0) {
-                if (spa == 131 || spa == 132)
-                    parts << QString("Decrease %1 by %2%").arg(it->second).arg(std::abs(base));
-                else
-                    parts << QString("Increase %1 by %2%").arg(it->second).arg(std::abs(base));
-            }
-        } else {
-            auto boolIt = SPA_BOOL.find(spa);
-            if (boolIt != SPA_BOOL.end()) {
-                parts << QString(boolIt->second);
-            } else {
-                auto descIt = SPA_DESC.find(spa);
-                if (descIt != SPA_DESC.end() && base != 0) {
-                    const char* verb = base > 0 ? "Increase" : "Decrease";
-                    int val = (mx != 0 && formula != 100) ? std::abs(mx) : std::abs(base);
-                    QString sfx = SPA_PCT.count(spa) ? "%" : "";
-                    parts << QString("%1 %2 by %3%4").arg(verb).arg(descIt->second).arg(val).arg(sfx);
-                }
-            }
-        }
-    }
-
-    QString header = QString("<b>%1</b>").arg(QString::fromStdString(spell.name));
-    if (parts.isEmpty()) return header;
-    return header + "<br>" + parts.join("<br>");
-}
+// formatSpellTooltip is defined in spell_tooltip.cpp
 
 // ── makeStatTooltip ───────────────────────────────────────────────────────
 

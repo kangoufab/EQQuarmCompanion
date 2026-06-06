@@ -10,6 +10,7 @@
 class Config;
 class NpcDatabase;
 class ItemDatabase;
+class QStringListModel;
 
 class FightTab : public QWidget {
     Q_OBJECT
@@ -47,6 +48,7 @@ private:
     PlayerTotals*  _totals{};
 
     class SearchComboBox* _searchCombo;
+    QStringListModel*     _searchModel{nullptr};
     QScrollArea*          _leftScroll;
     QScrollArea*          _rightScroll;
     QWidget*              _itemSection{};

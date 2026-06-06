@@ -9,8 +9,10 @@
 #include "db/item_database.h"
 #include <QtConcurrent/QtConcurrent>
 #include <QComboBox>
+#include <QCompleter>
 #include <QFrame>
 #include <QLineEdit>
+#include <QStringListModel>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -22,6 +24,7 @@
 #include <QLocale>
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <numeric>
 #include <set>
 
@@ -199,9 +202,23 @@ void FightTab::buildUi() {
     _searchCombo->setMaximumWidth(500);
     _searchCombo->setAccessibleName("Rechercher un NPC");
     _searchCombo->lineEdit()->setPlaceholderText("Rechercher un NPC...");
+
+    _searchModel = new QStringListModel(this);
+    auto* completer = new QCompleter(_searchModel, this);
+    completer->setCompletionMode(QCompleter::UnfilteredPopupCompletion);
+    completer->setCaseSensitivity(Qt::CaseInsensitive);
+    _searchCombo->setCompleter(completer);
+
     connect(_searchCombo, &SearchComboBox::popup_requested, this, &FightTab::doSearch);
-    connect(_searchCombo, qOverload<int>(&QComboBox::activated),
-            this, &FightTab::onNpcSelected);
+    connect(completer, QOverload<const QString&>::of(&QCompleter::activated),
+            this, [this](const QString& text) {
+        for (int i = 0; i < static_cast<int>(_searchResults.size()); ++i) {
+            QString display = QString("%1 (%2)")
+                .arg(QString::fromStdString(_searchResults[i].name).replace('_', ' '))
+                .arg(QString::fromStdString(_searchResults[i].zone_long_name));
+            if (display == text) { onNpcSelected(i); return; }
+        }
+    });
 
     auto* searchRow = new QHBoxLayout;
     searchRow->addWidget(_searchCombo);
@@ -256,17 +273,14 @@ void FightTab::doSearch() {
 
 void FightTab::onSearchDone() {
     _searchResults = _searchWatcher->result();
-    _searchCombo->blockSignals(true);
-    QString text = _searchCombo->lineEdit()->text();
-    _searchCombo->clear();
+    QStringList names;
     for (const auto& npc : _searchResults)
-        _searchCombo->addItem(
-            QString("%1 (%2)")
-                .arg(QString::fromStdString(npc.name).replace('_', ' '))
-                .arg(QString::fromStdString(npc.zone_long_name)));
-    _searchCombo->lineEdit()->setText(text);
-    _searchCombo->blockSignals(false);
-    if (!_searchResults.empty()) static_cast<QComboBox*>(_searchCombo)->showPopup();
+        names << QString("%1 (%2)")
+                     .arg(QString::fromStdString(npc.name).replace('_', ' '))
+                     .arg(QString::fromStdString(npc.zone_long_name));
+    _searchModel->setStringList(names);
+    if (!_searchResults.empty())
+        _searchCombo->completer()->complete();
 }
 
 void FightTab::onNpcSelected(int index) {
@@ -857,12 +871,38 @@ void FightTab::showLootForSlot(const QString& slot) {
         }
     }
 
-    std::optional<SpellData> clickSpell;
-    int spellId = _lootItem.clickeffect > 0 ? _lootItem.clickeffect : _lootItem.scrolleffect;
-    if (spellId > 0) clickSpell = _itemDb->getSpellById(spellId);
+    std::map<int,SpellData> spells;
+    auto loadSpell = [&](int id) {
+        if (id > 0 && !spells.count(id)) {
+            auto s = _itemDb->getSpellById(id);
+            if (s) spells[id] = std::move(*s);
+        }
+    };
+    loadSpell(_lootItem.worneffect);
+    loadSpell(_lootItem.focuseffect);
+    loadSpell(_lootItem.proceffect);
+    loadSpell(_lootItem.clickeffect);
+    loadSpell(_lootItem.scrolleffect);
+
+    // Build spell name lookup for SE_LimitSpell (SPA 139) in tooltips
+    std::map<int,QString> limitNames;
+    for (auto& [sid_key, sp] : spells) {
+        for (int i = 0; i < 12; ++i) {
+            if (sp.spa[i] == 254) break;
+            if (sp.spa[i] == 139) {
+                int sid = std::abs(sp.effect_base_value[i]);
+                if (sid > 0 && !limitNames.count(sid)) {
+                    auto ref = _itemDb->getSpellById(sid);
+                    if (ref) limitNames[sid] = QString::fromStdString(ref->name);
+                }
+            }
+        }
+    }
 
     _itemSectionLayout->addWidget(
         makeItemCard(&_lootItem, equippedItem ? &*equippedItem : nullptr,
-                     clickSpell ? &*clickSpell : nullptr));
+                     spells.empty() ? nullptr : &spells,
+                     {},
+                     limitNames.empty() ? nullptr : &limitNames));
     _itemSection->setVisible(true);
 }
