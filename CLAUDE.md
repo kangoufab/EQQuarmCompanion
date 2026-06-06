@@ -103,6 +103,14 @@ Qt's AUTOMOC scans files listed in `add_library()`/`add_executable()`. Any QObje
 ### Clickies in Buffs tab
 "Clickies" is a synthetic class entry in the Buffs tab that collects click-effect spells from: (1) equipped items (already in `_equippedItems`), and (2) items in personal bag slots only (`General1-8`, not `Bank`/`SharedBank`) loaded via `ItemDatabase::getItemClickeffects()`. Deduplication by spell_id keeps the first item encountered. `CharacterInfo::bag_item_ids` stores the IDs from bag slots parsed in `character_parser.cpp`.
 
+### Tooltips de sorts — `formatSpellTooltip` et couleur accent
+`formatSpellTooltip` (dans `spell_tooltip.h/cpp`) génère du HTML `<table>` avec deux sections : **EFFETS** (SPAs 0-133) et **CONDITIONS** (SPAs 134-144 — limites focus). Le paramètre `accentColor` colore le header du sort et les valeurs d'effets ; les labels restent en `#aaaaaa` et les conditions en `#6a8399`. Les appelants passent leur couleur existante (`col` dans `item_card.cpp`, `color` dans `stats_bar.cpp`). L'onglet Buffs passe `#80b0e0` (buff), `#ba68c8` (clicky), `#cc6666` (bloqué).
+
+Dans l'onglet Buffs, les tooltips enrichis (sections CONFLIT + SORT avec durée/cast) sont construits par `spellExtraRows()` et injectés via `appendTooltipRows()` — directement dans `spells_tab.cpp`, sans modifier `formatSpellTooltip`.
+
+### Strikeout dans l'onglet Buffs — `QFont::setStrikeOut()` pas CSS
+Le strikeout des sorts bloqués est appliqué via `QFont::setStrikeOut(true)` sur le widget (label/checkbox), **pas** via `text-decoration: line-through` dans le stylesheet. Raison : Qt propage l'attribut `strikeOut` du QFont du widget vers son rendu de tooltip, causant un texte barré dans le tooltip. Le `QToolTip` utilise `QToolTip::font()` comme base (indépendant du widget), donc `QFont::setStrikeOut()` n'affecte que le label, pas le tooltip.
+
 ### Stuff tab — layout 3 colonnes
 L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
 - **Inventaire** (colonne gauche, redimensionnable, min 120px, défaut 250px) : items équipés par slot + items des sacs groupés par numéro de bag (`Bag 1`, `Bag 2`…). Cliquer un item le charge dans la zone de comparaison.
@@ -133,11 +141,12 @@ L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
 | `src/ui/character_tab.h/cpp` | Stuff tab — layout 3 colonnes (QSplitter) : inventaire équipé+sacs / recherche / comparaison; `rebuildInventoryPanel()` |
 | `src/ui/fight_tab.h/cpp` | 2D DPS×slow table, loot, NPC tags, resists; `refreshStats()` rebuilds right panel with buffed totals. CH rotation: `safeP = floor(hp×0.70×10/maxDPS)` = pause max (dixièmes) pour HP ≥ 30% ; affiché pour N min clerics tel que `ceil(100/N) ≤ safeP`. |
 | `src/ui/infos_tab.h/cpp` | Expansion selector + resist debuff groups |
-| `src/ui/spells_tab.h/cpp` | Buffs tab — class list, checkboxes, stacking, sets save/load, search bar, Clickies (ClickieEntry, loadClickies, _clickieSpells) |
+| `src/ui/spells_tab.h/cpp` | Buffs tab — class list, checkboxes, stacking, sets save/load, search bar, Clickies. `_conflicts` = `map<int,int>` loser→winner. Helpers fichier : `spellExtraRows()` (sections CONFLIT+SORT dans les tooltips), `appendTooltipRows()` (injection dans table existante). |
 | `src/ui/infos_data.h` | `kExpCaps` (cap joueur par extension : Luclin=60, PoP=65), `kDebuffsByExp`, `getResistDebuffs()` |
 | `src/ui/infos_spell_data.h` | Données statiques sorts debuff; `getInfoGroups()`, `getCrossConflicts()`, `getResistGroupOrder()`, `getResistBardGroups()`, `bestInGroup()`, `spellResistVal()` |
 | `src/ui/settings_dialog.h` | `SettingsDialog` — dialog 3 onglets : DB / Fichiers / Poids (sliders stat par classe) |
-| `src/ui/stats_bar.h` | `makePlayerStatsBar()` — bandeau de stats avec tooltips par source; `formatSpellTooltip()` |
+| `src/ui/spell_tooltip.h/cpp` | `formatSpellTooltip(spell, level, spellNames, accentColor)` — tooltip HTML en `<table>` 2 colonnes : section EFFETS (SPAs 0-133) + CONDITIONS (SPAs 134-144). `accentColor` colore header + valeurs (Worn `#8888ff`, Focus `#88cc88`, Proc `#ffaa44`, Click `#ba68c8`, Buff `#80b0e0`). |
+| `src/ui/stats_bar.h` | `makePlayerStatsBar()` — bandeau de stats avec tooltips par source |
 | `src/ui/ui_helpers.h` | Helpers UI inline : `sectionFrame()`, `sectionLabel()`, `gridWidget()`, couleurs `kGreen/kOrange/kRed` |
 | `src/ui/widgets.h` | `SearchComboBox` — QComboBox avec signal `popup_requested()` |
 
