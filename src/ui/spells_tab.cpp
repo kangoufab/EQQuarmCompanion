@@ -27,6 +27,96 @@
 #include <cstdlib>
 #include <set>
 
+// ── Helpers tooltip sorts ─────────────────────────────────────────────────
+
+// Construit les lignes <tr> supplémentaires à injecter dans le tooltip :
+// section ─ CONFLIT (si conflictName non vide) + section ─ SORT (durée, cast).
+static QString spellExtraRows(const SpellData& spell, const QString& conflictName = {})
+{
+    QString rows;
+
+    if (!conflictName.isEmpty()) {
+        rows += "<tr><td colspan='2' style='color:#4a2020;font-size:11px;font-weight:bold;"
+                "padding:6px 0 2px;'>─ CONFLIT</td></tr>";
+        rows += QString("<tr>"
+                        "<td style='color:#7a4040;padding:1px 20px 1px 10px;'>Bloqué par</td>"
+                        "<td align='right' style='color:#cc6666;'>%1</td>"
+                        "</tr>")
+                .arg(conflictName.toHtmlEscaped());
+    }
+
+    bool hasDur    = spell.buffdurationformula > 0 && spell.buffduration > 0;
+    bool hasCast   = spell.cast_time > 0;
+    bool hasRecast = spell.recast_delay > 0;
+    if (!hasDur && !hasCast && !hasRecast)
+        return rows;
+
+    rows += "<tr><td colspan='2' style='color:#2d4258;font-size:11px;font-weight:bold;"
+            "padding:6px 0 2px;'>─ SORT</td></tr>";
+
+    if (hasDur) {
+        int ticks   = spell.buffduration;
+        int seconds = ticks * 6;
+        QString durStr;
+        if (seconds >= 60) {
+            int min = seconds / 60, sec = seconds % 60;
+            durStr = sec > 0
+                ? QString("%1 min %2 sec (%3 ticks)").arg(min).arg(sec).arg(ticks)
+                : QString("%1 min (%2 ticks)").arg(min).arg(ticks);
+        } else {
+            durStr = QString("%1 sec (%2 ticks)").arg(seconds).arg(ticks);
+        }
+        rows += QString("<tr>"
+                        "<td style='color:#4a6070;padding:1px 20px 1px 10px;'>Durée</td>"
+                        "<td align='right' style='color:#6a8090;'>%1</td>"
+                        "</tr>").arg(durStr);
+    }
+
+    if (hasCast) {
+        bool isSong = (spell.skill == 41 || spell.skill == 49 ||
+                       spell.skill == 54 || spell.skill == 12 || spell.skill == 70);
+        double castSec = spell.cast_time / 1000.0;
+        rows += QString("<tr>"
+                        "<td style='color:#4a6070;padding:1px 20px 1px 10px;'>%1</td>"
+                        "<td align='right' style='color:#6a8090;'>%2 sec</td>"
+                        "</tr>")
+                .arg(isSong ? "Cast (song)" : "Cast")
+                .arg(castSec, 0, 'f', 1);
+    } else if (hasRecast) {
+        int recastSec = spell.recast_delay / 1000;
+        QString recastStr;
+        if (recastSec >= 60) {
+            int min = recastSec / 60, sec = recastSec % 60;
+            recastStr = sec > 0
+                ? QString("%1 min %2 sec").arg(min).arg(sec)
+                : QString("%1 min").arg(min);
+        } else {
+            recastStr = QString("%1 sec").arg(recastSec);
+        }
+        rows += QString("<tr>"
+                        "<td style='color:#4a6070;padding:1px 20px 1px 10px;'>Recast</td>"
+                        "<td align='right' style='color:#6a8090;'>%1</td>"
+                        "</tr>").arg(recastStr);
+    }
+
+    return rows;
+}
+
+// Injecte des lignes supplémentaires dans la table du tooltip, ou crée une
+// nouvelle table si le tooltip n'en contient pas encore.
+static QString appendTooltipRows(QString tip, const QString& rows)
+{
+    if (rows.isEmpty()) return tip;
+    int idx = tip.lastIndexOf("</table>");
+    if (idx >= 0) {
+        tip.insert(idx, rows);
+    } else {
+        tip += "<table cellspacing='0' style='min-width:200px;border-collapse:collapse;"
+               "margin-top:5px;'>" + rows + "</table>";
+    }
+    return tip;
+}
+
 // ── Constantes ────────────────────────────────────────────────────────────
 
 static const std::vector<std::string> BUFF_CASTER_CLASSES = {
@@ -493,12 +583,15 @@ void SpellsTab::rebuildRightPanel()
         }
         auto* cb = new QCheckBox(label);
         cb->setChecked(isSelected);
-        cb->setToolTip(formatSpellTooltip(spell, tooltipLevel));
+
+        const char* accent = isClickies ? "#ba68c8" : "#80b0e0";
 
         if (isBlocked) {
             QString wname = winnerNames.count(spell.id) ? winnerNames[spell.id] : "un autre sort";
             cb->setStyleSheet("font-size: 14px; color: #aa4444; text-decoration: line-through;");
-            cb->setToolTip(QString("Bloqu\xc3\xa9 par %1").arg(wname));
+            cb->setToolTip(appendTooltipRows(
+                formatSpellTooltip(spell, tooltipLevel, {}, "#cc6666"),
+                spellExtraRows(spell, wname)));
             cb->setEnabled(false);
         } else if (!isSelected) {
             auto conflict = findConflictInPool(spell, activePool, charLevel);
@@ -507,14 +600,22 @@ void SpellsTab::rebuildRightPanel()
                 for (auto& b : _activeBuffs)
                     if (b.spell.id == *conflict) { wname = QString::fromStdString(b.spell.name); break; }
                 cb->setStyleSheet("font-size: 14px; color: #aa4444; text-decoration: line-through;");
-                cb->setToolTip(QString("Bloqu\xc3\xa9 par %1").arg(wname));
+                cb->setToolTip(appendTooltipRows(
+                    formatSpellTooltip(spell, tooltipLevel, {}, "#cc6666"),
+                    spellExtraRows(spell, wname)));
                 cb->setEnabled(false);
             } else {
                 cb->setStyleSheet("font-size: 14px; color: #c0c0c0;");
+                cb->setToolTip(appendTooltipRows(
+                    formatSpellTooltip(spell, tooltipLevel, {}, accent),
+                    spellExtraRows(spell)));
                 cb->setEnabled(!atCap);
             }
         } else {
             cb->setStyleSheet("font-size: 14px; color: #c0c0c0;");
+            cb->setToolTip(appendTooltipRows(
+                formatSpellTooltip(spell, tooltipLevel, {}, accent),
+                spellExtraRows(spell)));
             cb->setEnabled(true);
         }
 
@@ -652,8 +753,24 @@ void SpellsTab::rebuildActiveBuffsList()
             ? "font-size: 13px; color: #aa4444; text-decoration: line-through; "
               "border: none; background: transparent;"
             : "font-size: 13px; color: #c0c0c0; border: none; background: transparent;");
-        nameLbl->setToolTip(formatSpellTooltip(b.spell,
-            _charInfo ? _charInfo->level : expansionMaxLevel()));
+        QString conflictName;
+        if (blocked) {
+            auto cit = _conflicts.find(b.spell.id);
+            if (cit != _conflicts.end()) {
+                int winnerId = cit->second;
+                for (auto& ab : _activeBuffs)
+                    if (ab.spell.id == winnerId)
+                        { conflictName = QString::fromStdString(ab.spell.name); break; }
+                if (conflictName.isEmpty()) conflictName = "un autre sort";
+            }
+        }
+        QString tipAccent = blocked            ? "#cc6666"
+                          : (b.buffClass == "Clickies") ? "#ba68c8"
+                          : "#80b0e0";
+        int tipLevel = _charInfo ? _charInfo->level : expansionMaxLevel();
+        nameLbl->setToolTip(appendTooltipRows(
+            formatSpellTooltip(b.spell, tipLevel, {}, tipAccent),
+            spellExtraRows(b.spell, conflictName)));
         rl->addWidget(nameLbl, 1);
 
         QString shortCls = (b.buffClass == "Clickies")
