@@ -1,4 +1,5 @@
 ﻿#include "ui/stats_bar.h"
+#include "ui/stat_categories.h"
 #include "ui/spell_tooltip.h"
 #include "core/spell_stats.h"
 #include "core/stats_calculator.h"
@@ -38,7 +39,7 @@ static QString makeStatTooltip(const std::string& statKey,
     QString valStr = QString("<span style='color:%1;font-weight:bold;font-size:14px;'>%2%3</span>")
         .arg(accent).arg(cappedVal).arg(sfxQ);
     if (cap.has_value())
-        valStr += QString("<span style='color:#555;'> / %1%2</span>").arg(*cap).arg(sfxQ);
+        valStr += QString("<span style='color:%1;'> / %2%3</span>").arg(kTextMuted).arg(*cap).arg(sfxQ);
     if (rawVal != cappedVal)
         valStr += QString(" <span style='color:#888;font-size:14px;'>(brut %1)</span>").arg(rawVal);
 
@@ -55,36 +56,36 @@ static QString makeStatTooltip(const std::string& statKey,
     };
 
     if (info.base_val != 0) {
-        sectionHeader("BASE", "#64b5f6");
+        sectionHeader("BASE", kAccentBlue);
         row("Race / Classe / Niveau",
-            QString("%1%2").arg(info.base_val).arg(sfxQ), "#64b5f6");
+            QString("%1%2").arg(info.base_val).arg(sfxQ), kAccentBlue);
     }
     if (!info.item_sources.empty()) {
-        sectionHeader("ITEMS", "#81c784");
+        sectionHeader("ITEMS", kGreen);
         for (auto& [iname, ival] : info.item_sources) {
             QString sign = ival >= 0 ? "+" : "";
             row(QString::fromStdString(iname),
-                sign + QString::number(ival) + sfxQ, "#81c784");
+                sign + QString::number(ival) + sfxQ, kGreen);
         }
     }
     if (!info.aa_sources.empty()) {
-        sectionHeader("AA", "#ffc947");
+        sectionHeader("AA", kAccentGold);
         for (auto& [aaname, aval] : info.aa_sources) {
             QString sign = aval >= 0 ? "+" : "";
             row(QString::fromStdString(aaname),
-                sign + QString::number(aval) + sfxQ, "#ffc947");
+                sign + QString::number(aval) + sfxQ, kAccentGold);
         }
     }
     if (!info.spell_sources.empty()) {
-        sectionHeader("SORTS", "#ba68c8");
+        sectionHeader("SORTS", kAccentPurple);
         for (auto& [sname, sval] : info.spell_sources) {
             QString sign = sval >= 0 ? "+" : "";
             row(QString::fromStdString(sname),
-                sign + QString::number(sval) + sfxQ, "#ba68c8");
+                sign + QString::number(sval) + sfxQ, kAccentPurple);
         }
     }
     if (!info.formula.empty()) {
-        sectionHeader("FORMULE", "#ffb74d");
+        sectionHeader("FORMULE", kOrange);
 
         int spellTotal = 0;
         for (auto& [n, v] : info.spell_sources) spellTotal += v;
@@ -96,13 +97,13 @@ static QString makeStatTooltip(const std::string& statKey,
             if (isLast && spellTotal != 0) {
                 // Ligne sorts avant le total
                 QString sign = spellTotal >= 0 ? "+" : "";
-                row("Sorts", sign + QString::number(spellTotal) + sfxQ, "#ffb74d");
+                row("Sorts", sign + QString::number(spellTotal) + sfxQ, kOrange);
                 // Ligne total mise à jour avec la valeur réelle affichée
                 row(QString::fromStdString(lbl),
-                    QString::number(cappedVal) + sfxQ, "#ffb74d");
+                    QString::number(cappedVal) + sfxQ, kOrange);
             } else {
                 row(QString::fromStdString(lbl),
-                    QString::fromStdString(val), "#ffb74d");
+                    QString::fromStdString(val), kOrange);
             }
         }
     }
@@ -121,53 +122,6 @@ static QString makeStatTooltip(const std::string& statKey,
 
 // ── Constantes ────────────────────────────────────────────────────────────
 
-struct CatColorsS { const char* bg; const char* border; const char* accent; };
-
-static const std::vector<std::pair<std::string, std::vector<std::string>>> STAT_CATS = {
-    {"Melee",   {"astr","adex","atk","haste"}},
-    {"Range",   {"adex","atk","haste"}},
-    {"Defense", {"asta","aagi","hp","ac","hp_regen","mr","fr","cr","dr","pr"}},
-    {"Sorts",   {"aint","awis","acha","mana","mana_regen"}},
-};
-static const std::map<std::string, const char*> CAT_LABELS = {
-    {"Melee",   "M\xc3\xaalée"},
-    {"Range",   "Distance"},
-    {"Defense", "D\xc3\xa9" "fense"},
-    {"Sorts",   "Sorts"},
-};
-static const std::map<std::string, CatColorsS> CAT_COLORS = {
-    {"Melee",   {"#2a1a1a","#5a3a3a","#e57373"}},
-    {"Range",   {"#2a241a","#5a4a3a","#ffb74d"}},
-    {"Defense", {"#1a2236","#3a4a6a","#64b5f6"}},
-    {"Sorts",   {"#241a2a","#4a3a5a","#ba68c8"}},
-};
-static const std::map<std::string, std::set<std::string>> CLASS_CATS = {
-    {"Warrior",      {"Melee","Defense"}},
-    {"Cleric",       {"Defense","Sorts"}},
-    {"Paladin",      {"Melee","Defense","Sorts"}},
-    {"Ranger",       {"Melee","Range","Defense","Sorts"}},
-    {"Shadowknight", {"Melee","Defense","Sorts"}},
-    {"Druid",        {"Defense","Sorts"}},
-    {"Monk",         {"Melee","Range","Defense"}},
-    {"Bard",         {"Melee","Range","Defense","Sorts"}},
-    {"Rogue",        {"Melee","Range","Defense"}},
-    {"Shaman",       {"Defense","Sorts"}},
-    {"Necromancer",  {"Defense","Sorts"}},
-    {"Wizard",       {"Defense","Sorts"}},
-    {"Magician",     {"Defense","Sorts"}},
-    {"Enchanter",    {"Defense","Sorts"}},
-    {"Beastlord",    {"Melee","Defense","Sorts"}},
-};
-static const std::map<std::string, std::string> STAT_LABELS = {
-    {"astr","STR"},{"asta","STA"},{"aagi","AGI"},{"adex","DEX"},
-    {"awis","WIS"},{"aint","INT"},{"acha","CHA"},
-    {"hp","HP"},{"ac","AC"},{"mana","Mana"},{"atk","ATK"},
-    {"haste","Haste"},{"hp_regen","HP/tick"},{"mana_regen","Mana/tick"},
-    {"mr","Magic"},{"fr","Fire"},{"cr","Cold"},{"dr","Disease"},{"pr","Poison"},
-};
-static const std::map<std::string, std::string> STAT_SUFFIX = {
-    {"haste","%"},{"hp_regen","/tick"},{"mana_regen","/tick"},
-};
 
 static bool isAttrS(const std::string& s) {
     return s=="astr"||s=="asta"||s=="adex"||s=="aagi"||s=="awis"||s=="aint"||s=="acha";
@@ -292,13 +246,13 @@ QFrame* makePlayerStatsBar(
 {
     // Catégories selon la classe
     std::vector<std::pair<std::string, std::vector<std::string>>> cats;
-    auto classIt = CLASS_CATS.find(className);
-    if (classIt != CLASS_CATS.end()) {
-        for (auto& [name, stats] : STAT_CATS)
+    auto classIt = CLASS_CATEGORIES.find(className);
+    if (classIt != CLASS_CATEGORIES.end()) {
+        for (auto& [name, stats] : STAT_CATEGORIES)
             if (classIt->second.count(name))
                 cats.push_back({name, stats});
     }
-    if (cats.empty()) cats = STAT_CATS;
+    if (cats.empty()) cats = STAT_CATEGORIES;
 
     // Defense en premier
     auto defIt = std::find_if(cats.begin(), cats.end(),
@@ -370,9 +324,9 @@ QFrame* makePlayerStatsBar(
             bool atCap  = hasCap && dispVal >= capVal;
 
             const char *tileBg, *tileFg;
-            if (!hasCap)    { tileBg = "#1e2a1e"; tileFg = "#81c784"; }
-            else if (atCap) { tileBg = "#1e3a5f"; tileFg = "#4fc3f7"; }
-            else             { tileBg = "#252540"; tileFg = "#cccccc"; }
+            if (!hasCap)    { tileBg = kBgTileNoLimit; tileFg = kGreen; }
+            else if (atCap) { tileBg = kBgTileAtCap;  tileFg = kAccentAtCap; }
+            else             { tileBg = kBgTile;       tileFg = "#cccccc"; }
 
             auto* tile = new QFrame;
             tile->setStyleSheet(
@@ -391,7 +345,8 @@ QFrame* makePlayerStatsBar(
 
             auto* nameLbl = new QLabel(slabel);
             nameLbl->setStyleSheet(
-                "font-size: 14px; color: #888888; border: none; background: transparent;");
+                QString("font-size: 14px; color: %1; border: none; background: transparent;")
+                .arg(kTextTileKey));
             nameLbl->setAlignment(Qt::AlignCenter);
 
             auto* valLbl = new QLabel(QString::number(dispVal) + suffix);

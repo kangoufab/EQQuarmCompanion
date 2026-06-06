@@ -27,13 +27,14 @@ inline const char* kBorderAccent = "#4a6a9a";  // hover / focus highlight
 inline const char* kTextPrimary   = "#e0e0e0";  // headings, key values
 inline const char* kTextBase      = "#c0c0c0";  // body text, item names
 inline const char* kTextSecondary = "#888888";  // secondary labels, grid keys
-inline const char* kTextMuted     = "#555555";  // cap divider "/N", very dim
-inline const char* kTextDim       = "#444444";  // disabled state
+inline const char* kTextMuted     = "#7a7a7a";  // cap dividers, very dim — ≥4.5:1 on kBgMain
+inline const char* kTextDim       = "#555555";  // disabled state
 
 // P1 contrast fixes — these replace colors that failed WCAG AA (< 4.5:1):
 inline const char* kTextEmptySlot = "#6b7899";  // "— vide —" in inventory (~4.5:1 on kBgBase)
 inline const char* kTextSlotLabel = "#5a7a9a";  // slot abbreviations Charm/Head (≥4.5:1)
 inline const char* kTextDeltaNeg  = "#f07070";  // negative stat delta on tile bg (≥4.5:1)
+inline const char* kTextTileKey   = "#909090";  // stat tile key labels — ≥4.5:1 on all tile bgs
 
 // ── Semantic colors ───────────────────────────────────────────────────────────
 // These carry strict meaning — never use decoratively.
@@ -46,3 +47,4 @@ inline const char* kAccentBlue   = "#64b5f6";  // Defense category / info / hove
 inline const char* kAccentPurple = "#ba68c8";  // Sorts / spell category
 inline const char* kAccentMelee  = "#e57373";  // Melee category (lighter than kRed)
 inline const char* kAccentAtCap  = "#4fc3f7";  // stat value displayed at cap
+inline const char* kAccentGold   = "#ffc947";  // AA bonuses / formula highlight

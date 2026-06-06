@@ -5,6 +5,7 @@
 #include "ui/infos_tab.h"
 #include "ui/settings_dialog.h"
 #include "ui/stats_bar.h"
+#include "ui/palette.h"
 #include "core/config.h"
 #include "core/stats_calculator.h"
 #include "db/db_connection.h"
@@ -20,6 +21,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QShortcut>
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -108,6 +110,8 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
     toolbar->addSeparator();
     auto* settingsBtn = new QPushButton(QString::fromUtf8("\xe2\x9a\x99"));
     settingsBtn->setFlat(true);
+    settingsBtn->setAccessibleName(QString::fromUtf8("Param\xc3\xa8tres"));
+    settingsBtn->setToolTip(QString::fromUtf8("Param\xc3\xa8tres (DB, fichiers, poids)"));
     toolbar->addWidget(settingsBtn);
 
     // Badge connexion DB
@@ -129,7 +133,7 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
 
     // ── Widget central ───────────────────────────────────────────────────────
     auto* central = new QWidget;
-    central->setStyleSheet("background: #0f1624;");
+    central->setStyleSheet(QString("background: %1;").arg(kBgMain));
     auto* centralLayout = new QVBoxLayout(central);
     centralLayout->setContentsMargins(8, 8, 8, 8);
     centralLayout->setSpacing(6);
@@ -138,7 +142,8 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
     {
         auto* frame = new QWidget;
         frame->setStyleSheet(
-            "background: #1a2236; border-radius: 4px; border: 1px solid #3a4a6a;");
+            QString("background: %1; border-radius: 4px; border: 1px solid %2;")
+            .arg(kBgCard).arg(kBorderCard));
         auto* fl = new QVBoxLayout(frame);
         fl->setContentsMargins(8, 6, 8, 6);
         _charHeaderLabel = new QLabel(QString::fromUtf8("\xe2\x80\x94"));
@@ -173,6 +178,11 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
     _tabs->addTab(_fightTab,  "Fight");
     _tabs->addTab(_infosTab,  "Infos");
     centralLayout->addWidget(_tabs, 1);
+
+    new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_1), this, [this]{ _tabs->setCurrentIndex(0); });
+    new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_2), this, [this]{ _tabs->setCurrentIndex(1); });
+    new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_3), this, [this]{ _tabs->setCurrentIndex(2); });
+    new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_4), this, [this]{ _tabs->setCurrentIndex(3); });
 
     setCentralWidget(central);
 

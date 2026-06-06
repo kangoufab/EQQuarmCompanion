@@ -1,5 +1,6 @@
 ﻿#include "ui/character_tab.h"
 #include "ui/ui_helpers.h"
+#include "ui/stat_categories.h"
 #include "ui/widgets.h"
 #include "core/config.h"
 #include "core/stats_calculator.h"
@@ -31,60 +32,6 @@
 
 // ── Constantes portées depuis Python stat_caps.py et character_tab.py ─────
 // Clés ASCII neutres pour les maps ; labels affichés via CAT_LABELS
-
-struct CatColors { const char* bg; const char* border; const char* accent; };
-
-static const std::vector<std::pair<std::string, std::vector<std::string>>> STAT_CATEGORIES = {
-    {"Melee",   {"astr", "adex", "atk", "haste"}},
-    {"Range",   {"adex", "atk", "haste"}},
-    {"Defense", {"asta", "aagi", "hp", "ac", "hp_regen", "mr", "fr", "cr", "dr", "pr"}},
-    {"Sorts",   {"aint", "awis", "acha", "mana", "mana_regen"}},
-};
-
-// Labels UTF-8 affichés (séparés des clés pour éviter les conflits d'encoding)
-static const std::map<std::string, const char*> CAT_LABELS = {
-    {"Melee",   "M\xc3\xaalée"},
-    {"Range",   "Distance"},
-    {"Defense", "D\xc3\xa9" "fense"},
-    {"Sorts",   "Sorts"},
-};
-
-static const std::map<std::string, CatColors> CAT_COLORS = {
-    {"Melee",   {"#2a1a1a", "#5a3a3a", "#e57373"}},
-    {"Range",   {"#2a241a", "#5a4a3a", "#ffb74d"}},
-    {"Defense", {"#1a2236", "#3a4a6a", "#64b5f6"}},
-    {"Sorts",   {"#241a2a", "#4a3a5a", "#ba68c8"}},
-};
-
-static const std::map<std::string, std::set<std::string>> CLASS_CATEGORIES = {
-    {"Warrior",      {"Melee", "Defense"}},
-    {"Cleric",       {"Defense", "Sorts"}},
-    {"Paladin",      {"Melee", "Defense", "Sorts"}},
-    {"Ranger",       {"Melee", "Range", "Defense", "Sorts"}},
-    {"Shadowknight", {"Melee", "Defense", "Sorts"}},
-    {"Druid",        {"Defense", "Sorts"}},
-    {"Monk",         {"Melee", "Range", "Defense"}},
-    {"Bard",         {"Melee", "Range", "Defense", "Sorts"}},
-    {"Rogue",        {"Melee", "Range", "Defense"}},
-    {"Shaman",       {"Defense", "Sorts"}},
-    {"Necromancer",  {"Defense", "Sorts"}},
-    {"Wizard",       {"Defense", "Sorts"}},
-    {"Magician",     {"Defense", "Sorts"}},
-    {"Enchanter",    {"Defense", "Sorts"}},
-    {"Beastlord",    {"Melee", "Defense", "Sorts"}},
-};
-
-static const std::map<std::string, std::string> STAT_LABELS = {
-    {"astr", "STR"}, {"asta", "STA"}, {"aagi", "AGI"}, {"adex", "DEX"},
-    {"awis", "WIS"}, {"aint", "INT"}, {"acha", "CHA"},
-    {"hp", "HP"}, {"ac", "AC"}, {"mana", "Mana"}, {"atk", "ATK"},
-    {"haste", "Haste"}, {"hp_regen", "HP/tick"}, {"mana_regen", "Mana/tick"},
-    {"mr", "Magic"}, {"fr", "Fire"}, {"cr", "Cold"}, {"dr", "Disease"}, {"pr", "Poison"},
-};
-
-static const std::map<std::string, std::string> STAT_SUFFIX = {
-    {"haste", "%"}, {"hp_regen", "/tick"}, {"mana_regen", "/tick"},
-};
 
 static const std::map<int, const char*> SKILL_NAMES = {
     {0,"1H Blunt"},{1,"1H Slash"},{2,"2H Blunt"},{3,"2H Slash"},
@@ -134,13 +81,6 @@ static const std::vector<std::pair<std::string, std::string>> DISPLAY_STATS = {
     {"haste","Haste"},{"hp_regen","HP/tick"},{"mana_regen","Mana/tick"},
 };
 
-// Shared stylesheet for QComboBox widgets in the search panel.
-static const char* kComboStyle =
-    "QComboBox { background: #1a2236; border: 1px solid #3a4a6a; "
-    "border-radius: 3px; color: #c0c0c0; padding: 3px 6px; font-size: 13px; }"
-    "QComboBox:hover { border-color: #64b5f6; }"
-    "QComboBox QAbstractItemView { background: #1a2236; border: 1px solid #3a4a6a; "
-    "color: #c0c0c0; selection-background-color: #2a3a5a; }";
 
 // ── Helpers statiques ─────────────────────────────────────────────────────
 

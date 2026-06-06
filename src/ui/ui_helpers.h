@@ -11,6 +11,14 @@
 
 // kGreen / kOrange / kRed / all other color tokens come from palette.h
 
+// Shared stylesheet for QComboBox widgets (dark card style).
+inline const char* kComboStyle =
+    "QComboBox { background: #1a2236; border: 1px solid #3a4a6a; "
+    "border-radius: 3px; color: #c0c0c0; padding: 3px 6px; font-size: 13px; }"
+    "QComboBox:hover { border-color: #64b5f6; }"
+    "QComboBox QAbstractItemView { background: #1a2236; border: 1px solid #3a4a6a; "
+    "color: #c0c0c0; selection-background-color: #2a3a5a; }";
+
 inline std::pair<const char*, const char*> sectionTheme(const char* accent) {
     if (QLatin1String(accent) == kAccentBlue)   return {kBgCard,        kBorderCard};
     if (QLatin1String(accent) == kOrange)        return {"#2a241a",       "#5a4a3a"};

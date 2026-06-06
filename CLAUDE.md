@@ -147,7 +147,9 @@ L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
 | `src/ui/settings_dialog.h` | `SettingsDialog` — dialog 3 onglets : DB / Fichiers / Poids (sliders stat par classe) |
 | `src/ui/spell_tooltip.h/cpp` | `formatSpellTooltip(spell, level, spellNames, accentColor)` — tooltip HTML en `<table>` 2 colonnes : section EFFETS (SPAs 0-133) + CONDITIONS (SPAs 134-144). `accentColor` colore header + valeurs (Worn `#8888ff`, Focus `#88cc88`, Proc `#ffaa44`, Click `#ba68c8`, Buff `#80b0e0`). |
 | `src/ui/stats_bar.h` | `makePlayerStatsBar()` — bandeau de stats avec tooltips par source |
-| `src/ui/ui_helpers.h` | Helpers UI inline : `sectionFrame()`, `sectionLabel()`, `gridWidget()`, couleurs `kGreen/kOrange/kRed` |
+| `src/ui/ui_helpers.h` | Helpers UI inline : `sectionFrame()`, `sectionLabel()`, `gridWidget()`, `kComboStyle` — couleurs depuis `palette.h` |
+| `src/ui/palette.h` | Token colors système : `kBg*`, `kText*`, `kGreen/kOrange/kRed`, `kAccent*`, `kAccentGold` — voir ce fichier pour tous les tokens |
+| `src/ui/stat_categories.h` | `CatColors` struct + `STAT_CATEGORIES`, `CAT_LABELS`, `CAT_COLORS`, `CLASS_CATEGORIES`, `STAT_LABELS`, `STAT_SUFFIX` — partagé entre `character_tab.cpp` et `stats_bar.cpp` |
 | `src/ui/widgets.h` | `SearchComboBox` — QComboBox avec signal `popup_requested()` |
 
 ## Config File
