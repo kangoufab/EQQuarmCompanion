@@ -48,7 +48,7 @@ cd build/debug
 ctest --output-on-failure
 ```
 
-28 tests across 5 suites: config, stats_calculator, npc_analysis, spell_stats, spell_stacking.
+29 tests across 5 suites: config, stats_calculator, npc_analysis, spell_stats, spell_stacking.
 
 ### Installer
 
@@ -104,7 +104,7 @@ Qt's AUTOMOC scans files listed in `add_library()`/`add_executable()`. Any QObje
 "Clickies" is a synthetic class entry in the Buffs tab that collects click-effect spells from: (1) equipped items (already in `_equippedItems`), and (2) items in personal bag slots only (`General1-8`, not `Bank`/`SharedBank`) loaded via `ItemDatabase::getItemClickeffects()`. Deduplication by spell_id keeps the first item encountered. `CharacterInfo::bag_item_ids` stores the IDs from bag slots parsed in `character_parser.cpp`.
 
 ### Tooltips de sorts — `formatSpellTooltip` et couleur accent
-`formatSpellTooltip` (dans `spell_tooltip.h/cpp`) génère du HTML `<table>` avec deux sections : **EFFETS** (SPAs 0-133) et **CONDITIONS** (SPAs 134-144 — limites focus). Le paramètre `accentColor` colore le header du sort et les valeurs d'effets ; les labels restent en `#aaaaaa` et les conditions en `#6a8399`. Les appelants passent leur couleur existante (`col` dans `item_card.cpp`, `color` dans `stats_bar.cpp`). L'onglet Buffs passe `#80b0e0` (buff), `#ba68c8` (clicky), `#cc6666` (bloqué).
+`formatSpellTooltip` (dans `spell_tooltip.h/cpp`) génère du HTML `<table>` avec deux sections : **EFFETS** (SPAs 0-133) et **CONDITIONS** (SPAs 134-144 — limites focus). Le paramètre `accentColor` colore le header du sort et les valeurs d'effets ; les labels restent en `#aaaaaa` et les conditions en `#6a8399`. Les appelants passent leur couleur existante (`col` dans `item_card.cpp`, `color` dans `stats_bar.cpp`). L'onglet Buffs passe `kAccentBuff` (buff), `kAccentPurple` (clicky), `#cc6666` (bloqué).
 
 Dans l'onglet Buffs, les tooltips enrichis (sections CONFLIT + SORT avec durée/cast) sont construits par `spellExtraRows()` et injectés via `appendTooltipRows()` — directement dans `spells_tab.cpp`, sans modifier `formatSpellTooltip`.
 
@@ -116,7 +116,8 @@ Toutes les couleurs UI sont déclarées dans `src/ui/palette.h` (`inline const c
 - Ne jamais hardcoder une couleur déjà présente comme token. Utiliser `kBgCard`, `kGreen`, `kAccentBlue`, etc.
 - Tout nouveau fichier `.cpp` dans `src/ui/` doit inclure `ui/palette.h` (direct) ou `ui/ui_helpers.h` / `ui/stat_categories.h` (transitif).
 - Tout nouveau token s'ajoute dans `palette.h` **avant** d'être utilisé. Ne pas créer de variables locales `static const char* color = "#..."`.
-- `stat_categories.h` : ne jamais redéfinir `CatColors`, `CAT_COLORS`, `CAT_LABELS`, `CLASS_CATEGORIES`, `STAT_LABELS`, `STAT_SUFFIX` dans un fichier local — importer le header.
+- `stat_categories.h` : ne jamais redéfinir `CatColors`, `CAT_COLORS`, `CAT_LABELS`, `CLASS_CATEGORIES`, `STAT_LABELS`, `STAT_SUFFIX` dans un fichier local — importer le header. Partagé par `character_tab.cpp`, `stats_bar.cpp`, **et** `spells_tab.cpp`.
+- Tokens `kAccentWorn`, `kAccentFocus`, `kAccentProc`, `kAccentBuff` dans `palette.h` — utilisés par `item_card.cpp`, `spell_tooltip.cpp` et `spells_tab.cpp`. Ne pas re-hardcoder `#8888ff`, `#88cc88`, `#ffaa44`, `#80b0e0`.
 
 ### Stuff tab — layout 3 colonnes
 L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
@@ -152,11 +153,11 @@ L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
 | `src/ui/infos_data.h` | `kExpCaps` (cap joueur par extension : Luclin=60, PoP=65), `kDebuffsByExp`, `getResistDebuffs()` |
 | `src/ui/infos_spell_data.h` | Données statiques sorts debuff; `getInfoGroups()`, `getCrossConflicts()`, `getResistGroupOrder()`, `getResistBardGroups()`, `bestInGroup()`, `spellResistVal()` |
 | `src/ui/settings_dialog.h` | `SettingsDialog` — dialog 3 onglets : DB / Fichiers / Poids (sliders stat par classe) |
-| `src/ui/spell_tooltip.h/cpp` | `formatSpellTooltip(spell, level, spellNames, accentColor)` — tooltip HTML en `<table>` 2 colonnes : section EFFETS (SPAs 0-133) + CONDITIONS (SPAs 134-144). `accentColor` colore header + valeurs (Worn `#8888ff`, Focus `#88cc88`, Proc `#ffaa44`, Click `#ba68c8`, Buff `#80b0e0`). |
+| `src/ui/spell_tooltip.h/cpp` | `formatSpellTooltip(spell, level, spellNames, accentColor)` — tooltip HTML en `<table>` 2 colonnes : section EFFETS (SPAs 0-133) + CONDITIONS (SPAs 134-144). `accentColor` colore header + valeurs (Worn `kAccentWorn`, Focus `kAccentFocus`, Proc `kAccentProc`, Click `kAccentPurple`, Buff `kAccentBuff`). |
 | `src/ui/stats_bar.h` | `makePlayerStatsBar()` — bandeau de stats avec tooltips par source |
 | `src/ui/ui_helpers.h` | Helpers UI inline : `sectionFrame()`, `sectionLabel()`, `gridWidget()`, `kComboStyle` — couleurs depuis `palette.h` |
-| `src/ui/palette.h` | Token colors système : `kBg*`, `kText*`, `kGreen/kOrange/kRed`, `kAccent*`, `kAccentGold` — voir ce fichier pour tous les tokens |
-| `src/ui/stat_categories.h` | `CatColors` struct + `STAT_CATEGORIES`, `CAT_LABELS`, `CAT_COLORS`, `CLASS_CATEGORIES`, `STAT_LABELS`, `STAT_SUFFIX` — partagé entre `character_tab.cpp` et `stats_bar.cpp` |
+| `src/ui/palette.h` | Token colors système : `kBg*`, `kText*`, `kGreen/kOrange/kRed`, `kAccent*`, `kAccentGold`, `kAccentWorn/Focus/Proc/Buff` — voir ce fichier pour tous les tokens |
+| `src/ui/stat_categories.h` | `CatColors` struct + `STAT_CATEGORIES`, `CAT_LABELS`, `CAT_COLORS`, `CLASS_CATEGORIES`, `STAT_LABELS`, `STAT_SUFFIX` — partagé par `character_tab.cpp`, `stats_bar.cpp`, `spells_tab.cpp` |
 | `src/ui/widgets.h` | `SearchComboBox` — QComboBox avec signal `popup_requested()` |
 
 ## Config File
