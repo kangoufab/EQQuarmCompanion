@@ -13,15 +13,12 @@
 #include <set>
 
 static const std::map<std::string, const char*> kResistColors = {
-    {"MR","#ba68c8"},{"FR","#ef5350"},{"CR","#64b5f6"},{"PR","#81c784"},{"DR","#ffb74d"},
+    {"MR", kAccentPurple}, {"FR", kRed}, {"CR", kAccentBlue},
+    {"PR", kGreen},        {"DR", kOrange},
 };
 static const std::map<std::string, const char*> kResistNames = {
     {"MR","Magic Resist"},{"FR","Fire Resist"},{"CR","Cold Resist"},
     {"PR","Poison Resist"},{"DR","Disease Resist"},
-};
-static const std::map<std::string, std::pair<const char*,const char*>> kResistThemes = {
-    {"MR",{"#241a2a","#4a3a5a"}},{"FR",{"#2a1a1a","#5a3a3a"}},
-    {"CR",{"#1a2236","#3a4a6a"}},{"PR",{"#1a2a1e","#3a5a4a"}},{"DR",{"#2a241a","#5a4a3a"}},
 };
 
 // ── Constructor ───────────────────────────────────────────────────────────────
@@ -34,7 +31,7 @@ InfosTab::InfosTab(Config* cfg, QWidget* parent) : QWidget(parent), _config(cfg)
     // Header row
     auto* hdr = new QHBoxLayout;
     auto* title = new QLabel("Debuffs de Résistances — combinaisons optimales par extension");
-    title->setStyleSheet("font-size:15px;font-weight:bold;color:#e0e0e0;");
+    title->setStyleSheet(QString("font-size:15px;font-weight:bold;color:%1;").arg(kTextPrimary));
     hdr->addWidget(title);
     hdr->addStretch();
     _expCombo = new QComboBox;
@@ -116,11 +113,9 @@ void InfosTab::refreshContent() {
 QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int expIdx) {
     auto colorIt = kResistColors.find(resist);
     auto nameIt  = kResistNames.find(resist);
-    auto themeIt = kResistThemes.find(resist);
-    const char* color  = colorIt  != kResistColors.end() ? colorIt->second  : "#888888";
-    const char* rname  = nameIt   != kResistNames.end()  ? nameIt->second   : resist.c_str();
-    auto [bg, border]  = themeIt  != kResistThemes.end() ? themeIt->second
-                                                          : std::pair<const char*,const char*>{"#1a1a2e","#3a3a5a"};
+    const char* color  = colorIt != kResistColors.end() ? colorIt->second : kTextSecondary;
+    const char* rname  = nameIt  != kResistNames.end()  ? nameIt->second  : resist.c_str();
+    auto [bg, border]  = sectionTheme(color);
 
     auto* frame = new QFrame;
     frame->setStyleSheet(QString("QFrame{background:%1;border-radius:4px;border:1px solid %2;}")

@@ -1,4 +1,5 @@
 #include "ui/item_card.h"
+#include "ui/palette.h"
 #include "ui/spell_tooltip.h"
 #include "core/npc_analysis.h"
 #include <QFrame>
@@ -91,7 +92,8 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
 {
     auto* frame = new QFrame;
     frame->setStyleSheet(
-        "QFrame { background: #111c2e; border-radius: 5px; border: 1px solid #2a3a5a; }");
+        QString("QFrame { background: %1; border-radius: 5px; border: 1px solid %2; }")
+        .arg(kBgBase).arg(kBorderMid));
 
     auto* outerL = new QVBoxLayout(frame);
     outerL->setContentsMargins(0, 0, 0, 0);
@@ -100,8 +102,9 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
     // ── Header ────────────────────────────────────────────────────────────
     auto* header = new QWidget;
     header->setStyleSheet(
-        "QWidget { background: #1a2a40; border-radius: 5px 5px 0 0; "
-        "border-bottom: 1px solid #2a3a5a; }");
+        QString("QWidget { background: %1; border-radius: 5px 5px 0 0; "
+                "border-bottom: 1px solid %2; }")
+        .arg(kBgCard).arg(kBorderMid));
     auto* hL = new QVBoxLayout(header);
     hL->setContentsMargins(10, 7, 10, 7);
     hL->setSpacing(2);
@@ -111,8 +114,8 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
         : (item ? QString::fromStdString(item->name) : "(vide)");
     auto* nameLbl = new QLabel(displayName);
     nameLbl->setStyleSheet(
-        "font-weight: bold; font-size: 13px; color: #d0e8ff; "
-        "border: none; background: transparent;");
+        QString("font-weight: bold; font-size: 13px; color: %1; "
+                "border: none; background: transparent;").arg(kTextPrimary));
     nameLbl->setWordWrap(true);
     hL->addWidget(nameLbl);
 
@@ -129,7 +132,8 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
         if (!sub.isEmpty()) {
             auto* subLbl = new QLabel(sub.join("  \xc2\xb7  "));
             subLbl->setStyleSheet(
-                "color: #667788; font-size: 11px; border: none; background: transparent;");
+                QString("color: %1; font-size: 11px; border: none; background: transparent;")
+                .arg(kTextSecondary));
             subLbl->setWordWrap(true);
             hL->addWidget(subLbl);
         }
@@ -146,8 +150,8 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
     if (!item) {
         auto* lbl = new QLabel(QString::fromUtf8("(vide)"));
         lbl->setStyleSheet(
-            "color: #555; font-style: italic; font-size: 14px; "
-            "border: none; background: transparent;");
+            QString("color: %1; font-style: italic; font-size: 14px; "
+                    "border: none; background: transparent;").arg(kTextDim));
         bodyL->addWidget(lbl);
         bodyL->addStretch();
         outerL->addWidget(body);
@@ -192,16 +196,16 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
             auto& [lbl, val, delta, dPos] = rows[r];
 
             auto* lw = new QLabel(lbl);
-            lw->setStyleSheet("color: #667788; font-size: 12px; border: none; background: transparent;");
+            lw->setStyleSheet(QString("color: %1; font-size: 12px; border: none; background: transparent;").arg(kTextSecondary));
             gl->addWidget(lw, r, 0);
 
             auto* vw = new QLabel(val);
-            vw->setStyleSheet("color: #c8d8e8; font-size: 13px; font-weight: bold; border: none; background: transparent;");
+            vw->setStyleSheet(QString("color: %1; font-size: 13px; font-weight: bold; border: none; background: transparent;").arg(kTextPrimary));
             vw->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
             gl->addWidget(vw, r, 1);
 
             if (!delta.isEmpty()) {
-                QString col = dPos ? "#4caf50" : "#ef5350";
+                const char* col = dPos ? kGreen : kRed;
                 auto* dw = new QLabel(delta);
                 dw->setStyleSheet(
                     QString("color: %1; font-size: 13px; font-weight: bold; "
@@ -245,7 +249,7 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
     };
 
     // ── COMBAT ────────────────────────────────────────────────────────────
-    addStatSection("COMBAT", "#64b5f6", {
+    addStatSection("COMBAT", kAccentBlue, {
         {"hp","HP"}, {"mana","Mana"}, {"ac","AC"}, {"atk","ATK"},
         {"haste","Haste",false,true},
         {"hp_regen","HP/tick"}, {"mana_regen","Mana/tick"},
@@ -302,18 +306,18 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
             rows.emplace_back("Ratio", QString::number(ratio, 'f', 2), ds, dpos);
         }
         addSep();
-        addTitle(wtitle, "#ffd54f");
+        addTitle(wtitle, kAccentGold);
         addGrid(rows);
     }
 
     // ── ATTRIBUTS ─────────────────────────────────────────────────────────
-    addStatSection("ATTRIBUTS", "#ffb74d", {
+    addStatSection("ATTRIBUTS", kOrange, {
         {"astr","FOR"}, {"asta","CON"}, {"adex","DEX"}, {"aagi","AGI"},
         {"awis","SAG"}, {"aint","INT"}, {"acha","CHA"},
     });
 
     // ── RÉSISTS ───────────────────────────────────────────────────────────
-    addStatSection("R\xc3\x89SISTS", "#ef5350", {
+    addStatSection("R\xc3\x89SISTS", kRed, {
         {"mr","MR"}, {"fr","FR"}, {"cr","CR"}, {"dr","DR"}, {"pr","PR"},
     });
 
@@ -324,7 +328,7 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
             if (id <= 0 || name.empty()) return;
             if (!hadEffect) {
                 addSep();
-                addTitle("EFFETS", "#ba68c8");
+                addTitle("EFFETS", kAccentPurple);
                 hadEffect = true;
             }
             auto* lbl = new QLabel(
@@ -349,18 +353,18 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
             bodyL->addWidget(lbl);
         };
 
-        addEff(item->worneffect,   item->worneffect_name,   "Worn",   "#8888ff");
-        addEff(item->focuseffect,  item->focuseffect_name,  "Focus",  "#88cc88");
+        addEff(item->worneffect,   item->worneffect_name,   "Worn",   kAccentWorn);
+        addEff(item->focuseffect,  item->focuseffect_name,  "Focus",  kAccentFocus);
         if (item->damage > 0)
-            addEff(item->proceffect, item->proceffect_name, "Proc",   "#ffaa44");
-        addEff(item->clickeffect,  item->clickeffect_name,  "Click",  "#ba68c8");
-        addEff(item->scrolleffect, item->scrolleffect_name, "Scroll", "#ba68c8");
+            addEff(item->proceffect, item->proceffect_name, "Proc",   kAccentProc);
+        addEff(item->clickeffect,  item->clickeffect_name,  "Click",  kAccentPurple);
+        addEff(item->scrolleffect, item->scrolleffect_name, "Scroll", kAccentPurple);
 
         // Skill mod
         if (item->skillmodtype >= 0 && item->skillmodvalue != 0) {
             if (!hadEffect) {
                 addSep();
-                addTitle("EFFETS", "#ba68c8");
+                addTitle("EFFETS", kAccentPurple);
                 hadEffect = true;
             }
             auto it = SKILL_NAMES_IC.find(item->skillmodtype);
@@ -368,9 +372,9 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
                 ? it->second
                 : QString("Skill %1").arg(item->skillmodtype);
             auto* lbl = new QLabel(
-                QString("<span style='color:#ffb74d;font-weight:bold;'>Skill</span>"
-                        "<span style='color:#aaa;'> %1 %2%3</span>")
-                .arg(sname)
+                QString("<span style='color:%1;font-weight:bold;'>Skill</span>"
+                        "<span style='color:#aaa;'> %2 %3%4</span>")
+                .arg(kOrange).arg(sname)
                 .arg(item->skillmodvalue > 0 ? "+" : "")
                 .arg(item->skillmodvalue));
             lbl->setTextFormat(Qt::RichText);
@@ -446,7 +450,8 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
         bodyL->addWidget(s);
         auto* lbl = new QLabel(clsTxt + "  \xc2\xb7  " + racTxt);
         lbl->setStyleSheet(
-            "color: #445566; font-size: 11px; border: none; background: transparent;");
+            QString("color: %1; font-size: 11px; border: none; background: transparent;")
+            .arg(kTextMuted));
         lbl->setWordWrap(true);
         bodyL->addWidget(lbl);
     }

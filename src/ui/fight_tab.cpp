@@ -94,8 +94,8 @@ static QString valueDeltaInvert(int v, int r) {
 
 static QWidget* tileGrid(const std::vector<std::pair<QString,QString>>& tiles, int cols = 4) {
     static const std::map<std::string, std::pair<const char*,const char*>> tileAccents = {
-        {"HP",  {"#1e2a1e","#81c784"}},
-        {"ATK", {"#2a1e1e","#ef5350"}},
+        {"HP",  {kBgTileNoLimit, kGreen}},
+        {"ATK", {"#2a1e1e",     kRed}},
     };
     auto* w = new QWidget; w->setStyleSheet("background:transparent;");
     auto* g = new QGridLayout(w);
@@ -104,14 +104,14 @@ static QWidget* tileGrid(const std::vector<std::pair<QString,QString>>& tiles, i
         int row = i / cols, col = i % cols;
         const auto& [label, value] = tiles[i];
         auto it = tileAccents.find(label.toStdString());
-        const char* bg = "#252540", *tc = "#cccccc";
+        const char* bg = kBgTile, *tc = kTextBase;
         if (it != tileAccents.end()) { bg = it->second.first; tc = it->second.second; }
         auto* frame = new QFrame;
         frame->setStyleSheet(QString("background:%1;border-radius:3px;").arg(bg));
         auto* fl = new QVBoxLayout(frame);
         fl->setContentsMargins(6,3,6,3); fl->setSpacing(1);
         auto* nl = new QLabel(label);
-        nl->setStyleSheet("font-size:13px;color:#888888;background:transparent;");
+        nl->setStyleSheet(QString("font-size:13px;color:%1;background:transparent;").arg(kTextTileKey));
         auto* vl = new QLabel(value);
         vl->setTextFormat(Qt::RichText);
         vl->setStyleSheet(QString("font-weight:bold;color:%1;background:transparent;").arg(tc));
@@ -125,10 +125,10 @@ static const char* spellTypeColor(const std::string& type) {
     static const std::set<std::string> danger  = {"charm","mez","fear","slow","stun"};
     static const std::set<std::string> harmful = {"dot","nuke","root","snare","lifetap","dispel"};
     static const std::set<std::string> helpful = {"buff","heal","pet","rune","cure","rez","combat buff"};
-    if (danger.count(type))  return "#ef5350";
-    if (harmful.count(type)) return "#ffb74d";
-    if (helpful.count(type)) return "#81c784";
-    return "#aaaaaa";
+    if (danger.count(type))  return kRed;
+    if (harmful.count(type)) return kOrange;
+    if (helpful.count(type)) return kGreen;
+    return kTextSecondary;
 }
 
 static std::vector<std::tuple<QString,std::optional<float>,float>>
@@ -310,7 +310,7 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
     layout->setAlignment(Qt::AlignTop);
 
     auto* name = new QLabel(QString::fromStdString(npc.name).replace('_', ' '));
-    name->setStyleSheet("font-size:14px;font-weight:bold;color:#e0e0e0;");
+    name->setStyleSheet(QString("font-size:14px;font-weight:bold;color:%1;").arg(kTextPrimary));
     layout->addWidget(name);
 
     // Tags: RAID / QUEST / ENCOUNTER (E)
@@ -350,7 +350,7 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
             .arg(QString::fromStdString(npc.class_name.empty()
                 ? "Classe " + std::to_string(npc.npc_class) : npc.class_name)));
     sub->setTextFormat(Qt::RichText);
-    sub->setStyleSheet("color:#888888;font-size:13px;");
+    sub->setStyleSheet(QString("color:%1;font-size:13px;").arg(kTextSecondary));
     layout->addWidget(sub);
 
     auto [fCombat, flCombat] = sectionFrame("#64b5f6");
@@ -447,7 +447,7 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
                 bool equippable = item.item_slots > 0;
                 bool usable = charCanEquip(item, _charInfo);
                 // 3 levels: usable by char = bright, has slots but wrong class/race/level = dim, no slots = very dim
-                const char* nameColor = usable ? "#e0e0e0" : (equippable ? "#666666" : "#444444");
+                const char* nameColor = usable ? kTextPrimary : (equippable ? kTextSecondary : kTextDim);
 
                 auto* row = new QWidget; row->setStyleSheet("background:transparent;");
                 auto* rowL = new QHBoxLayout(row);
@@ -502,12 +502,12 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
 
     auto* hdr = new QLabel(
         QString("Analyse vs %1").arg(QString::fromStdString(_charInfo->name)));
-    hdr->setStyleSheet("font-size:14px;font-weight:bold;color:#e0e0e0;");
+    hdr->setStyleSheet(QString("font-size:14px;font-weight:bold;color:%1;").arg(kTextPrimary));
     layout->addWidget(hdr);
     auto* sub = new QLabel(
         QString::fromStdString(_charInfo->class_name)
         + QString(" — niveau %1").arg(_charInfo->level));
-    sub->setStyleSheet("color:#888888;font-size:13px;");
+    sub->setStyleSheet(QString("color:%1;font-size:13px;").arg(kTextSecondary));
     layout->addWidget(sub);
 
     // Sorts NPC
@@ -590,7 +590,7 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
             auto* lbl = new QLabel(
                 QString("Pour GOOD (%1+) : %2")
                     .arg(threshold).arg(needs.join("  ·  ")));
-            lbl->setStyleSheet("color:#666666;font-size:12px;background:transparent;");
+            lbl->setStyleSheet(QString("color:%1;font-size:12px;background:transparent;").arg(kTextMuted));
             lbl->setWordWrap(true);
             flRes->addWidget(lbl);
         }
@@ -626,11 +626,12 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
             }
 
             auto* lbl1 = new QLabel(
-                QString("<b>%1</b>  <span style='color:#888888'>(%2%3)</span>"
+                QString("<b>%1</b>  <span style='color:%7'>(%2%3)</span>"
                         "  <span style='color:%4'>%5</span>"
-                        "  <span style='color:#555555'>[%6]</span>")
+                        "  <span style='color:%8'>[%6]</span>")
                     .arg(QString::fromStdString(sp.name)).arg(rt).arg(resistBadge)
-                    .arg(typeColor).arg(QString::fromStdString(stStr)).arg(tt));
+                    .arg(typeColor).arg(QString::fromStdString(stStr)).arg(tt)
+                    .arg(kTextSecondary).arg(kTextDim));
             lbl1->setTextFormat(Qt::RichText); lbl1->setWordWrap(true);
             lbl1->setStyleSheet("background:transparent;");
             inner->addWidget(lbl1);
@@ -638,7 +639,7 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
             QString summary = QString::fromStdString(formatSpellSummary(sp, npc.level));
             if (!summary.isEmpty()) {
                 auto* lbl2 = new QLabel(summary);
-                lbl2->setStyleSheet("color:#666666;font-size:14px;background:transparent;");
+                lbl2->setStyleSheet(QString("color:%1;font-size:14px;background:transparent;").arg(kTextMuted));
                 lbl2->setWordWrap(true);
                 inner->addWidget(lbl2);
             }
@@ -705,11 +706,12 @@ QWidget* FightTab::buildDpsSlowTable(
         QString hhtml;
         if (landPct) {
             const char* pc = *landPct >= 65.f ? kGreen : *landPct >= 35.f ? kOrange : kRed;
-            hhtml = QString("<span style='color:#ffb74d;font-size:13px;font-weight:bold'>%1</span>"
-                            "<br><span style='color:%2;font-size:14px'>%3% land</span>")
-                    .arg(label).arg(pc).arg(*landPct, 0, 'f', 0);
+            hhtml = QString("<span style='color:%1;font-size:13px;font-weight:bold'>%2</span>"
+                            "<br><span style='color:%3;font-size:14px'>%4% land</span>")
+                    .arg(kOrange).arg(label).arg(pc).arg(*landPct, 0, 'f', 0);
         } else {
-            hhtml = QString("<span style='color:#ffb74d;font-size:13px;font-weight:bold'>%1</span>").arg(label);
+            hhtml = QString("<span style='color:%1;font-size:13px;font-weight:bold'>%2</span>")
+                    .arg(kOrange).arg(label);
         }
         auto* hdr = new QLabel(hhtml);
         hdr->setTextFormat(Qt::RichText); hdr->setAlignment(Qt::AlignCenter);
@@ -724,11 +726,12 @@ QWidget* FightTab::buildDpsSlowTable(
         if (!dmg.disc_note.empty() && dmg.disc_mult < 1.f) {
             float red = (1.f - dmg.disc_mult) * 100.f;
             QString sfx = dmg.disc_note == "defensive" ? "dmg" : "hits";
-            lhtml = QString("<span style='color:#888888;font-size:14px'>%1</span>"
-                            "<br><span style='color:#555555;font-size:14px'>-%2% %3</span>")
-                    .arg(discLabel).arg(red, 0, 'f', 0).arg(sfx);
+            lhtml = QString("<span style='color:%1;font-size:14px'>%2</span>"
+                            "<br><span style='color:%3;font-size:14px'>-%4% %5</span>")
+                    .arg(kTextSecondary).arg(discLabel).arg(kTextMuted).arg(red, 0, 'f', 0).arg(sfx);
         } else {
-            lhtml = QString("<span style='color:#888888;font-size:14px'>%1</span>").arg(discLabel);
+            lhtml = QString("<span style='color:%1;font-size:14px'>%2</span>")
+                    .arg(kTextSecondary).arg(discLabel);
         }
         auto* rowLbl = new QLabel(lhtml);
         rowLbl->setTextFormat(Qt::RichText); rowLbl->setStyleSheet("background:transparent;");
@@ -756,13 +759,13 @@ QWidget* FightTab::buildDpsSlowTable(
                     QString capStr = (survMax >= 999.f)
                         ? "&gt;999"
                         : QString::number(static_cast<int>(survMax));
-                    survStr += QString(" <span style='color:#555555;font-size:12px'>"
-                                       "[%1\xe2\x80\x93%2s]</span>")
+                    survStr += QString(" <span style='color:%1;font-size:12px'>"
+                                       "[%2\xe2\x80\x93%3s]</span>").arg(kTextMuted)
                                .arg(static_cast<int>(survMin)).arg(capStr);
                 }
             }
 
-            const char* dpsC = !landPct ? "#888888" : "#e0e0e0";
+            const char* dpsC = !landPct ? kTextSecondary : kTextPrimary;
 
             QString chLine;
             if (hp > 0 && maxTotal > 0.f) {
@@ -774,7 +777,7 @@ QWidget* FightTab::buildDpsSlowTable(
                     if (minP <= safeP) { n = nn; break; }
                 }
                 if (n > 0) {
-                    const char* chC = !landPct ? "#4a7aa8" : "#64b5f6";
+                    const char* chC = !landPct ? kBorderAccent : kAccentBlue;
                     chLine = QString("<br><span style='color:%1;font-size:13px'>/pause %2 · %3clr</span>")
                              .arg(chC).arg(safeP).arg(n);
                 } else {
@@ -783,8 +786,8 @@ QWidget* FightTab::buildDpsSlowTable(
                 }
             }
             QString rangeStr = (minTotal > 0.f && maxTotal > minTotal)
-                ? QString("<br><span style='color:#555555;font-size:12px'>[%1–%2/s]</span>")
-                    .arg(minTotal, 0, 'f', 0).arg(maxTotal, 0, 'f', 0)
+                ? QString("<br><span style='color:%1;font-size:12px'>[%2–%3/s]</span>")
+                    .arg(kTextMuted).arg(minTotal, 0, 'f', 0).arg(maxTotal, 0, 'f', 0)
                 : QString();
 
             auto* cell = new QLabel(

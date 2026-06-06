@@ -1,5 +1,6 @@
 ﻿#include "ui/spells_tab.h"
 #include "ui/stats_bar.h"
+#include "ui/stat_categories.h"
 #include "ui/spell_tooltip.h"
 #include "core/config.h"
 #include "core/spell_stacking.h"
@@ -135,43 +136,7 @@ static const std::map<std::string, int> SPELL_CLASS_ID_UI = {
 static const int MAX_BUFF_SLOTS = 15;
 static const int MAX_SONG_SLOTS = 5;
 
-// Catégories stats pour l'affichage
-struct CatColors { const char* bg; const char* border; const char* accent; };
-static const std::vector<std::pair<std::string, std::vector<std::string>>> STAT_CATS = {
-    {"Melee",   {"astr","adex","atk","haste"}},
-    {"Range",   {"adex","atk","haste"}},
-    {"Defense", {"asta","aagi","hp","ac","hp_regen","mr","fr","cr","dr","pr"}},
-    {"Sorts",   {"aint","awis","acha","mana","mana_regen"}},
-};
-static const std::map<std::string, const char*> CAT_LABELS_UI = {
-    {"Melee",   "M\xc3\xaalée"},
-    {"Range",   "Distance"},
-    {"Defense", "D\xc3\xa9" "fense"},
-    {"Sorts",   "Sorts"},
-};
-static const std::map<std::string, CatColors> CAT_COLORS_UI = {
-    {"Melee",   {"#2a1a1a","#5a3a3a","#e57373"}},
-    {"Range",   {"#2a241a","#5a4a3a","#ffb74d"}},
-    {"Defense", {"#1a2236","#3a4a6a","#64b5f6"}},
-    {"Sorts",   {"#241a2a","#4a3a5a","#ba68c8"}},
-};
-static const std::map<std::string, std::set<std::string>> CLASS_CATS_UI = {
-    {"Warrior",      {"Melee","Defense"}},
-    {"Cleric",       {"Defense","Sorts"}},
-    {"Paladin",      {"Melee","Defense","Sorts"}},
-    {"Ranger",       {"Melee","Range","Defense","Sorts"}},
-    {"Shadowknight", {"Melee","Defense","Sorts"}},
-    {"Druid",        {"Defense","Sorts"}},
-    {"Monk",         {"Melee","Range","Defense"}},
-    {"Bard",         {"Melee","Range","Defense","Sorts"}},
-    {"Rogue",        {"Melee","Range","Defense"}},
-    {"Shaman",       {"Defense","Sorts"}},
-    {"Necromancer",  {"Defense","Sorts"}},
-    {"Wizard",       {"Defense","Sorts"}},
-    {"Magician",     {"Defense","Sorts"}},
-    {"Enchanter",    {"Defense","Sorts"}},
-    {"Beastlord",    {"Melee","Defense","Sorts"}},
-};
+// Catégories stats : voir stat_categories.h (STAT_CATEGORIES, CAT_LABELS, CAT_COLORS, CLASS_CATEGORIES)
 
 
 static bool isAttr(const std::string& s)   {
@@ -230,7 +195,7 @@ void SpellsTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* baseTotals,
 
 void SpellsTab::buildUi()
 {
-    setStyleSheet("background: #0f1624;");
+    setStyleSheet(QString("background: %1;").arg(kBgMain));
     auto* outer = new QVBoxLayout(this);
     outer->setContentsMargins(8, 8, 8, 8);
     outer->setSpacing(6);
@@ -239,32 +204,35 @@ void SpellsTab::buildUi()
     {
         auto* setsFrame = new QFrame;
         setsFrame->setStyleSheet(
-            "QFrame { background: #1a2236; border-radius: 4px; border: 1px solid #3a4a6a; }");
+            QString("QFrame { background: %1; border-radius: 4px; border: 1px solid %2; }")
+            .arg(kBgCard).arg(kBorderCard));
         auto* sh = new QHBoxLayout(setsFrame);
         sh->setContentsMargins(8, 4, 8, 4);
         sh->setSpacing(6);
 
         auto* lbl = new QLabel(QString::fromUtf8("Sets :"));
-        lbl->setStyleSheet("font-size: 14px; color: #888; border: none; background: transparent;");
+        lbl->setStyleSheet(QString("font-size: 14px; color: %1; border: none; background: transparent;").arg(kTextSecondary));
         sh->addWidget(lbl);
 
         _setsCombo = new QComboBox;
         _setsCombo->setMinimumWidth(160);
         _setsCombo->setStyleSheet(
-            "QComboBox { background: #141428; border: 1px solid #3a4a6a; "
-            "color: #c0c0c0; font-size: 14px; padding: 2px 6px; border-radius: 3px; }"
-            "QComboBox::drop-down { border: none; }"
-            "QComboBox QAbstractItemView { background: #1a1a2e; color: #c0c0c0; "
-            "selection-background-color: #3a4a6a; }");
+            QString("QComboBox { background: %1; border: 1px solid %2; "
+                    "color: %3; font-size: 14px; padding: 2px 6px; border-radius: 3px; }"
+                    "QComboBox::drop-down { border: none; }"
+                    "QComboBox QAbstractItemView { background: %4; color: %3; "
+                    "selection-background-color: %2; }")
+            .arg(kSurfaceMid).arg(kBorderCard).arg(kTextBase).arg(kSurfaceDark));
         sh->addWidget(_setsCombo);
 
         auto makeBtn = [&](const char* text, const char* color) {
             auto* btn = new QPushButton(QString::fromUtf8(text));
             btn->setStyleSheet(
-                QString("QPushButton { background: #1e2a3e; border: 1px solid %1; "
-                        "color: %1; font-size: 14px; padding: 2px 10px; border-radius: 3px; }"
-                        "QPushButton:hover { background: %1; color: #0f1624; }"
-                        "QPushButton:disabled { border-color: #444; color: #444; }").arg(color));
+                QString("QPushButton { background: %1; border: 1px solid %2; "
+                        "color: %2; font-size: 14px; padding: 2px 10px; border-radius: 3px; }"
+                        "QPushButton:hover { background: %2; color: %3; }"
+                        "QPushButton:disabled { border-color: %4; color: %4; }")
+                .arg(kSurfaceSection).arg(color).arg(kBgMain).arg(kTextDim));
             return btn;
         };
 
@@ -303,7 +271,8 @@ void SpellsTab::buildUi()
         auto* leftFrame = new QFrame;
         leftFrame->setFixedWidth(220);
         leftFrame->setStyleSheet(
-            "QFrame { background: #1a2236; border-radius: 4px; border: 1px solid #3a4a6a; }");
+            QString("QFrame { background: %1; border-radius: 4px; border: 1px solid %2; }")
+            .arg(kBgCard).arg(kBorderCard));
         auto* leftL = new QVBoxLayout(leftFrame);
         leftL->setContentsMargins(6, 6, 6, 6);
         leftL->setSpacing(4);
@@ -312,15 +281,16 @@ void SpellsTab::buildUi()
             QString::fromUtf8("Buffs (0/%1)  \xe2\x99\xaa 0/%2")
                 .arg(MAX_BUFF_SLOTS).arg(MAX_SONG_SLOTS));
         _headerLabel->setStyleSheet(
-            "font-size: 14px; color: #64b5f6; font-variant: small-caps; font-weight: bold;"
-            "border: none; background: transparent;");
+            QString("font-size: 14px; color: %1; font-variant: small-caps; font-weight: bold;"
+                    "border: none; background: transparent;").arg(kAccentBlue));
         leftL->addWidget(_headerLabel);
 
         auto* buffsScroll = new QScrollArea;
         buffsScroll->setWidgetResizable(true);
         buffsScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         buffsScroll->setStyleSheet(
-            "QScrollArea { border: 1px solid #2a3a5a; background: #141428; }");
+            QString("QScrollArea { border: 1px solid %1; background: %2; }")
+            .arg(kBorderMid).arg(kSurfaceMid));
         _activeBuffsInner = new QWidget;
         _activeBuffsInner->setStyleSheet("background: transparent;");
         _activeBuffsLayout = new QVBoxLayout(_activeBuffsInner);
@@ -337,15 +307,16 @@ void SpellsTab::buildUi()
     {
         auto* rightFrame = new QFrame;
         rightFrame->setStyleSheet(
-            "QFrame { background: #1a2236; border-radius: 4px; border: 1px solid #3a4a6a; }");
+            QString("QFrame { background: %1; border-radius: 4px; border: 1px solid %2; }")
+            .arg(kBgCard).arg(kBorderCard));
         auto* rightL = new QVBoxLayout(rightFrame);
         rightL->setContentsMargins(6, 6, 6, 6);
         rightL->setSpacing(4);
 
         auto* sortsTitre = new QLabel(QString::fromUtf8("Sorts b\xc3\xa9n\xc3\xa9" "fiques"));
         sortsTitre->setStyleSheet(
-            "font-size: 14px; color: #888; font-variant: small-caps;"
-            "border: none; background: transparent;");
+            QString("font-size: 14px; color: %1; font-variant: small-caps;"
+                    "border: none; background: transparent;").arg(kTextSecondary));
         rightL->addWidget(sortsTitre);
 
         // Search bar for filtering spells
@@ -353,9 +324,10 @@ void SpellsTab::buildUi()
         _spellSearch->setPlaceholderText(QString::fromUtf8("Filtrer les sorts\xe2\x80\xa6"));
         _spellSearch->setClearButtonEnabled(true);
         _spellSearch->setStyleSheet(
-            "QLineEdit { background: #141428; border: 1px solid #3a4a6a; "
-            "border-radius: 3px; color: #c0c0c0; padding: 3px 6px; font-size: 13px; }"
-            "QLineEdit:focus { border-color: #64b5f6; }");
+            QString("QLineEdit { background: %1; border: 1px solid %2; "
+                    "border-radius: 3px; color: %3; padding: 3px 6px; font-size: 13px; }"
+                    "QLineEdit:focus { border-color: %4; }")
+            .arg(kSurfaceMid).arg(kBorderCard).arg(kTextBase).arg(kAccentBlue));
         rightL->addWidget(_spellSearch);
         connect(_spellSearch, &QLineEdit::textChanged,
                 this, [this](const QString&) { rebuildRightPanel(); });
@@ -367,9 +339,10 @@ void SpellsTab::buildUi()
         _classList = new QListWidget;
         _classList->setFixedWidth(130);
         _classList->setStyleSheet(
-            "QListWidget { background: #1a1a2e; border: 1px solid #3a4a6a; font-size: 14px; }"
-            "QListWidget::item { color: #888; padding: 3px 6px; }"
-            "QListWidget::item:selected { background: #3a4a6a; color: #64b5f6; }");
+            QString("QListWidget { background: %1; border: 1px solid %2; font-size: 14px; }"
+                    "QListWidget::item { color: %3; padding: 3px 6px; }"
+                    "QListWidget::item:selected { background: %2; color: %4; }")
+            .arg(kSurfaceDark).arg(kBorderCard).arg(kTextSecondary).arg(kAccentBlue));
         for (const auto& cls : BUFF_CASTER_CLASSES)
             _classList->addItem(QString::fromStdString(cls));
         panels->addWidget(_classList);
@@ -379,7 +352,8 @@ void SpellsTab::buildUi()
         rightScroll->setWidgetResizable(true);
         rightScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         rightScroll->setStyleSheet(
-            "QScrollArea { border: 1px solid #3a4a6a; background: #141428; }");
+            QString("QScrollArea { border: 1px solid %1; background: %2; }")
+            .arg(kBorderCard).arg(kSurfaceMid));
         _rightInner = new QWidget;
         _rightInner->setStyleSheet("background: transparent;");
         _rightLayout = new QVBoxLayout(_rightInner);
@@ -549,7 +523,7 @@ void SpellsTab::rebuildRightPanel()
     // Détermine la catégorie primaire d'un sort selon les stats qu'il affecte.
     auto spellCategory = [&](const SpellData& sp) -> std::string {
         auto sd = spellToStatDict(sp, tooltipLevel);
-        for (auto& [catName, keys] : STAT_CATS)
+        for (auto& [catName, keys] : STAT_CATEGORIES)
             for (auto& k : keys)
                 if (sd.count(k) && sd.at(k) != 0) return catName;
         return "Autres";
@@ -584,12 +558,12 @@ void SpellsTab::rebuildRightPanel()
         auto* cb = new QCheckBox(label);
         cb->setChecked(isSelected);
 
-        const char* accent = isClickies ? "#ba68c8" : "#80b0e0";
+        const char* accent = isClickies ? kAccentPurple : kAccentBuff;
 
         if (isBlocked) {
             QString wname = winnerNames.count(spell.id) ? winnerNames[spell.id] : "un autre sort";
             { QFont f = cb->font(); f.setStrikeOut(true); cb->setFont(f); }
-            cb->setStyleSheet("font-size: 14px; color: #aa4444;");
+            cb->setStyleSheet("font-size: 14px; color: #cc6666;");
             cb->setToolTip(appendTooltipRows(
                 formatSpellTooltip(spell, tooltipLevel, {}, "#cc6666"),
                 spellExtraRows(spell, wname)));
@@ -601,7 +575,7 @@ void SpellsTab::rebuildRightPanel()
                 for (auto& b : _activeBuffs)
                     if (b.spell.id == *conflict) { wname = QString::fromStdString(b.spell.name); break; }
                 { QFont f = cb->font(); f.setStrikeOut(true); cb->setFont(f); }
-            cb->setStyleSheet("font-size: 14px; color: #aa4444;");
+            cb->setStyleSheet("font-size: 14px; color: #cc6666;");
                 cb->setToolTip(appendTooltipRows(
                     formatSpellTooltip(spell, tooltipLevel, {}, "#cc6666"),
                     spellExtraRows(spell, wname)));
@@ -656,19 +630,19 @@ void SpellsTab::rebuildRightPanel()
         if (git == grouped.end() || git->second.empty()) continue;
 
         const char* catLabel = catName.c_str();
-        auto lblIt = CAT_LABELS_UI.find(catName);
-        if (lblIt != CAT_LABELS_UI.end()) catLabel = lblIt->second;
+        auto lblIt = CAT_LABELS.find(catName);
+        if (lblIt != CAT_LABELS.end()) catLabel = lblIt->second;
 
         // Couleur de l'en-tête selon la catégorie
-        const char* accent = "#888888";
-        auto colIt = CAT_COLORS_UI.find(catName);
-        if (colIt != CAT_COLORS_UI.end()) accent = colIt->second.accent;
+        const char* accent = kTextSecondary;
+        auto colIt = CAT_COLORS.find(catName);
+        if (colIt != CAT_COLORS.end()) accent = colIt->second.accent;
 
         auto* hdr = new QLabel(QString::fromUtf8(catLabel));
         hdr->setStyleSheet(
             QString("font-size:11px; color:%1; font-variant:small-caps; font-weight:bold;"
-                    " background:#1a1a2e; border:none; padding:2px 4px; margin-top:4px;")
-                .arg(accent));
+                    " background:%2; border:none; padding:2px 4px; margin-top:4px;")
+                .arg(accent).arg(kSurfaceDark));
         _rightLayout->addWidget(hdr);
 
         for (const auto* sp : git->second)
@@ -755,7 +729,7 @@ void SpellsTab::rebuildActiveBuffsList()
         }
         nameLbl->setStyleSheet(
             blocked
-            ? "font-size: 13px; color: #aa4444; border: none; background: transparent;"
+            ? "font-size: 13px; color: #cc6666; border: none; background: transparent;"
             : "font-size: 13px; color: #c0c0c0; border: none; background: transparent;");
         QString conflictName;
         if (blocked) {

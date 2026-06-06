@@ -48,3 +48,10 @@ inline const char* kAccentPurple = "#ba68c8";  // Sorts / spell category
 inline const char* kAccentMelee  = "#e57373";  // Melee category (lighter than kRed)
 inline const char* kAccentAtCap  = "#4fc3f7";  // stat value displayed at cap
 inline const char* kAccentGold   = "#ffc947";  // AA bonuses / formula highlight
+
+// ── Spell effect type colors ──────────────────────────────────────────────────
+// Used by item_card.cpp and spell_tooltip.cpp — keep in sync.
+inline const char* kAccentWorn   = "#8888ff";  // Worn effect prefix
+inline const char* kAccentFocus  = "#88cc88";  // Focus effect prefix
+inline const char* kAccentProc   = "#ffaa44";  // Proc effect prefix
+inline const char* kAccentBuff   = "#80b0e0";  // Active buff label / tooltip accent
