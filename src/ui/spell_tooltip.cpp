@@ -184,7 +184,8 @@ QString formatSpellTooltip(const SpellData& spell, int level,
     }
 
     QString spellName = QString::fromStdString(spell.name);
-    QString html = QString("<span style='color:%1;font-weight:bold;font-size:13px;'>%2</span>")
+    QString html = QString("<span style='color:%1;font-weight:bold;font-size:13px;"
+                           "text-decoration:none;'>%2</span>")
                    .arg(accentColor, spellName.toHtmlEscaped());
 
     if (eff.empty() && cond.empty())
