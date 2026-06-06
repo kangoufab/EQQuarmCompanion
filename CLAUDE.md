@@ -111,6 +111,13 @@ Dans l'onglet Buffs, les tooltips enrichis (sections CONFLIT + SORT avec durée/
 ### Strikeout dans l'onglet Buffs — `QFont::setStrikeOut()` pas CSS
 Le strikeout des sorts bloqués est appliqué via `QFont::setStrikeOut(true)` sur le widget (label/checkbox), **pas** via `text-decoration: line-through` dans le stylesheet. Raison : Qt propage l'attribut `strikeOut` du QFont du widget vers son rendu de tooltip, causant un texte barré dans le tooltip. Le `QToolTip` utilise `QToolTip::font()` comme base (indépendant du widget), donc `QFont::setStrikeOut()` n'affecte que le label, pas le tooltip.
 
+### Token system — palette.h comme source unique de couleurs
+Toutes les couleurs UI sont déclarées dans `src/ui/palette.h` (`inline const char*`). Les règles :
+- Ne jamais hardcoder une couleur déjà présente comme token. Utiliser `kBgCard`, `kGreen`, `kAccentBlue`, etc.
+- Tout nouveau fichier `.cpp` dans `src/ui/` doit inclure `ui/palette.h` (direct) ou `ui/ui_helpers.h` / `ui/stat_categories.h` (transitif).
+- Tout nouveau token s'ajoute dans `palette.h` **avant** d'être utilisé. Ne pas créer de variables locales `static const char* color = "#..."`.
+- `stat_categories.h` : ne jamais redéfinir `CatColors`, `CAT_COLORS`, `CAT_LABELS`, `CLASS_CATEGORIES`, `STAT_LABELS`, `STAT_SUFFIX` dans un fichier local — importer le header.
+
 ### Stuff tab — layout 3 colonnes
 L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
 - **Inventaire** (colonne gauche, redimensionnable, min 120px, défaut 250px) : items équipés par slot + items des sacs groupés par numéro de bag (`Bag 1`, `Bag 2`…). Cliquer un item le charge dans la zone de comparaison.
