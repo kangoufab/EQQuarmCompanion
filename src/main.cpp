@@ -32,7 +32,7 @@ static void messageHandler(QtMsgType type, const QMessageLogContext&, const QStr
 
 static QSplashScreen* makeSplash() {
     QPixmap logo(":/app_icon.png");
-    const int W = 480, H = 200;
+    const int W = 540, H = 200;
     QPixmap pix(W, H);
     pix.fill(QColor("#1a1a2e"));
     QPainter p(&pix);
@@ -42,10 +42,10 @@ static QSplashScreen* makeSplash() {
     }
     p.setPen(QColor("#64b5f6"));
     p.setFont(QFont("Arial", 20, QFont::Bold));
-    p.drawText(QRect(200, 50, 260, 50), Qt::AlignLeft | Qt::AlignVCenter, "EQ Quarm Companion");
+    p.drawText(QRect(200, 50, 320, 50), Qt::AlignLeft | Qt::AlignVCenter, "EQ Quarm Companion");
     p.setPen(QColor("#888888"));
     p.setFont(QFont("Arial", 10));
-    p.drawText(QRect(200, 110, 260, 30), Qt::AlignLeft | Qt::AlignVCenter, "Chargement en cours...");
+    p.drawText(QRect(200, 110, 320, 30), Qt::AlignLeft | Qt::AlignVCenter, "Chargement en cours...");
     p.end();
     auto* s = new QSplashScreen(pix);
     s->setWindowFlags(Qt::SplashScreen | Qt::WindowStaysOnTopHint);

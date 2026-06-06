@@ -93,7 +93,8 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
     : QMainWindow(parent), _config(config), _npcDb(npcDb), _itemDb(itemDb)
 {
     setWindowTitle("EQ Quarm Companion");
-    resize(1480, 800);
+    resize(1280, 760);
+    setMinimumSize(900, 600);
 
     // ── Toolbar ──────────────────────────────────────────────────────────────
     auto* toolbar = addToolBar("Main");
@@ -101,6 +102,7 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
 
     _charSelector = new QComboBox;
     _charSelector->setMinimumWidth(200);
+    _charSelector->setAccessibleName(QString::fromUtf8("S\xc3\xa9lectionner un personnage"));
     toolbar->addWidget(new QLabel("  Personnage : "));
     toolbar->addWidget(_charSelector);
     toolbar->addSeparator();

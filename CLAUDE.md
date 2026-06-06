@@ -109,7 +109,7 @@ L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
 - **Recherche** (colonne du milieu) : filtre slot + SearchCombo + Clear — comportement inchangé.
 - **Comparaison** (colonne droite) : cartes item, score UPGRADE/DOWNGRADE, boutons Équiper et Source.
 
-`CharacterInfo::bag_item_ids` est `std::vector<std::pair<int,int>>` — `{bag_number, item_id}` — le numéro de bag est extrait depuis `"GeneralN-SlotM"` dans `character_parser.cpp`. La fenêtre par défaut est 1480×800.
+`CharacterInfo::bag_item_ids` est `std::vector<std::pair<int,int>>` — `{bag_number, item_id}` — le numéro de bag est extrait depuis `"GeneralN-SlotM"` dans `character_parser.cpp`. La fenêtre par défaut est 1280×760 (minimum 900×600).
 
 ## Key Source Files
 

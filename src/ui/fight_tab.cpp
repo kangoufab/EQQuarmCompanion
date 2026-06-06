@@ -195,7 +195,9 @@ void FightTab::buildUi() {
     outer->setSpacing(6);
 
     _searchCombo = new SearchComboBox;
-    _searchCombo->setFixedWidth(420);
+    _searchCombo->setMinimumWidth(280);
+    _searchCombo->setMaximumWidth(500);
+    _searchCombo->setAccessibleName("Rechercher un NPC");
     _searchCombo->lineEdit()->setPlaceholderText("Rechercher un NPC...");
     connect(_searchCombo, &SearchComboBox::popup_requested, this, &FightTab::doSearch);
     connect(_searchCombo, qOverload<int>(&QComboBox::activated),
@@ -505,7 +507,7 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
 
     // Incoming Damage
     auto [fDmg, flDmg] = sectionFrame("#ef5350");
-    flDmg->addWidget(sectionLabel("Incoming Damage", "#ef5350"));
+    flDmg->addWidget(sectionLabelPrimary("Incoming Damage", kRed));
     auto dmg = incomingDamage(npc, *_totals, _charInfo->class_name,
                                _charInfo->level, "none");
     std::vector<std::pair<QString,QString>> dmgRows = {
@@ -635,7 +637,7 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
 
     // Your Offense
     auto [fOff, flOff] = sectionFrame("#ffb74d");
-    flOff->addWidget(sectionLabel("Your Offense (vs NPC resists)", "#ffb74d"));
+    flOff->addWidget(sectionLabelPrimary("Your Offense (vs NPC resists)", kOrange));
     auto off = offenseRatings(npc, *_totals, _charInfo->class_name);
     const char* mc = off.melee.rating == OffenseRating::EASY   ? kGreen
                    : off.melee.rating == OffenseRating::MEDIUM ? kOrange : kRed;

@@ -1,4 +1,5 @@
 #pragma once
+#include "ui/palette.h"
 #include <QFrame>
 #include <QGridLayout>
 #include <QLabel>
@@ -8,20 +9,18 @@
 #include <utility>
 #include <vector>
 
-inline const char* kGreen  = "#81c784";
-inline const char* kOrange = "#ffb74d";
-inline const char* kRed    = "#ef5350";
+// kGreen / kOrange / kRed / all other color tokens come from palette.h
 
 inline std::pair<const char*, const char*> sectionTheme(const char* accent) {
-    if (QLatin1String(accent) == "#64b5f6") return {"#1a2236", "#3a4a6a"};
-    if (QLatin1String(accent) == "#ffb74d") return {"#2a241a", "#5a4a3a"};
-    if (QLatin1String(accent) == "#81c784") return {"#1a2a1e", "#3a5a4a"};
-    if (QLatin1String(accent) == "#ef5350") return {"#2a1a1a", "#5a3a3a"};
-    if (QLatin1String(accent) == "#ba68c8") return {"#241a2a", "#4a3a5a"};
-    return {"#1a1a2e", "#3a3a5a"};
+    if (QLatin1String(accent) == kAccentBlue)   return {kBgCard,        kBorderCard};
+    if (QLatin1String(accent) == kOrange)        return {"#2a241a",       "#5a4a3a"};
+    if (QLatin1String(accent) == kGreen)         return {"#1a2a1e",       "#3a5a4a"};
+    if (QLatin1String(accent) == kRed)           return {"#2a1a1a",       "#5a3a3a"};
+    if (QLatin1String(accent) == kAccentPurple)  return {"#241a2a",       "#4a3a5a"};
+    return {kSurfaceDark, "#3a3a5a"};
 }
 
-inline QLabel* sectionLabel(const QString& text, const char* accent = "#888888") {
+inline QLabel* sectionLabel(const QString& text, const char* accent = kTextSecondary) {
     auto* lbl = new QLabel(text);
     lbl->setStyleSheet(QString(
         "font-size:10px;color:%1;font-variant:small-caps;"
@@ -29,7 +28,16 @@ inline QLabel* sectionLabel(const QString& text, const char* accent = "#888888")
     return lbl;
 }
 
-inline std::pair<QFrame*, QVBoxLayout*> sectionFrame(const char* accent = "#64b5f6") {
+// Primary section headers — one step larger for data-critical sections.
+inline QLabel* sectionLabelPrimary(const QString& text, const char* accent = kTextSecondary) {
+    auto* lbl = new QLabel(text);
+    lbl->setStyleSheet(QString(
+        "font-size:11px;color:%1;font-variant:small-caps;"
+        "font-weight:bold;border:none;background:transparent;").arg(accent));
+    return lbl;
+}
+
+inline std::pair<QFrame*, QVBoxLayout*> sectionFrame(const char* accent = kAccentBlue) {
     auto [bg, border] = sectionTheme(accent);
     auto* frame = new QFrame;
     frame->setStyleSheet(
@@ -51,8 +59,8 @@ inline QWidget* gridWidget(
     g->setSpacing(4);
     for (int i = 0; i < static_cast<int>(pairs.size()); ++i) {
         int row = i / cols, col = i % cols;
-        auto* kl = new QLabel(QString("<span style='color:#888888'>%1</span>")
-                              .arg(pairs[i].first));
+        auto* kl = new QLabel(QString("<span style='color:%1'>%2</span>")
+                              .arg(kTextSecondary).arg(pairs[i].first));
         kl->setTextFormat(Qt::RichText);
         kl->setStyleSheet("background:transparent;");
         auto* vl2 = new QLabel(QString("<b>%1</b>").arg(pairs[i].second));

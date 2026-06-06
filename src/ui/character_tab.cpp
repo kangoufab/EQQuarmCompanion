@@ -1,4 +1,5 @@
 ﻿#include "ui/character_tab.h"
+#include "ui/ui_helpers.h"
 #include "ui/widgets.h"
 #include "core/config.h"
 #include "core/stats_calculator.h"
@@ -130,6 +131,14 @@ static const std::vector<std::pair<std::string, std::string>> DISPLAY_STATS = {
     {"haste","Haste"},{"hp_regen","HP/tick"},{"mana_regen","Mana/tick"},
 };
 
+// Shared stylesheet for QComboBox widgets in the search panel.
+static const char* kComboStyle =
+    "QComboBox { background: #1a2236; border: 1px solid #3a4a6a; "
+    "border-radius: 3px; color: #c0c0c0; padding: 3px 6px; font-size: 13px; }"
+    "QComboBox:hover { border-color: #64b5f6; }"
+    "QComboBox QAbstractItemView { background: #1a2236; border: 1px solid #3a4a6a; "
+    "color: #c0c0c0; selection-background-color: #2a3a5a; }";
+
 // ── Helpers statiques ─────────────────────────────────────────────────────
 
 
@@ -257,12 +266,8 @@ void CharacterTab::buildUi()
         };
         for (auto& [name, bit] : SLOT_FILTER_ITEMS)
             _slotFilter->addItem(name, bit);
-        _slotFilter->setStyleSheet(
-            "QComboBox { background: #1a2236; border: 1px solid #3a4a6a; "
-            "border-radius: 3px; color: #c0c0c0; padding: 3px 6px; font-size: 13px; }"
-            "QComboBox:hover { border-color: #64b5f6; }"
-            "QComboBox QAbstractItemView { background: #1a2236; border: 1px solid #3a4a6a; "
-            "color: #c0c0c0; selection-background-color: #2a3a5a; }");
+        _slotFilter->setStyleSheet(kComboStyle);
+        _slotFilter->setAccessibleName("Filtre par emplacement");
         row->addWidget(_slotFilter);
 
         _searchCombo = new SearchComboBox;
@@ -272,12 +277,8 @@ void CharacterTab::buildUi()
         _searchCombo->setMinimumWidth(300);
         _searchCombo->lineEdit()->setPlaceholderText(
             QString::fromUtf8("Rechercher un item\xe2\x80\xa6"));
-        _searchCombo->setStyleSheet(
-            "QComboBox { background: #1a2236; border: 1px solid #3a4a6a; "
-            "border-radius: 3px; color: #c0c0c0; padding: 3px 6px; font-size: 13px; }"
-            "QComboBox:hover { border-color: #64b5f6; }"
-            "QComboBox QAbstractItemView { background: #1a2236; border: 1px solid #3a4a6a; "
-            "color: #c0c0c0; selection-background-color: #2a3a5a; }");
+        _searchCombo->setStyleSheet(kComboStyle);
+        _searchCombo->setAccessibleName("Rechercher un item");
         connect(_searchCombo, &SearchComboBox::popup_requested,
                 this, &CharacterTab::onSearchPopup);
         connect(_searchCombo, qOverload<int>(&QComboBox::activated),
@@ -286,6 +287,7 @@ void CharacterTab::buildUi()
 
         _clearBtn = new QPushButton("Clear");
         _clearBtn->setEnabled(false);
+        _clearBtn->setAccessibleName("Effacer la recherche");
         _clearBtn->setStyleSheet(
             "QPushButton { background: #2a3a5a; border: 1px solid #3a4a6a; "
             "border-radius: 3px; color: #c0c0c0; padding: 3px 10px; font-size: 13px; }"
@@ -367,12 +369,16 @@ void CharacterTab::rebuildInventoryPanel()
         const char* ab = (abIt != SLOT_ABBREV.end()) ? abIt->second : slotName.c_str();
         auto* slotLbl = new QLabel(ab);
         slotLbl->setFixedWidth(46);
-        slotLbl->setStyleSheet("color: #3a4a5a; font-size: 11px; background: transparent;");
+        slotLbl->setStyleSheet(
+            QString("color: %1; font-size: 11px; background: transparent;")
+                .arg(kTextSlotLabel));
         rl->addWidget(slotLbl);
 
         if (isEmpty) {
             auto* nameLbl = new QLabel(QString::fromUtf8("\xe2\x80\x94 vide \xe2\x80\x94"));
-            nameLbl->setStyleSheet("color: #222a3a; font-size: 12px; background: transparent;");
+            nameLbl->setStyleSheet(
+                QString("color: %1; font-size: 12px; background: transparent;")
+                    .arg(kTextEmptySlot));
             rl->addWidget(nameLbl, 1);
         } else {
             auto* nameBtn = new QPushButton(itemName);
@@ -557,11 +563,11 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
                 int refDisp = hasCap ? std::min(refRaw, cap) : refRaw;
                 int delta   = dispVal - refDisp;
                 if (delta > 0)
-                    valHtml += QString("<span style='color:#2a8a2a;font-size:13px;'> +%1</span>")
-                                   .arg(delta);
+                    valHtml += QString("<span style='color:%1;font-size:13px;'> +%2</span>")
+                                   .arg(kGreen).arg(delta);
                 else if (delta < 0)
-                    valHtml += QString("<span style='color:#aa2222;font-size:13px;'> %1</span>")
-                                   .arg(delta);
+                    valHtml += QString("<span style='color:%1;font-size:13px;'> %2</span>")
+                                   .arg(kTextDeltaNeg).arg(delta);
             }
 
             auto* valLbl = new QLabel;
