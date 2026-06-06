@@ -588,7 +588,8 @@ void SpellsTab::rebuildRightPanel()
 
         if (isBlocked) {
             QString wname = winnerNames.count(spell.id) ? winnerNames[spell.id] : "un autre sort";
-            cb->setStyleSheet("font-size: 14px; color: #aa4444; text-decoration: line-through;");
+            { QFont f = cb->font(); f.setStrikeOut(true); cb->setFont(f); }
+            cb->setStyleSheet("font-size: 14px; color: #aa4444;");
             cb->setToolTip(appendTooltipRows(
                 formatSpellTooltip(spell, tooltipLevel, {}, "#cc6666"),
                 spellExtraRows(spell, wname)));
@@ -599,7 +600,8 @@ void SpellsTab::rebuildRightPanel()
                 QString wname;
                 for (auto& b : _activeBuffs)
                     if (b.spell.id == *conflict) { wname = QString::fromStdString(b.spell.name); break; }
-                cb->setStyleSheet("font-size: 14px; color: #aa4444; text-decoration: line-through;");
+                { QFont f = cb->font(); f.setStrikeOut(true); cb->setFont(f); }
+            cb->setStyleSheet("font-size: 14px; color: #aa4444;");
                 cb->setToolTip(appendTooltipRows(
                     formatSpellTooltip(spell, tooltipLevel, {}, "#cc6666"),
                     spellExtraRows(spell, wname)));
@@ -748,10 +750,12 @@ void SpellsTab::rebuildActiveBuffsList()
         rl->setSpacing(4);
 
         auto* nameLbl = new QLabel(QString::fromStdString(b.spell.name));
+        if (blocked) {
+            QFont f = nameLbl->font(); f.setStrikeOut(true); nameLbl->setFont(f);
+        }
         nameLbl->setStyleSheet(
             blocked
-            ? "font-size: 13px; color: #aa4444; text-decoration: line-through; "
-              "border: none; background: transparent;"
+            ? "font-size: 13px; color: #aa4444; border: none; background: transparent;"
             : "font-size: 13px; color: #c0c0c0; border: none; background: transparent;");
         QString conflictName;
         if (blocked) {
