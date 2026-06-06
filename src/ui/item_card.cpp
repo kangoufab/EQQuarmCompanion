@@ -38,24 +38,30 @@ static int itemStat(const ItemData& it, const std::string& k) {
     return 0;
 }
 
+// Skill IDs from EQ::skills::SkillType enum (EQMacEmu common/skills.h).
+// Verified against GetSkillTypeMap() in common/skills.cpp.
 static const std::map<int,QString> SKILL_NAMES_IC = {
-    {0,"1H Blunt"},{1,"1H Slash"},{2,"2H Blunt"},{3,"2H Slash"},
+    {0,"1H Blunt"},{1,"1H Slashing"},{2,"2H Blunt"},{3,"2H Slashing"},
     {4,"Abjuration"},{5,"Alteration"},{6,"Apply Poison"},{7,"Archery"},
     {8,"Backstab"},{9,"Bind Wound"},{10,"Bash"},{11,"Block"},
     {12,"Brass Instr."},{13,"Channeling"},{14,"Conjuration"},{15,"Defense"},
     {16,"Disarm"},{17,"Disarm Traps"},{18,"Divination"},{19,"Dodge"},
     {20,"Double Attack"},{21,"Dragon Punch"},{22,"Dual Wield"},{23,"Eagle Strike"},
-    {24,"Evocation"},{25,"Feign Death"},{26,"Fishing"},{27,"Flying Kick"},
-    {28,"Forage"},{29,"Hand to Hand"},{30,"Hide"},{31,"Kick"},
-    {32,"Meditate"},{33,"Mend"},{34,"Offense"},{35,"Parry"},
-    {36,"Pick Lock"},{37,"Piercing"},{38,"Riposte"},{39,"Round Kick"},
-    {40,"Safe Fall"},{41,"Sense Heading"},{42,"Singing"},{43,"Sneak"},
-    {44,"Spec. Abjur."},{45,"Spec. Alter."},{46,"Spec. Conjur."},
-    {47,"Spec. Divin."},{48,"Spec. Evoc."},{49,"Stringed Instr."},
-    {50,"Swimming"},{51,"Tailoring"},{52,"Sense Traps"},{53,"Throwing"},
-    {54,"Tiger Claw"},{55,"Tracking"},{56,"Wind Instr."},
-    {57,"Fletching"},{58,"Begging"},{59,"Jewelry Making"},{60,"Pottery"},
-    {61,"Research"},{62,"Alchemy"},{63,"Baking"},{64,"Tinkering"},
+    {24,"Evocation"},{25,"Feign Death"},{26,"Flying Kick"},{27,"Forage"},
+    {28,"Hand to Hand"},{29,"Hide"},{30,"Kick"},{31,"Meditate"},
+    {32,"Mend"},{33,"Offense"},{34,"Parry"},{35,"Pick Lock"},
+    {36,"1H Piercing"},{37,"Riposte"},{38,"Round Kick"},{39,"Safe Fall"},
+    {40,"Sense Heading"},{41,"Singing"},{42,"Sneak"},
+    {43,"Spec. Abjur."},{44,"Spec. Alter."},{45,"Spec. Conjur."},
+    {46,"Spec. Divin."},{47,"Spec. Evoc."},
+    {48,"Pick Pockets"},{49,"Stringed Instr."},{50,"Swimming"},
+    {51,"Throwing"},{52,"Tiger Claw"},{53,"Tracking"},{54,"Wind Instr."},
+    {55,"Fishing"},{56,"Make Poison"},{57,"Tinkering"},{58,"Research"},
+    {59,"Alchemy"},{60,"Baking"},{61,"Tailoring"},{62,"Sense Traps"},
+    {63,"Blacksmithing"},{64,"Fletching"},{65,"Brewing"},
+    {66,"Alcohol Tolerance"},{67,"Begging"},{68,"Jewelry Making"},
+    {69,"Pottery"},{70,"Percussion Instr."},{71,"Intimidation"},
+    {72,"Berserking"},{73,"Taunt"},
 };
 
 static const std::vector<std::pair<const char*,int>> SLOT_BITS_IC = {
