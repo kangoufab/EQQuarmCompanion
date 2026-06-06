@@ -49,12 +49,15 @@ QString formatSpellTooltip(const SpellData& spell, int level,
         {4,"STR"}, {5,"DEX"}, {6,"AGI"}, {7,"STA"}, {8,"INT"}, {9,"WIS"},
         {10,"CHA"}, {11,"Haste"},
         {15,"Mana"}, {21,"Stun"}, {22,"Charm"}, {23,"Fear"},
+        {32,"Summon Item"}, {33,"Summon Pet"},
         {35,"Disease Counter"}, {36,"Poison Counter"},
+        {40,"Divine Aura"},
         {46,"Fire Resistance"}, {47,"Cold Resistance"},
         {48,"Poison Resistance"}, {49,"Disease Resistance"}, {50,"Magic Resistance"},
         {55,"Rune"}, {57,"Levitate"}, {59,"Damage Shield"}, {69,"Max HP"},
-        {79,"HP Increase"}, {85,"Root"}, {92,"Hate"}, {97,"Max Mana"},
-        {98,"Haste v2"}, {100,"HP Regen"}, {111,"All Resist"}, {116,"Curse Counter"},
+        {71,"Necro Pet"}, {79,"HP Increase"}, {85,"Weapon Proc"}, {92,"Hate"},
+        {97,"Max Mana"}, {98,"Haste v2"}, {99,"Root"}, {100,"Heal Over Time"},
+        {101,"Complete Heal"}, {111,"All Resist"}, {116,"Curse Counter"},
         {119,"Haste v3"},
         {124,"Improved Damage"}, {125,"Improved Healing"},
         {126,"Resist Reduction"}, {127,"Spell Haste"},
@@ -155,7 +158,7 @@ QString formatSpellTooltip(const SpellData& spell, int level,
             auto it = spellNames.find(sid);
             addCond("Limit Spell", (it != spellNames.end()) ? it->second : QString("#%1").arg(sid));
         } else if (spa == 140) {
-            addCond("Min Duration", QString("%1 ticks").arg(base));
+            addCond("Min Duration", QString("%1 ticks (%2 sec)").arg(base).arg(base * 6));
         } else if (spa == 141) {
             addCond(base == 1 ? "Instant only" : "Buff spells only", "oui");
         } else if (spa == 142) {
