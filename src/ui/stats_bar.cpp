@@ -267,7 +267,7 @@ static QWidget* makeEffectsWidget(const std::vector<EffectEntry>& effects,
         } else if (spellId > 0) {
             auto it = spellDetails.find(spellId);
             if (it != spellDetails.end()) {
-                QString tip = formatSpellTooltip(it->second, tooltipLevel);
+                QString tip = formatSpellTooltip(it->second, tooltipLevel, {}, QString(color));
                 if (!itemName.empty())
                     tip = QString("<i style='color:#888;'>%1</i><br>")
                           .arg(QString::fromStdString(itemName)) + tip;

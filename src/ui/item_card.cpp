@@ -341,7 +341,7 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
                 if (it != spells->end()) {
                     static const std::map<int,QString> kEmpty;
                     const auto& names = limitSpellNames ? *limitSpellNames : kEmpty;
-                    QString tip = formatSpellTooltip(it->second, 0, names);
+                    QString tip = formatSpellTooltip(it->second, 0, names, QString(col));
                     if (!tip.isEmpty())
                         lbl->setToolTip(tip);
                 }

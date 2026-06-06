@@ -1,13 +1,15 @@
 #include "ui/spell_tooltip.h"
 #include "core/spell_stats.h"
-#include <QStringList>
+#include <QString>
 #include <algorithm>
 #include <cstdlib>
 #include <map>
 #include <set>
+#include <vector>
 
 QString formatSpellTooltip(const SpellData& spell, int level,
-                            const std::map<int,QString>& spellNames)
+                            const std::map<int,QString>& spellNames,
+                            const QString& accentColor)
 {
     static const std::map<int, const char*> SPA_DESC = {
         {0,"HP"}, {1,"AC"}, {2,"ATK"}, {3,"Movement Speed"},
@@ -42,7 +44,6 @@ QString formatSpellTooltip(const SpellData& spell, int level,
     static const std::set<int> SPA_PCT = {
         3, 98, 169, 170, 171, 172, 173, 174, 175, 176, 177, 182, 184, 185, 188, 196
     };
-    // SPA names used in SE_LimitEffect (137) — more descriptive than SPA_DESC
     static const std::map<int, const char*> SPA_EFF_NAMES = {
         {0,"Hitpoints"}, {1,"AC"}, {2,"ATK"}, {3,"Movement Speed"},
         {4,"STR"}, {5,"DEX"}, {6,"AGI"}, {7,"STA"}, {8,"INT"}, {9,"WIS"},
@@ -73,7 +74,12 @@ QString formatSpellTooltip(const SpellData& spell, int level,
         {41,"Group v2"}, {42,"Directional"}, {43,"Single in Group"},
     };
 
-    QStringList parts;
+    struct Row { QString label, value; };
+    std::vector<Row> eff, cond;
+
+    auto addEff  = [&](const QString& lbl, const QString& val) { eff .push_back({lbl, val}); };
+    auto addCond = [&](const QString& lbl, const QString& val) { cond.push_back({lbl, val}); };
+
     for (int i = 0; i < 12; ++i) {
         int spa     = spell.spa[i];
         int base    = spell.effect_base_value[i];
@@ -85,119 +91,136 @@ QString formatSpellTooltip(const SpellData& spell, int level,
 
         if (spa == 11) {
             int val = level ? calcSpellEffectValue(base, mx, formula, level) : (mx ? std::min(base, mx) : base);
-            if (val != 0) parts << QString("Haste +%1%").arg(val - 100);
+            if (val != 0) addEff("Haste", QString("+%1%").arg(val - 100));
         } else if (spa == 98) {
-            if (base != 0) parts << QString("Haste +%1%").arg(std::abs(base) - 100);
+            if (base != 0) addEff("Haste", QString("+%1%").arg(std::abs(base) - 100));
         } else if (spa == 119) {
             int val = level ? calcSpellEffectValue(base, mx, formula, level) : std::abs(base);
-            parts << QString("Haste V3 (overcap) +%1%").arg(val);
+            addEff("Haste V3", QString("+%1%").arg(val));
         } else if (spa == 0) {
             if (base > 0) {
                 int val = level ? calcSpellEffectValue(base, mx, formula, level) : (mx ? std::min(base, mx) : base);
-                parts << QString("Increase HP by +%1 per tick").arg(val);
+                addEff("HP Regen", QString("+%1/tick").arg(val));
             } else if (base < 0) {
-                parts << QString("Decrease HP by %1").arg(std::abs(base));
+                addEff("HP", QString::number(base));
             }
         } else if (spa == 15) {
             if (base != 0) {
-                const char* verb = base > 0 ? "Increase" : "Decrease";
-                QString sfx = base > 0 ? " per tick" : "";
-                parts << QString("%1 Mana by %2%3").arg(verb).arg(std::abs(base)).arg(sfx);
+                if (base > 0) addEff("Mana", QString("+%1/tick").arg(base));
+                else          addEff("Mana", QString::number(base));
             }
         } else if (spa == 21) {
-            if (base > 0) parts << QString("Stun for %1 sec").arg(base / 1000);
+            if (base > 0) addEff("Stun", QString("%1 sec").arg(base / 1000));
         } else if (spa == 79) {
             if (base != 0) {
-                const char* verb = base < 0 ? "Decrease" : "Increase";
                 int val = (mx != 0 && formula != 100) ? std::abs(mx) : std::abs(base);
-                parts << QString("%1 HP by %2").arg(verb).arg(val);
+                addEff("HP", base < 0 ? QString("-%1").arg(val) : QString("+%1").arg(val));
             }
         } else if (spa == 92) {
-            if (base != 0) {
-                const char* verb = base > 0 ? "Increase" : "Decrease";
-                parts << QString("%1 Hate by %2").arg(verb).arg(std::abs(base));
-            }
+            if (base != 0)
+                addEff("Hate", base > 0 ? QString("+%1").arg(base) : QString::number(base));
         } else if (spa == 100) {
-            if (base != 0) parts << QString("Increase HP by +%1 per tick").arg(base);
+            if (base != 0) addEff("HP Regen", QString("+%1/tick").arg(base));
         } else if (spa >= 120 && spa <= 133) {
             auto it = SPA_DESC.find(spa);
             if (it != SPA_DESC.end() && base != 0) {
-                if (spa == 131 || spa == 132)
-                    parts << QString("Decrease %1 by %2%").arg(it->second).arg(std::abs(base));
-                else
-                    parts << QString("Increase %1 by %2%").arg(it->second).arg(std::abs(base));
+                QString val = (spa == 131 || spa == 132)
+                    ? QString("-%1%").arg(std::abs(base))
+                    : QString("+%1%").arg(std::abs(base));
+                addEff(it->second, val);
             }
         } else if (spa == 134) {
-            // SE_LimitMaxLevel
-            parts << QString("Limit: Max Level (%1)").arg(base);
+            addCond("Max Level", QString::number(base));
         } else if (spa == 135) {
-            // SE_LimitResist
             int rid = std::abs(base);
             auto it = RESIST_NAMES.find(rid);
             QString rname = (it != RESIST_NAMES.end()) ? it->second : QString("Resist %1").arg(rid);
-            parts << (base < 0
-                ? QString("Exclude: Resist(%1)").arg(rname)
-                : QString("Limit: Resist(%1)").arg(rname));
+            addCond(base < 0 ? "Excl. Resist" : "Resist", rname);
         } else if (spa == 136) {
-            // SE_LimitTarget
             int tid = std::abs(base);
             auto it = TARGET_NAMES.find(tid);
             QString tname = (it != TARGET_NAMES.end()) ? it->second : QString("Target %1").arg(tid);
-            parts << (base < 0
-                ? QString("Exclude: Target(%1)").arg(tname)
-                : QString("Limit: Target(%1)").arg(tname));
+            addCond(base < 0 ? "Excl. Target" : "Target", tname);
         } else if (spa == 137) {
-            // SE_LimitEffect: base>=0 → include, base<0 → exclude
             int eid = std::abs(base);
             auto it = SPA_EFF_NAMES.find(eid);
             QString ename = (it != SPA_EFF_NAMES.end()) ? it->second : QString("SPA %1").arg(eid);
-            parts << (base < 0
-                ? QString("Exclude: Effect(%1)").arg(ename)
-                : QString("Limit: Effect(%1)").arg(ename));
+            addCond(base < 0 ? "Excl. Effect" : "Effect", ename);
         } else if (spa == 138) {
-            // SE_LimitSpellType
-            if (base == 0)      parts << "Limit: Spell Type (Detrimental only)";
-            else if (base == 1) parts << "Limit: Spell Type (Beneficial only)";
-            else                parts << QString("Limit: Spell Type (%1)").arg(base);
+            if (base == 0)      addCond("Spell Type", "Detrimental");
+            else if (base == 1) addCond("Spell Type", "Beneficial");
+            else                addCond("Spell Type", QString::number(base));
         } else if (spa == 139) {
-            // SE_LimitSpell — display as "Limit: Spell(name)" per EQ client convention
             int sid = std::abs(base);
             auto it = spellNames.find(sid);
-            QString sname = (it != spellNames.end()) ? it->second : QString("#%1").arg(sid);
-            parts << QString("Limit: Spell(%1)").arg(sname);
+            addCond("Limit Spell", (it != spellNames.end()) ? it->second : QString("#%1").arg(sid));
         } else if (spa == 140) {
-            // SE_LimitMinDur — base is in ticks (6s each)
-            parts << QString("Limit: Min Duration (%1 ticks)").arg(base);
+            addCond("Min Duration", QString("%1 ticks").arg(base));
         } else if (spa == 141) {
-            // SE_LimitInstant
-            if (base == 1)      parts << "Limit: Instant spells only";
-            else if (base == 0) parts << "Limit: Buff spells only";
+            addCond(base == 1 ? "Instant only" : "Buff spells only", "oui");
         } else if (spa == 142) {
-            // SE_LimitMinLevel
-            parts << QString("Limit: Min Level (%1)").arg(base);
+            addCond("Min Level", QString::number(base));
         } else if (spa == 143) {
-            // SE_LimitCastTimeMin — base in ms
-            parts << QString("Limit: Cast Time Min (%1ms)").arg(base);
+            addCond("Cast Time Min", QString("%1 ms").arg(base));
         } else if (spa == 144) {
-            // SE_LimitCastTimeMax — base in ms
-            parts << QString("Limit: Cast Time Max (%1ms)").arg(base);
+            addCond("Cast Time Max", QString("%1 ms").arg(base));
         } else {
             auto boolIt = SPA_BOOL.find(spa);
             if (boolIt != SPA_BOOL.end()) {
-                parts << QString(boolIt->second);
+                eff.push_back({boolIt->second, ""});
             } else {
                 auto descIt = SPA_DESC.find(spa);
                 if (descIt != SPA_DESC.end() && base != 0) {
-                    const char* verb = base > 0 ? "Increase" : "Decrease";
                     int val = (mx != 0 && formula != 100) ? std::abs(mx) : std::abs(base);
                     QString sfx = SPA_PCT.count(spa) ? "%" : "";
-                    parts << QString("%1 %2 by %3%4").arg(verb).arg(descIt->second).arg(val).arg(sfx);
+                    QString sign = base > 0 ? "+" : "-";
+                    addEff(descIt->second, QString("%1%2%3").arg(sign).arg(val).arg(sfx));
                 }
             }
         }
     }
 
-    QString header = QString("<b>%1</b>").arg(QString::fromStdString(spell.name));
-    if (parts.isEmpty()) return header;
-    return header + "<br>" + parts.join("<br>");
+    QString spellName = QString::fromStdString(spell.name);
+    QString html = QString("<span style='color:%1;font-weight:bold;font-size:13px;'>%2</span>")
+                   .arg(accentColor, spellName.toHtmlEscaped());
+
+    if (eff.empty() && cond.empty())
+        return html;
+
+    html += "<table cellspacing='0' style='min-width:200px;border-collapse:collapse;"
+            "margin-top:5px;'>";
+
+    if (!eff.empty()) {
+        html += QString("<tr><td colspan='2' style='color:%1;font-size:11px;font-weight:bold;"
+                        "padding:4px 0 2px;'>─ EFFETS</td></tr>")
+                .arg(accentColor);
+        for (auto& r : eff) {
+            html += "<tr>";
+            if (r.value.isEmpty()) {
+                html += QString("<td colspan='2' style='color:%1;padding:1px 4px 1px 10px;'>"
+                                "%2</td>")
+                        .arg(accentColor, r.label.toHtmlEscaped());
+            } else {
+                html += QString("<td style='color:#aaaaaa;padding:1px 20px 1px 10px;'>%1</td>"
+                                "<td align='right' style='color:%2;font-weight:bold;'>%3</td>")
+                        .arg(r.label.toHtmlEscaped(), accentColor, r.value.toHtmlEscaped());
+            }
+            html += "</tr>";
+        }
+    }
+
+    if (!cond.empty()) {
+        html += "<tr><td colspan='2' style='color:#445566;font-size:11px;font-weight:bold;"
+                "padding:6px 0 2px;'>─ CONDITIONS</td></tr>";
+        for (auto& r : cond) {
+            html += QString("<tr>"
+                            "<td style='color:#6a8399;padding:1px 20px 1px 10px;'>%1</td>"
+                            "<td align='right' style='color:#8aabb8;'>%2</td>"
+                            "</tr>")
+                    .arg(r.label.toHtmlEscaped(), r.value.toHtmlEscaped());
+        }
+    }
+
+    html += "</table>";
+    return html;
 }
