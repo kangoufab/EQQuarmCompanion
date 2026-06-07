@@ -46,6 +46,10 @@ private:
     void showComparison(const ItemData& newItem, const QString& slot,
                         const std::vector<QString>& allSlots = {});
     void clearComparison(bool emitReset = true);
+    void showItemPreview(const ItemData& item, const QString& slotTitle);
+    void clearItemPreview();
+    std::map<int,SpellData> loadItemSpells(const ItemData& item) const;
+    std::map<int,QString> buildLimitSpellNames(const std::map<int,SpellData>& spells) const;
     std::vector<QString> detectSlots(const ItemData& item) const;
     bool canEquip(const ItemData& item) const;
     std::pair<int,int> expansionCaps() const;
@@ -66,6 +70,8 @@ private:
     QPushButton*     _clearBtn{nullptr};
     QWidget*        _comparisonArea{nullptr};
     QVBoxLayout*    _comparisonLayout{nullptr};
+    QWidget*        _itemPreviewArea{nullptr};
+    QVBoxLayout*    _itemPreviewLayout{nullptr};
 
     QList<ItemData> _searchResults;
     QComboBox*      _slotFilter{nullptr};

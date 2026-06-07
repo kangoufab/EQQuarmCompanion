@@ -271,6 +271,17 @@ void CharacterTab::buildUi()
         layout->addWidget(rw);
     }
 
+    // Zone d'aperçu simple — item équipé cliqué, sans comparaison (masquée par défaut)
+    {
+        _itemPreviewArea = new QWidget;
+        _itemPreviewArea->setStyleSheet("background: transparent;");
+        _itemPreviewLayout = new QVBoxLayout(_itemPreviewArea);
+        _itemPreviewLayout->setContentsMargins(0, 0, 0, 0);
+        _itemPreviewLayout->setSpacing(6);
+        _itemPreviewArea->setVisible(false);
+        layout->addWidget(_itemPreviewArea);
+    }
+
     // Zone de comparaison (masquée par défaut)
     {
         _comparisonArea = new QWidget;
@@ -415,9 +426,7 @@ void CharacterTab::rebuildInventoryPanel()
             ItemData itemCopy = item;
             std::string sn = slotName;
             connect(btn, &QPushButton::clicked, this, [this, itemCopy, sn]() {
-                clearComparison(false);
-                showComparison(itemCopy, QString::fromStdString(sn),
-                               {QString::fromStdString(sn)});
+                showItemPreview(itemCopy, QString::fromStdString(sn));
             });
         }
         return btn;
@@ -701,6 +710,42 @@ void CharacterTab::loadItemIntoComparison(const ItemData& item)
     showComparison(item, eqSlots[0], eqSlots);
 }
 
+// ── loadItemSpells / buildLimitSpellNames ─────────────────────────────────
+// Précharge les sorts worn/focus/proc/click/scroll d'un item et construit les
+// noms des sorts SE_LimitSpell (SPA 139) référencés, pour les tooltips enrichis.
+
+std::map<int,SpellData> CharacterTab::loadItemSpells(const ItemData& item) const
+{
+    std::map<int,SpellData> m;
+    auto load = [&](int id) {
+        if (id > 0 && !m.count(id)) {
+            auto s = _itemDb->getSpellById(id);
+            if (s) m[id] = std::move(*s);
+        }
+    };
+    load(item.worneffect); load(item.focuseffect);
+    load(item.proceffect); load(item.clickeffect); load(item.scrolleffect);
+    return m;
+}
+
+std::map<int,QString> CharacterTab::buildLimitSpellNames(const std::map<int,SpellData>& spells) const
+{
+    std::map<int,QString> names;
+    for (auto& [sid_key, sp] : spells) {
+        for (int i = 0; i < 12; ++i) {
+            if (sp.spa[i] == 254) break;
+            if (sp.spa[i] == 139) {
+                int sid = std::abs(sp.effect_base_value[i]);
+                if (sid > 0 && !names.count(sid)) {
+                    auto ref = _itemDb->getSpellById(sid);
+                    if (ref) names[sid] = QString::fromStdString(ref->name);
+                }
+            }
+        }
+    }
+    return names;
+}
+
 // ── showComparison ────────────────────────────────────────────────────────
 
 void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
@@ -777,42 +822,12 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
     colL->setContentsMargins(0, 0, 0, 0);
 
     // Précharge les spells pour les tooltips
-    auto loadItemSpells = [&](const ItemData& it) {
-        std::map<int,SpellData> m;
-        auto load = [&](int id) {
-            if (id > 0 && !m.count(id)) {
-                auto s = _itemDb->getSpellById(id);
-                if (s) m[id] = std::move(*s);
-            }
-        };
-        load(it.worneffect); load(it.focuseffect);
-        load(it.proceffect); load(it.clickeffect); load(it.scrolleffect);
-        return m;
-    };
-    // Build limit spell name lookups for SE_LimitSpell (SPA 139) in tooltips
-    auto buildLimitNames = [&](const std::map<int,SpellData>& spells) {
-        std::map<int,QString> names;
-        for (auto& [sid_key, sp] : spells) {
-            for (int i = 0; i < 12; ++i) {
-                if (sp.spa[i] == 254) break;
-                if (sp.spa[i] == 139) {
-                    int sid = std::abs(sp.effect_base_value[i]);
-                    if (sid > 0 && !names.count(sid)) {
-                        auto ref = _itemDb->getSpellById(sid);
-                        if (ref) names[sid] = QString::fromStdString(ref->name);
-                    }
-                }
-            }
-        }
-        return names;
-    };
-
     auto newSpells = loadItemSpells(newItem);
     std::map<int,SpellData> curSpells;
     if (curItem) curSpells = loadItemSpells(*curItem);
 
-    auto newLimitNames = buildLimitNames(newSpells);
-    auto curLimitNames = buildLimitNames(curSpells);
+    auto newLimitNames = buildLimitSpellNames(newSpells);
+    auto curLimitNames = buildLimitSpellNames(curSpells);
 
     QString curName = curItem
         ? QString::fromStdString(curItem->name)
@@ -910,9 +925,37 @@ void CharacterTab::clearComparison(bool emitReset)
         delete child;
     }
     _comparisonArea->setVisible(false);
+    clearItemPreview();
     if (_clearBtn) _clearBtn->setEnabled(false);
     if (emitReset && _totals)
         emit statsChanged(*_totals, _equippedItems);
+}
+
+// ── showItemPreview / clearItemPreview ────────────────────────────────────
+// Aperçu simple d'un item équipé — une seule carte, sans comparaison ni
+// boutons Équiper/Source (mutuellement exclusif avec la zone de comparaison).
+
+void CharacterTab::showItemPreview(const ItemData& item, const QString& slotTitle)
+{
+    clearComparison(false);
+
+    auto spells = loadItemSpells(item);
+    auto limitNames = buildLimitSpellNames(spells);
+    _itemPreviewLayout->addWidget(makeItemCard(&item, nullptr,
+                                                spells.empty() ? nullptr : &spells,
+                                                slotTitle,
+                                                limitNames.empty() ? nullptr : &limitNames));
+    _itemPreviewArea->setVisible(true);
+}
+
+void CharacterTab::clearItemPreview()
+{
+    while (_itemPreviewLayout->count()) {
+        auto* child = _itemPreviewLayout->takeAt(0);
+        if (child->widget()) child->widget()->deleteLater();
+        delete child;
+    }
+    _itemPreviewArea->setVisible(false);
 }
 
 // ── onShowSources ─────────────────────────────────────────────────────────
