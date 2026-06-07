@@ -73,6 +73,20 @@ static bool charCanEquip(const LootItem& item, const CharacterInfo* ci) {
     return true;
 }
 
+// Index dans SpellData::classes (0-based, ordre EQ standard) ; 255 = classe ne peut pas l'utiliser
+static const std::map<std::string, int> SPELL_CLASS_INDEX = {
+    {"Warrior",0},{"Cleric",1},{"Paladin",2},{"Ranger",3},
+    {"Shadowknight",4},{"Druid",5},{"Monk",6},{"Bard",7},
+    {"Rogue",8},{"Shaman",9},{"Necromancer",10},{"Wizard",11},
+    {"Magician",12},{"Enchanter",13},{"Beastlord",14},{"Berserker",15},
+};
+
+static bool charCanUseSpell(const SpellData& spell, const CharacterInfo* ci) {
+    if (!ci) return false;
+    auto it = SPELL_CLASS_INDEX.find(ci->class_name);
+    return it != SPELL_CLASS_INDEX.end() && spell.classes[it->second] != 255;
+}
+
 
 static QString valueDelta(int v, int r) {
     if (!r) return QString::number(v);
@@ -444,10 +458,20 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
             flLoot->addWidget(new QLabel("(no loot)"));
         } else {
             for (const auto& item : loot) {
-                bool equippable = item.item_slots > 0;
-                bool usable = charCanEquip(item, _charInfo);
-                // 3 levels: usable by char = bright, has slots but wrong class/race/level = dim, no slots = very dim
-                const char* nameColor = usable ? kTextPrimary : (equippable ? kTextSecondary : kTextDim);
+                const char* nameColor;
+                if (item.scrolleffect > 0) {
+                    // Spell scroll: usability depends on the granted spell's class list,
+                    // not on item_slots (scrolls have no equip slots) — same 2-tier
+                    // graying as equippable items (usable vs. not-usable-by-class).
+                    auto spell = _itemDb->getSpellById(item.scrolleffect);
+                    bool usable = spell && charCanUseSpell(*spell, _charInfo);
+                    nameColor = usable ? kTextPrimary : kTextSecondary;
+                } else {
+                    bool equippable = item.item_slots > 0;
+                    bool usable = charCanEquip(item, _charInfo);
+                    // 3 levels: usable by char = bright, has slots but wrong class/race/level = dim, no slots = very dim
+                    nameColor = usable ? kTextPrimary : (equippable ? kTextSecondary : kTextDim);
+                }
 
                 auto* row = new QWidget; row->setStyleSheet("background:transparent;");
                 auto* rowL = new QHBoxLayout(row);

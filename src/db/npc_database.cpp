@@ -253,11 +253,12 @@ QList<SpellData> NpcDatabase::getNpcSpells(int npcSpellsId) {
 // Lit les lignes d'un QSqlQuery déjà exécuté et calcule les drop chances
 // selon l'algorithme EQMacEmu loot.cpp. Colonnes requises : item_id, name,
 // item_chance, table_probability, table_multiplier, droplimit, mindrop,
-// lootdrop_id, slots, nodrop, classes, races, reqlevel.
+// lootdrop_id, slots, nodrop, classes, races, reqlevel, scrolleffect.
 static QList<LootItem> computeLootChances(QSqlQuery& q) {
     struct RawRow {
         int    item_id{}, slots{}, nodrop{};
         int    classes{65535}, races{65535}, reqlevel{};
+        int    scrolleffect{};
         double item_chance{}, table_probability{}, table_multiplier{};
         int    droplimit{}, mindrop{}, lootdrop_id{};
         QString name;
@@ -280,6 +281,7 @@ static QList<LootItem> computeLootChances(QSqlQuery& q) {
         r.classes           = q.value("classes").isNull() ? 65535 : q.value("classes").toInt();
         r.races             = q.value("races").isNull()   ? 65535 : q.value("races").toInt();
         r.reqlevel          = q.value("reqlevel").toInt();
+        r.scrolleffect      = q.value("scrolleffect").toInt();
         totals[r.lootdrop_id] += r.item_chance;
         rows.append(r);
     }
@@ -312,6 +314,7 @@ static QList<LootItem> computeLootChances(QSqlQuery& q) {
         li.classes    = r.classes;
         li.races      = r.races;
         li.reqlevel   = r.reqlevel;
+        li.scrolleffect = r.scrolleffect;
         result.append(li);
     }
 
@@ -333,7 +336,7 @@ QList<LootItem> NpcDatabase::getNpcLoot(int loottableId) {
         " lte.probability AS table_probability,"
         " lte.multiplier AS table_multiplier,"
         " lte.droplimit, lte.mindrop,"
-        " i.slots, i.nodrop, i.classes, i.races, i.reqlevel"
+        " i.slots, i.nodrop, i.classes, i.races, i.reqlevel, i.scrolleffect"
         " FROM loottable_entries lte"
         " JOIN lootdrop_entries lde ON lde.lootdrop_id = lte.lootdrop_id"
         " JOIN items i ON i.id = lde.item_id"

@@ -154,6 +154,7 @@ struct LootItem {
     float chance{};
     int nodrop{};
     int classes{65535}, races{65535}, reqlevel{};
+    int scrolleffect{};  // > 0 for spell scrolls (itemtype 20) — id of the granted spell
     std::string name;
 };
 

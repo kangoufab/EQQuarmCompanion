@@ -329,9 +329,13 @@ std::optional<SpellData> ItemDatabase::getSpellById(int id) {
     QString effectCols;
     for (int i = 1; i <= 12; ++i)
         effectCols += QString("effectid%1, effect_base_value%1, max%1, formula%1, ").arg(i);
-    effectCols.chop(2);
+    QString classCols;
+    for (int i = 1; i <= 15; ++i)
+        classCols += QString("classes%1, ").arg(i);
+    classCols.chop(2);
     QString sql = QString(
-        "SELECT id, name, targettype, skill, resisttype AS resist_type, %1 FROM spells_new WHERE id = :id").arg(effectCols);
+        "SELECT id, name, targettype, skill, resisttype AS resist_type, %1%2"
+        " FROM spells_new WHERE id = :id").arg(effectCols).arg(classCols);
     QSqlQuery q(DbConnection::instance().db());
     q.prepare(sql);
     q.bindValue(":id", id);
@@ -349,6 +353,8 @@ std::optional<SpellData> ItemDatabase::getSpellById(int id) {
         sd.effect_limit_value[i]= q.value(QString("max%1").arg(n)).toInt();
         sd.effect_formula[i]    = q.value(QString("formula%1").arg(n)).toInt();
     }
+    for (int i = 0; i < 15; ++i)
+        sd.classes[i] = q.value(QString("classes%1").arg(i+1)).toInt();
     return sd;
 }
 
