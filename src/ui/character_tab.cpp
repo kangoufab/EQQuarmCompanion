@@ -209,8 +209,10 @@ void CharacterTab::buildUi()
             {"Right Finger",65536},{"Chest",131072},{"Legs",262144},
             {"Feet",524288},{"Waist",1048576},{"Ammo",2097152},
         };
-        for (auto& [name, bit] : SLOT_FILTER_ITEMS)
+        for (auto& [name, bit] : SLOT_FILTER_ITEMS) {
+            if (!isSlotAvailable(name)) continue;
             _slotFilter->addItem(name, bit);
+        }
         _slotFilter->setStyleSheet(kComboStyle);
         _slotFilter->setAccessibleName("Filtre par emplacement");
         row->addWidget(_slotFilter);
@@ -356,6 +358,7 @@ void CharacterTab::rebuildInventoryPanel()
     // ── Équipé ───────────────────────────────────────────────────────────────
     addTitle(QString::fromUtf8("\xe2\x9a\x94  \xc3\x89quip\xc3\xa9"));
     for (auto& [slotName, bit] : SLOT_BITMASK) {
+        if (!isSlotAvailable(slotName)) continue;
         auto it = _equippedItems.find(slotName);
         if (it != _equippedItems.end()) {
             ItemData item = it->second;
@@ -1260,4 +1263,14 @@ std::pair<int,int> CharacterTab::expansionCaps() const
     if (exp == "Luclin" || exp == "Planes of Power")
         return {255, 500};
     return {200, 200};
+}
+
+// ── isSlotAvailable ───────────────────────────────────────────────────────
+
+bool CharacterTab::isSlotAvailable(const std::string& slotName) const
+{
+    // Le slot Charm n'existe qu'à partir de Planes of Power
+    if (slotName == "Charm")
+        return _config->get("current_expansion") == "Planes of Power";
+    return true;
 }

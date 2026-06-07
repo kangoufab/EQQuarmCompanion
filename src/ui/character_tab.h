@@ -48,6 +48,7 @@ private:
     std::vector<QString> detectSlots(const ItemData& item) const;
     bool canEquip(const ItemData& item) const;
     std::pair<int,int> expansionCaps() const;
+    bool isSlotAvailable(const std::string& slotName) const;
     QString buildStatTooltip(const std::string& stat,
                               int dispVal, bool hasCap, int cap,
                               const PlayerTotals& totals) const;
