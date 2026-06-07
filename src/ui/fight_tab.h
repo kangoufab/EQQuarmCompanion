@@ -22,7 +22,7 @@ public:
     void refreshStats();
 
 signals:
-    void itemSelected(const QString& itemName);
+    void lootItemActivated(ItemData item);
 
 private slots:
     void doSearch();

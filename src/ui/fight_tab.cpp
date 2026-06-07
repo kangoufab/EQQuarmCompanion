@@ -859,7 +859,7 @@ void FightTab::onLootClicked(int itemId) {
 
     showLootForSlot(_lootSlots.empty() ? "" : _lootSlots[0]);
     if (item->item_slots > 0)
-        emit itemSelected(QString::fromStdString(item->name));
+        emit lootItemActivated(*item);
 }
 
 void FightTab::showLootForSlot(const QString& slot) {

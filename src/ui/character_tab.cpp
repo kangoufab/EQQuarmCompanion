@@ -601,8 +601,13 @@ void CharacterTab::onSearchPopup()
 void CharacterTab::onItemSelected(int index)
 {
     if (index < 0 || index >= _searchResults.size()) return;
-    const ItemData& item = _searchResults[index];
+    loadItemIntoComparison(_searchResults[index]);
+}
 
+// ── loadItemIntoComparison ────────────────────────────────────────────────
+
+void CharacterTab::loadItemIntoComparison(const ItemData& item)
+{
     auto eqSlots = detectSlots(item);
     if (eqSlots.empty()) return;
 

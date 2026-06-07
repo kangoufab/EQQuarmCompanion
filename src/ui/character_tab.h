@@ -25,6 +25,7 @@ public:
     CharacterTab(Config*, NpcDatabase*, ItemDatabase*, QWidget* p = nullptr);
     void setCharacter(CharacterInfo*, PlayerTotals*,
                       const std::map<std::string, ItemData>&);
+    void loadItemIntoComparison(const ItemData& item);
 
 signals:
     void statsChanged(PlayerTotals totals, std::map<std::string, ItemData> equippedItems);

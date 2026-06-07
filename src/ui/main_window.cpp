@@ -195,6 +195,10 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
         recalculateTotals();
         refreshAllTabs();
     });
+    connect(_fightTab, &FightTab::lootItemActivated,
+            this, [this](ItemData item) {
+        _charTab->loadItemIntoComparison(item);
+    });
 
     _fileWatcher = new QFileSystemWatcher(this);
     connect(_fileWatcher, &QFileSystemWatcher::fileChanged,
