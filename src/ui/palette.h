@@ -35,8 +35,8 @@ inline const char* kBorderDisabled = "#2a3045"; // disabled control border
 // ── Text ──────────────────────────────────────────────────────────────────────
 inline const char* kTextPrimary   = "#e0e0e0";  // headings, key values
 inline const char* kTextBase      = "#c0c0c0";  // body text, item names
-inline const char* kTextSecondary = "#888888";  // secondary labels, grid keys
-inline const char* kTextMuted     = "#7a7a7a";  // cap dividers, very dim — ≥4.5:1 on kBgMain
+inline const char* kTextSecondary = "#8a8a8a";  // secondary labels, grid keys — ≥4.5:1 on kBgCard/kBgBase/kBgMain (computed)
+inline const char* kTextMuted     = "#828282";  // cap dividers, very dim — ≥4.5:1 on kBgMain/kBgBase (computed)
 inline const char* kTextDim       = "#555555";  // disabled state
 
 // P1 contrast fixes — these replace colors that failed WCAG AA (< 4.5:1):

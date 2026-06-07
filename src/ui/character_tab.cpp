@@ -33,6 +33,7 @@
 #include <algorithm>
 #include <functional>
 #include <set>
+#include <utility>
 
 // ── Constantes portées depuis Python stat_caps.py et character_tab.py ─────
 // Clés ASCII neutres pour les maps ; labels affichés via CAT_LABELS
@@ -169,7 +170,12 @@ void CharacterTab::buildUi()
 
     // ── Colonne gauche : inventaire ──────────────────────────────────────────
     _inventoryScroll = new QScrollArea;
-    _inventoryScroll->setMinimumWidth(120);
+    // La grille d'items équipés (rebuildInventoryPanel) utilise des cellules de
+    // taille fixe : 5 colonnes × 42px + spacing/marges ≈ 238px de large. Avec le
+    // défilement horizontal désactivé, une largeur minimale plus petite clippe
+    // les colonnes de droite de la grille. 260px laisse une marge pour la
+    // bordure et la barre de défilement verticale.
+    _inventoryScroll->setMinimumWidth(260);
     _inventoryScroll->setWidgetResizable(true);
     _inventoryScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     _inventoryScroll->setStyleSheet(
@@ -187,7 +193,7 @@ void CharacterTab::buildUi()
     scroll->setStyleSheet("QScrollArea { border: none; background: transparent; }");
     splitter->addWidget(scroll);
 
-    splitter->setSizes({250, 1000});
+    splitter->setSizes({260, 1000});
     splitter->setStretchFactor(0, 0);
     splitter->setStretchFactor(1, 1);
 
@@ -305,11 +311,27 @@ void CharacterTab::buildUi()
 static QPixmap loadItemIcon(int iconId, int size)
 {
     if (iconId <= 0) return {};
+
+    // Cache des pixmaps redimensionnés : évite de relire et rescaler le PNG
+    // depuis le disque à chaque rebuild de l'inventaire (setCharacter() est
+    // appelé à chaque changement de personnage et à chaque rafraîchissement
+    // du file watcher). Plusieurs items partagent souvent la même icône.
+    static std::map<std::pair<int,int>, QPixmap> cache;
+    auto key = std::make_pair(iconId, size);
+    auto it = cache.find(key);
+    if (it != cache.end())
+        return it->second;
+
     QString path = QCoreApplication::applicationDirPath()
                  + "/imgs/items/item_" + QString::number(iconId) + ".png";
     QPixmap pm(path);
-    if (pm.isNull()) return {};
-    return pm.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    if (pm.isNull()) {
+        cache.emplace(key, QPixmap{});
+        return {};
+    }
+    QPixmap scaled = pm.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    cache.emplace(key, scaled);
+    return scaled;
 }
 
 static const std::map<std::string, const char*> SLOT_ABBREV = {

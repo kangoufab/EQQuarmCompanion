@@ -121,7 +121,7 @@ Toutes les couleurs UI sont déclarées dans `src/ui/palette.h` (`inline const c
 
 ### Stuff tab — layout 3 colonnes
 L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
-- **Inventaire** (colonne gauche, redimensionnable, min 120px, défaut 250px) : items équipés par slot + items des sacs groupés par numéro de bag (`Bag 1`, `Bag 2`…). Cliquer un item le charge dans la zone de comparaison.
+- **Inventaire** (colonne gauche, redimensionnable, min 260px, défaut 260px) : items équipés par slot + items des sacs groupés par numéro de bag (`Bag 1`, `Bag 2`…). Cliquer un item le charge dans la zone de comparaison. Le minimum (260px) est calé sur la largeur intrinsèque de la grille d'items équipés (5 colonnes × 42px + spacing/marges ≈ 238px) pour éviter qu'elle soit clippée — le défilement horizontal y est désactivé.
 - **Recherche** (colonne du milieu) : filtre slot + SearchCombo + Clear — comportement inchangé.
 - **Comparaison** (colonne droite) : cartes item, score UPGRADE/DOWNGRADE, boutons Équiper et Source.
 
@@ -130,7 +130,7 @@ L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
 ### Grille d'items équipés — icônes via `ItemData::icon`, pas `id`
 Le bloc « Équipé » de l'inventaire affiche une grille graphique façon paperdoll (armure/bijoux en grille 5 colonnes + rangée d'armes séparée Primary/Secondary/Range/Ammo), construite par `makeEquipCell()` dans `rebuildInventoryPanel()`. Chaque cellule est un `QPushButton` avec icône, tooltip enrichi (`formatItemTooltip`) et clic → `showComparison`.
 
-Les fichiers PNG sont nommés `item_<icon>.png` où `<icon>` est la valeur de la colonne **`icon`** de la table `items` (graphique partagé entre items similaires), **pas** l'`id` de l'item — plusieurs items peuvent partager la même icône. `ItemData::icon` est peuplé par `rowToItemData()` dans `item_database.cpp`. `loadItemIcon()` (statique, dans `character_tab.cpp`) résout le chemin via `QCoreApplication::applicationDirPath() + "/imgs/items/item_<icon>.png"`.
+Les fichiers PNG sont nommés `item_<icon>.png` où `<icon>` est la valeur de la colonne **`icon`** de la table `items` (graphique partagé entre items similaires), **pas** l'`id` de l'item — plusieurs items peuvent partager la même icône. `ItemData::icon` est peuplé par `rowToItemData()` dans `item_database.cpp`. `loadItemIcon()` (statique, dans `character_tab.cpp`) résout le chemin via `QCoreApplication::applicationDirPath() + "/imgs/items/item_<icon>.png"` et met en cache les pixmaps redimensionnés (clé `{iconId, size}`) pour éviter de relire/rescaler le PNG depuis le disque à chaque `rebuildInventoryPanel()` (déclenché par `setCharacter()` à chaque changement de personnage et rafraîchissement du file watcher).
 
 Déploiement : `resources/imgs/items/` (uniquement les fichiers `item_*.png`, pas les `.gif` numériques inutilisés) est copié à côté de l'exécutable par CMake (`copy_directory_if_different`, voir `CMakeLists.txt`), et l'installeur Inno Setup le récupère automatiquement via `{#BinDir}\*`.
 

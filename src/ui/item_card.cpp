@@ -341,8 +341,8 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
             }
             auto* lbl = new QLabel(
                 QString("<span style='color:%1;font-weight:bold;'>%2</span>"
-                        "<span style='color:#aaa;'> %3</span>")
-                .arg(col).arg(pfx).arg(QString::fromStdString(name)));
+                        "<span style='color:%3;'> %4</span>")
+                .arg(col).arg(pfx).arg(kTextSecondary).arg(QString::fromStdString(name)));
             lbl->setTextFormat(Qt::RichText);
             lbl->setStyleSheet(
                 "font-size: 13px; font-style: italic; "
@@ -381,8 +381,8 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
                 : QString("Skill %1").arg(item->skillmodtype);
             auto* lbl = new QLabel(
                 QString("<span style='color:%1;font-weight:bold;'>Skill</span>"
-                        "<span style='color:#aaa;'> %2 %3%4</span>")
-                .arg(kOrange).arg(sname)
+                        "<span style='color:%2;'> %3 %4%5</span>")
+                .arg(kOrange).arg(kTextSecondary).arg(sname)
                 .arg(item->skillmodvalue > 0 ? "+" : "")
                 .arg(item->skillmodvalue));
             lbl->setTextFormat(Qt::RichText);
@@ -423,7 +423,7 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
             QString summary = QString::fromStdString(formatSpellSummary(*clickSpell, 0));
             if (summary.isEmpty()) summary = "\xe2\x80\x94";
             auto* effLbl = new QLabel(summary);
-            effLbl->setStyleSheet("color: #aaaaaa; font-size: 13px; background: transparent;");
+            effLbl->setStyleSheet(QString("color: %1; font-size: 13px; background: transparent;").arg(kTextSecondary));
             effLbl->setWordWrap(true);
             bodyL->addWidget(effLbl);
         }
