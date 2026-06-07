@@ -287,13 +287,15 @@ void CharacterTab::buildUi()
 
 // ── rebuildInventoryPanel ─────────────────────────────────────────────────
 
-// Icônes d'item — déployées à côté de l'exécutable dans imgs/items/item_<id>.png
+// Icônes d'item — déployées à côté de l'exécutable dans imgs/items/item_<icon>.png
+// Le nom du fichier utilise la colonne `icon` de la table `items` (graphique
+// partagé entre items similaires), pas l'id de l'item.
 // (CMake copie resources/imgs/items au build, l'installeur suit via {#BinDir}\*)
-static QPixmap loadItemIcon(int itemId, int size)
+static QPixmap loadItemIcon(int iconId, int size)
 {
-    if (itemId <= 0) return {};
+    if (iconId <= 0) return {};
     QString path = QCoreApplication::applicationDirPath()
-                 + "/imgs/items/item_" + QString::number(itemId) + ".png";
+                 + "/imgs/items/item_" + QString::number(iconId) + ".png";
     QPixmap pm(path);
     if (pm.isNull()) return {};
     return pm.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
@@ -399,7 +401,7 @@ void CharacterTab::rebuildInventoryPanel()
             btn->setToolTip(QString::fromUtf8("%1 \xe2\x80\x94 vide").arg(ab));
         } else {
             const ItemData& item = eqIt->second;
-            QPixmap icon = loadItemIcon(item.id, kEquipIconSize);
+            QPixmap icon = loadItemIcon(item.icon, kEquipIconSize);
             if (!icon.isNull()) {
                 btn->setIcon(QIcon(icon));
                 btn->setIconSize(icon.size());

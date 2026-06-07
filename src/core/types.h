@@ -130,7 +130,7 @@ struct SpellData {
 // ── Items ─────────────────────────────────────────────────────────────
 
 struct ItemData {
-    int id{}, hp{}, mana{}, ac{}, atk{};
+    int id{}, icon{}, hp{}, mana{}, ac{}, atk{};
     int astr{}, asta{}, adex{}, aagi{}, aint{}, awis{}, acha{};
     int mr{}, fr{}, cr{}, dr{}, pr{};
     int damage{}, delay{}, itemtype{};

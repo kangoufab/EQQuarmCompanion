@@ -57,7 +57,7 @@ static QString spaCaseMulti(const QList<int>& spas, const QString& col, int defa
 
 static QString buildCols() {
     return
-        "i.id, i.Name AS name, i.ac, i.hp, i.mana, i.damage, i.delay, i.itemtype, "
+        "i.id, i.icon, i.Name AS name, i.ac, i.hp, i.mana, i.damage, i.delay, i.itemtype, "
         "i.range AS itemrange, "
         "i.astr, i.asta, i.aagi, i.adex, i.awis, i.aint, i.acha, "
         "i.cr, i.fr, i.dr, i.mr, i.pr, i.slots, i.classes, i.races, i.reqlevel, "
@@ -96,6 +96,7 @@ static QString buildFrom() {
 static ItemData rowToItemData(QSqlQuery& q) {
     ItemData item;
     item.id             = q.value("id").toInt();
+    item.icon           = q.value("icon").toInt();
     item.name           = q.value("name").toString().toStdString();
     item.ac             = q.value("ac").toInt();
     item.hp             = q.value("hp").toInt();
