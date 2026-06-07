@@ -446,8 +446,11 @@ void CharacterTab::rebuildInventoryPanel()
                 btn->setIconSize(icon.size());
             } else {
                 btn->setText(ab);
+                // kTextTileKey (pas kTextSlotLabel) : la cellule a un fond kBgTile,
+                // et kTextSlotLabel n'atteint que 3.90:1 dessus (échec WCAG AA) —
+                // kTextTileKey est garanti ≥4.5:1 sur tous les fonds de tuile.
                 btn->setStyleSheet(btn->styleSheet() + QString(
-                    "QPushButton { color: %1; font-size: 10px; }").arg(kTextSlotLabel));
+                    "QPushButton { color: %1; font-size: 10px; }").arg(kTextTileKey));
             }
             btn->setToolTip(formatItemTooltip(item, kTextPrimary));
             btn->setAccessibleName(fullSlotName + " : " + QString::fromStdString(item.name));
