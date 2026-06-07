@@ -1,5 +1,6 @@
 #pragma once
 #include "ui/palette.h"
+#include "ui/ui_helpers.h"
 #include <map>
 #include <set>
 #include <string>
@@ -25,11 +26,18 @@ inline const std::map<std::string, const char*> CAT_LABELS = {
     {"Sorts",   "Sorts"},
 };
 
+// bg/border viennent de sectionTheme() (thème par accent) — accent affiché peut différer
+// du thème (ex: Melee utilise le thème kRed mais affiche en kAccentMelee, plus clair).
+inline CatColors catColors(const char* themeAccent, const char* displayAccent) {
+    auto [bg, border] = sectionTheme(themeAccent);
+    return {bg, border, displayAccent};
+}
+
 inline const std::map<std::string, CatColors> CAT_COLORS = {
-    {"Melee",   {"#2a1a1a", "#5a3a3a", kAccentMelee}},
-    {"Range",   {"#2a241a", "#5a4a3a", kOrange}},
-    {"Defense", {kBgCard,   kBorderCard, kAccentBlue}},
-    {"Sorts",   {"#241a2a", "#4a3a5a", kAccentPurple}},
+    {"Melee",   catColors(kRed,          kAccentMelee)},
+    {"Range",   catColors(kOrange,       kOrange)},
+    {"Defense", catColors(kAccentBlue,   kAccentBlue)},
+    {"Sorts",   catColors(kAccentPurple, kAccentPurple)},
 };
 
 inline const std::map<std::string, std::set<std::string>> CLASS_CATEGORIES = {

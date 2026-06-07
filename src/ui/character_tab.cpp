@@ -251,8 +251,8 @@ void CharacterTab::buildUi()
             QString("QPushButton { background: %1; border: 1px solid %2; "
                     "border-radius: 3px; color: %3; padding: 3px 10px; font-size: 13px; }"
                     "QPushButton:hover { border-color: %4; color: %4; }"
-                    "QPushButton:disabled { color: #444; border-color: #2a3045; }")
-            .arg(kBorderMid, kBorderCard, kTextBase, kAccentBlue));
+                    "QPushButton:disabled { color: %5; border-color: %6; }")
+            .arg(kBorderMid, kBorderCard, kTextBase, kAccentBlue).arg(kTextDim).arg(kBorderDisabled));
         connect(_clearBtn, &QPushButton::clicked, this, [this]() {
             _searchCombo->lineEdit()->clear();
             _searchResults.clear();
@@ -348,9 +348,10 @@ void CharacterTab::rebuildInventoryPanel()
             nameBtn->setFlat(true);
             nameBtn->setStyleSheet(
                 QString("QPushButton { text-align: left; color: %1; background: transparent; "
-                        "border: none; font-size: 12px; padding: 0; }"
-                        "QPushButton:hover { color: %2; }")
-                .arg(kTextBase, kGreen));
+                        "border: 1px solid transparent; font-size: 12px; padding: 0; }"
+                        "QPushButton:hover { color: %2; }"
+                        "QPushButton:focus { border: 1px solid %3; border-radius: 2px; }")
+                .arg(kTextBase, kGreen, kBorderAccent));
             nameBtn->setToolTip(formatItemTooltip(*item, kTextPrimary));
             if (onClick) connect(nameBtn, &QPushButton::clicked, onClick);
             rl->addWidget(nameBtn, 1);
@@ -386,7 +387,7 @@ void CharacterTab::rebuildInventoryPanel()
     if (byBag.empty()) {
         addTitle(QString::fromUtf8("Sacs"));
         auto* lbl = new QLabel(QString::fromUtf8("(vide)"));
-        lbl->setStyleSheet("color: #2a3a4a; font-size: 12px; padding: 4px 8px;");
+        lbl->setStyleSheet(QString("color: %1; font-size: 12px; padding: 4px 8px;").arg(kTextEmptySlot));
         vl->addWidget(lbl);
     } else {
         for (auto& [bagNum, items] : byBag) {
@@ -495,7 +496,7 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
             const char *tileBg, *tileFg;
             if (!hasCap)      { tileBg = kBgTileNoLimit; tileFg = kGreen; }
             else if (atCap)   { tileBg = kBgTileAtCap;   tileFg = kAccentAtCap; }
-            else               { tileBg = kBgTile;        tileFg = "#cccccc"; }
+            else               { tileBg = kBgTile;        tileFg = kTextBase; }
 
             auto* tile = new QFrame;
             tile->setStyleSheet(
@@ -775,10 +776,11 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
         auto* equipBtn = new QPushButton(
             QString::fromUtf8("\xe2\x9c\x93  \xc3\x89quiper dans ") + slot);
         equipBtn->setStyleSheet(
-            QString("QPushButton { background: #1e3a1e; border: 1px solid %1; "
-                    "border-radius: 3px; color: %1; padding: 4px 12px; font-size: 13px; }"
-                    "QPushButton:hover { background: %1; color: %2; }")
-            .arg(kGreen, kBgMain));
+            QString("QPushButton { background: %1; border: 1px solid %2; "
+                    "border-radius: 3px; color: %2; padding: 4px 12px; font-size: 13px; }"
+                    "QPushButton:hover { background: %2; color: %3; }"
+                    "QPushButton:focus { border: 1px solid %4; }")
+            .arg(kBgActionEquip, kGreen, kBgMain, kBorderAccent));
         connect(equipBtn, &QPushButton::clicked,
                 [this, slot=slot.toStdString(), item=newItem]() {
                     emit equipRequested(slot, item);
@@ -791,10 +793,11 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
         auto* srcBtn = new QPushButton(
             QString::fromUtf8("Qui droppe cet item ?"));
         srcBtn->setStyleSheet(
-            QString("QPushButton { background: #1e2a3e; border: 1px solid %1; "
-                    "border-radius: 3px; color: %2; padding: 3px 10px; font-size: 13px; }"
-                    "QPushButton:hover { border-color: %3; color: %3; }")
-            .arg(kBorderCard, kTextSecondary, kAccentBlue));
+            QString("QPushButton { background: %1; border: 1px solid %2; "
+                    "border-radius: 3px; color: %3; padding: 3px 10px; font-size: 13px; }"
+                    "QPushButton:hover { border-color: %4; color: %4; }"
+                    "QPushButton:focus { border-color: %4; color: %4; }")
+            .arg(kBgActionSource, kBorderCard, kTextSecondary, kAccentBlue));
         connect(srcBtn, &QPushButton::clicked,
                 [this, itemId=newItem.id, itemName=QString::fromStdString(newItem.name)]() {
                     onShowSources(itemId, itemName);
@@ -851,7 +854,7 @@ void CharacterTab::onShowSources(int itemId, const QString& itemName)
     auto* scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scroll->setStyleSheet(QString("QScrollArea { border: 1px solid %1; background: #141428; }").arg(kBorderCard));
+    scroll->setStyleSheet(QString("QScrollArea { border: 1px solid %1; background: %2; }").arg(kBorderCard, kSurfaceDialog));
     scroll->setVisible(false);
     auto* inner = new QWidget;
     inner->setStyleSheet("background: transparent;");
@@ -976,7 +979,7 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
                                         const PlayerTotals& totals) const
 {
     // Couleur d'accent selon la catégorie du stat
-    const char* catAccent = "#cccccc";
+    const char* catAccent = kTextBase;
     for (auto& [catName, catStats] : STAT_CATEGORIES) {
         for (auto& s : catStats) {
             if (s == stat) {
@@ -1013,7 +1016,8 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
     };
     auto valRow = [](const QString& lbl, const QString& val,
                      const char* vc, bool italic = false) -> QString {
-        QString ls = italic ? "color:#999;font-style:italic;" : "color:#999;";
+        QString ls = italic ? QString("color:%1;font-style:italic;").arg(kTextSecondary)
+                            : QString("color:%1;").arg(kTextSecondary);
         QString vs = italic ? QString("color:%1;font-style:italic;").arg(vc)
                             : QString("color:%1;").arg(vc);
         return QString(
@@ -1033,7 +1037,7 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
             "<span style='color:%5;'> / %4%3</span>")
             .arg(catAccent).arg(dispVal).arg(sfx).arg(cap).arg(kTextDim);
         if (rawVal > cap)
-            headerVal += QString("<span style='color:#777;'> (brut %1)</span>").arg(rawVal);
+            headerVal += QString("<span style='color:%1;'> (brut %2)</span>").arg(kTextTileKey).arg(rawVal);
     } else {
         headerVal = QString("<span style='color:%1;font-weight:bold;'>%2%3</span>")
             .arg(catAccent).arg(dispVal).arg(sfx);

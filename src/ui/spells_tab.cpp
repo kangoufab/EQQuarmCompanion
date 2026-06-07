@@ -41,9 +41,9 @@ static QString spellExtraRows(const SpellData& spell, const QString& conflictNam
                 "padding:6px 0 2px;'>─ CONFLIT</td></tr>";
         rows += QString("<tr>"
                         "<td style='color:#7a4040;padding:1px 20px 1px 10px;'>Bloqué par</td>"
-                        "<td align='right' style='color:#cc6666;'>%1</td>"
+                        "<td align='right' style='color:%1;'>%2</td>"
                         "</tr>")
-                .arg(conflictName.toHtmlEscaped());
+                .arg(kAccentBlocked, conflictName.toHtmlEscaped());
     }
 
     bool hasDur    = spell.buffdurationformula > 0 && spell.buffduration > 0;
@@ -236,13 +236,13 @@ void SpellsTab::buildUi()
             return btn;
         };
 
-        _loadBtn = makeBtn("Charger", "#64b5f6");
+        _loadBtn = makeBtn("Charger", kAccentBlue);
         sh->addWidget(_loadBtn);
 
-        auto* saveBtn = makeBtn("Sauvegarder", "#81c784");
+        auto* saveBtn = makeBtn("Sauvegarder", kGreen);
         sh->addWidget(saveBtn);
 
-        _deleteBtn = makeBtn("Supprimer", "#e57373");
+        _deleteBtn = makeBtn("Supprimer", kAccentMelee);
         sh->addWidget(_deleteBtn);
 
         sh->addStretch();
@@ -563,9 +563,9 @@ void SpellsTab::rebuildRightPanel()
         if (isBlocked) {
             QString wname = winnerNames.count(spell.id) ? winnerNames[spell.id] : "un autre sort";
             { QFont f = cb->font(); f.setStrikeOut(true); cb->setFont(f); }
-            cb->setStyleSheet("font-size: 14px; color: #cc6666;");
+            cb->setStyleSheet(QString("font-size: 14px; color: %1;").arg(kAccentBlocked));
             cb->setToolTip(appendTooltipRows(
-                formatSpellTooltip(spell, tooltipLevel, {}, "#cc6666"),
+                formatSpellTooltip(spell, tooltipLevel, {}, kAccentBlocked),
                 spellExtraRows(spell, wname)));
             cb->setEnabled(false);
         } else if (!isSelected) {
@@ -575,20 +575,20 @@ void SpellsTab::rebuildRightPanel()
                 for (auto& b : _activeBuffs)
                     if (b.spell.id == *conflict) { wname = QString::fromStdString(b.spell.name); break; }
                 { QFont f = cb->font(); f.setStrikeOut(true); cb->setFont(f); }
-            cb->setStyleSheet("font-size: 14px; color: #cc6666;");
+            cb->setStyleSheet(QString("font-size: 14px; color: %1;").arg(kAccentBlocked));
                 cb->setToolTip(appendTooltipRows(
-                    formatSpellTooltip(spell, tooltipLevel, {}, "#cc6666"),
+                    formatSpellTooltip(spell, tooltipLevel, {}, kAccentBlocked),
                     spellExtraRows(spell, wname)));
                 cb->setEnabled(false);
             } else {
-                cb->setStyleSheet("font-size: 14px; color: #c0c0c0;");
+                cb->setStyleSheet(QString("font-size: 14px; color: %1;").arg(kTextBase));
                 cb->setToolTip(appendTooltipRows(
                     formatSpellTooltip(spell, tooltipLevel, {}, accent),
                     spellExtraRows(spell)));
                 cb->setEnabled(!atCap);
             }
         } else {
-            cb->setStyleSheet("font-size: 14px; color: #c0c0c0;");
+            cb->setStyleSheet(QString("font-size: 14px; color: %1;").arg(kTextBase));
             cb->setToolTip(appendTooltipRows(
                 formatSpellTooltip(spell, tooltipLevel, {}, accent),
                 spellExtraRows(spell)));
@@ -728,9 +728,8 @@ void SpellsTab::rebuildActiveBuffsList()
             QFont f = nameLbl->font(); f.setStrikeOut(true); nameLbl->setFont(f);
         }
         nameLbl->setStyleSheet(
-            blocked
-            ? "font-size: 13px; color: #cc6666; border: none; background: transparent;"
-            : "font-size: 13px; color: #c0c0c0; border: none; background: transparent;");
+            QString("font-size: 13px; color: %1; border: none; background: transparent;")
+                .arg(blocked ? kAccentBlocked : kTextBase));
         QString conflictName;
         if (blocked) {
             auto cit = _conflicts.find(b.spell.id);
@@ -742,9 +741,9 @@ void SpellsTab::rebuildActiveBuffsList()
                 if (conflictName.isEmpty()) conflictName = "un autre sort";
             }
         }
-        QString tipAccent = blocked            ? "#cc6666"
-                          : (b.buffClass == "Clickies") ? "#ba68c8"
-                          : "#80b0e0";
+        QString tipAccent = blocked            ? kAccentBlocked
+                          : (b.buffClass == "Clickies") ? kAccentPurple
+                          : kAccentBuff;
         int tipLevel = _charInfo ? _charInfo->level : expansionMaxLevel();
         nameLbl->setToolTip(appendTooltipRows(
             formatSpellTooltip(b.spell, tipLevel, {}, tipAccent),
@@ -755,15 +754,22 @@ void SpellsTab::rebuildActiveBuffsList()
             ? "Clk" : QString::fromStdString(b.buffClass).left(3);
         auto* clsLbl = new QLabel(shortCls);
         clsLbl->setStyleSheet(
-            "font-size: 14px; color: #555; border: none; background: transparent;");
+            QString("font-size: 14px; color: %1; border: none; background: transparent;").arg(kTextSecondary));
         rl->addWidget(clsLbl);
 
         auto* removeBtn = new QPushButton("\xc3\x97");
         removeBtn->setFixedSize(20, 20);
-        removeBtn->setStyleSheet(
-            "QPushButton { background: #2a1a1a; border: 1px solid #5a3a3a; "
-            "color: #e57373; font-size: 13px; border-radius: 3px; padding: 0; }"
-            "QPushButton:hover { background: #5a3a3a; }");
+        removeBtn->setAccessibleName(
+            QString::fromUtf8("Retirer ") + QString::fromStdString(b.spell.name));
+        removeBtn->setToolTip(QString::fromUtf8("Retirer"));
+        {
+            auto [rmBg, rmBorder] = sectionTheme(kRed);
+            removeBtn->setStyleSheet(
+                QString("QPushButton { background: %1; border: 1px solid %2; "
+                        "color: %3; font-size: 13px; border-radius: 3px; padding: 0; }"
+                        "QPushButton:hover { background: %2; }")
+                    .arg(rmBg, rmBorder, kAccentMelee));
+        }
         SpellData spellCopy = b.spell;
         connect(removeBtn, &QPushButton::clicked, this, [this, spellCopy] {
             _activeBuffs.erase(
@@ -796,16 +802,16 @@ void SpellsTab::rebuildActiveBuffsList()
             _activeBuffsLayout->insertWidget(_activeBuffsLayout->count() - 1, makeRow(*bp));
     };
 
-    addSection("Buffs", "#64b5f6", regularBuffs);
+    addSection("Buffs", kAccentBlue, regularBuffs);
 
     if (!regularBuffs.empty() && !songs.empty()) {
         auto* sep = new QFrame;
         sep->setFrameShape(QFrame::HLine);
-        sep->setStyleSheet("QFrame { color: #2a3a5a; margin: 3px 0; }");
+        sep->setStyleSheet(QString("QFrame { color: %1; margin: 3px 0; }").arg(kBorderMid));
         _activeBuffsLayout->insertWidget(_activeBuffsLayout->count() - 1, sep);
     }
 
-    addSection("\xe2\x99\xaa Songs", "#ffd54f", songs);
+    addSection("\xe2\x99\xaa Songs", kAccentSong, songs);
 }
 
 // ── refreshStats ──────────────────────────────────────────────────────────

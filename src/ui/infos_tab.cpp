@@ -48,9 +48,10 @@ InfosTab::InfosTab(Config* cfg, QWidget* parent) : QWidget(parent), _config(cfg)
 
     // Legend
     auto* legend = new QLabel(
-        "<span style='color:#9cbe9c'>■ Bard songs</span>"
-        " <span style='color:#555555'>— stackent toujours avec les debuffs non-bard"
-        " (buffstacking.cpp: caster bard → goto STACK_OK)</span>");
+        QString("<span style='color:%1'>■ Bard songs</span>"
+        " <span style='color:%2'>— stackent toujours avec les debuffs non-bard"
+        " (buffstacking.cpp: caster bard → goto STACK_OK)</span>")
+        .arg(kAccentBard, kTextDim));
     legend->setTextFormat(Qt::RichText);
     legend->setStyleSheet("font-size:11px;background:transparent;border:none;padding:0;");
     outer->addWidget(legend);
@@ -141,7 +142,7 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
     const char* headers[] = {"Meilleur sort","Classes","Val.","Cible"};
     int colWidths[]       = {280,             155,      48,    65};
     for (int ci = 0; ci < 4; ++ci) {
-        auto* lbl = new QLabel(QString("<span style='color:#444444'>%1</span>").arg(headers[ci]));
+        auto* lbl = new QLabel(QString("<span style='color:%1'>%2</span>").arg(kTextSecondary, headers[ci]));
         lbl->setTextFormat(Qt::RichText);
         lbl->setStyleSheet("background:transparent;border:none;font-size:11px;");
         lbl->setMinimumWidth(colWidths[ci]);
@@ -197,10 +198,10 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
         int val = spellResistVal(*best, resist.c_str(), cap);
 
         int r = rowI + 1;
-        QString rowBg = (rowI % 2 == 0) ? "#18181e" : "transparent";
+        QString rowBg = (rowI % 2 == 0) ? kSurfaceMid : "transparent";
 
         // Spell name (col 0)
-        const char* nameColor = grp.is_bard ? "#b8d8b8" : "#e0e0e0";
+        const char* nameColor = grp.is_bard ? kAccentBardLight : kTextPrimary;
         auto* nameLbl = new QLabel(QString("<span style='color:%1'>%2</span>")
                                    .arg(nameColor).arg(best->name));
         nameLbl->setTextFormat(Qt::RichText);
@@ -208,22 +209,22 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
         grid->addWidget(nameLbl, r, 0);
 
         // Classes (col 1)
-        auto* clsLbl = new QLabel(QString("<span style='color:#777777'>%1</span>")
-                                  .arg(QString::fromStdString(classesStr(*best))));
+        auto* clsLbl = new QLabel(QString("<span style='color:%1'>%2</span>")
+                                  .arg(kTextSecondary, QString::fromStdString(classesStr(*best))));
         clsLbl->setTextFormat(Qt::RichText);
         clsLbl->setStyleSheet(QString("background:%1;border:none;font-size:11px;padding:2px 3px;").arg(rowBg));
         grid->addWidget(clsLbl, r, 1);
 
         // Value (col 2)
-        const char* vc = val <= -40 ? "#81c784" : val <= -20 ? "#ffb74d" : "#aaaaaa";
+        const char* vc = val <= -40 ? kGreen : val <= -20 ? kOrange : kTextBase;
         auto* valLbl = new QLabel(QString("<b><span style='color:%1'>%2</span></b>").arg(vc).arg(val));
         valLbl->setTextFormat(Qt::RichText);
         valLbl->setStyleSheet(QString("background:%1;border:none;font-size:12px;padding:2px 3px;").arg(rowBg));
         grid->addWidget(valLbl, r, 2);
 
         // Target type (col 3)
-        auto* ttLbl = new QLabel(QString("<span style='color:#666666'>%1</span>")
-                                 .arg(targetLabel(best->targettype)));
+        auto* ttLbl = new QLabel(QString("<span style='color:%1'>%2</span>")
+                                 .arg(kTextSecondary, targetLabel(best->targettype)));
         ttLbl->setTextFormat(Qt::RichText);
         ttLbl->setStyleSheet(QString("background:%1;border:none;font-size:11px;padding:2px 3px;").arg(rowBg));
         grid->addWidget(ttLbl, r, 3);
@@ -238,7 +239,7 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
     if (totalVal < 0) {
         auto* sep = new QFrame;
         sep->setFrameShape(QFrame::HLine);
-        sep->setStyleSheet("color:#2a2a3a;");
+        sep->setStyleSheet(QString("color:%1;").arg(kBorderSep));
         vl->addWidget(sep);
 
         auto* totRow = new QHBoxLayout;
@@ -248,7 +249,7 @@ QWidget* InfosTab::buildResistSection(const std::string& resist, int cap, int ex
                                  .arg(color));
         auto* totLblVal = new QLabel(QString("<b>%1</b>").arg(totalVal));
         totLblVal->setTextFormat(Qt::RichText);
-        totLblVal->setStyleSheet("color:#81c784;font-size:18px;background:transparent;border:none;");
+        totLblVal->setStyleSheet(QString("color:%1;font-size:18px;background:transparent;border:none;").arg(kGreen));
         totRow->addWidget(totLblKey);
         totRow->addStretch();
         totRow->addWidget(totLblVal);

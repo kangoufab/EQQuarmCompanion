@@ -41,7 +41,7 @@ static QString makeStatTooltip(const std::string& statKey,
     if (cap.has_value())
         valStr += QString("<span style='color:%1;'> / %2%3</span>").arg(kTextMuted).arg(*cap).arg(sfxQ);
     if (rawVal != cappedVal)
-        valStr += QString(" <span style='color:#888;font-size:14px;'>(brut %1)</span>").arg(rawVal);
+        valStr += QString(" <span style='color:%1;font-size:14px;'>(brut %2)</span>").arg(kTextSecondary).arg(rawVal);
 
     QString rows;
     auto row = [&](const QString& label, const QString& val, const char* color) {
@@ -215,7 +215,7 @@ static QWidget* makeEffectsWidget(const std::vector<EffectEntry>& effects,
             if (!itemName.empty()) {
                 tip += "<br><br>";
                 for (auto& src : QString::fromStdString(itemName).split('\n', Qt::SkipEmptyParts))
-                    tip += QString("<span style='color:#888;'>%1</span><br>").arg(src);
+                    tip += QString("<span style='color:%1;'>%2</span><br>").arg(kTextSecondary, src);
             }
             lbl->setToolTip(tip);
         } else if (spellId > 0) {
@@ -223,8 +223,8 @@ static QWidget* makeEffectsWidget(const std::vector<EffectEntry>& effects,
             if (it != spellDetails.end()) {
                 QString tip = formatSpellTooltip(it->second, tooltipLevel, {}, QString(color));
                 if (!itemName.empty())
-                    tip = QString("<i style='color:#888;'>%1</i><br>")
-                          .arg(QString::fromStdString(itemName)) + tip;
+                    tip = QString("<i style='color:%1;'>%2</i><br>")
+                          .arg(kTextSecondary, QString::fromStdString(itemName)) + tip;
                 lbl->setToolTip(tip);
             }
         }
@@ -274,7 +274,7 @@ QFrame* makePlayerStatsBar(
     int resistCap = oldExp ? 200 : 500;
 
     auto* frame = new QFrame;
-    frame->setStyleSheet("QFrame { background: #0f1624; border: none; }");
+    frame->setStyleSheet(QString("QFrame { background: %1; border: none; }").arg(kBgMain));
     auto* outer = new QVBoxLayout(frame);
     outer->setContentsMargins(0, 4, 0, 4);
     outer->setSpacing(4);
@@ -326,7 +326,7 @@ QFrame* makePlayerStatsBar(
             const char *tileBg, *tileFg;
             if (!hasCap)    { tileBg = kBgTileNoLimit; tileFg = kGreen; }
             else if (atCap) { tileBg = kBgTileAtCap;  tileFg = kAccentAtCap; }
-            else             { tileBg = kBgTile;       tileFg = "#cccccc"; }
+            else             { tileBg = kBgTile;       tileFg = kTextBase; }
 
             auto* tile = new QFrame;
             tile->setStyleSheet(
@@ -390,17 +390,18 @@ QFrame* makePlayerStatsBar(
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scrollArea->setWidgetResizable(true);
     scrollArea->setStyleSheet(
-        "QScrollArea { background: transparent; border: none; }"
-        "QScrollBar:horizontal {"
-        "  height: 6px; background: #0a0f1a;"
-        "  border-radius: 3px; margin: 0px;"
-        "}"
-        "QScrollBar::handle:horizontal {"
-        "  background: #3a4a6a; border-radius: 3px; min-width: 20px;"
-        "}"
-        "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {"
-        "  width: 0px;"
-        "}");
+        QString(
+            "QScrollArea { background: transparent; border: none; }"
+            "QScrollBar:horizontal {"
+            "  height: 6px; background: %1;"
+            "  border-radius: 3px; margin: 0px;"
+            "}"
+            "QScrollBar::handle:horizontal {"
+            "  background: %2; border-radius: 3px; min-width: 20px;"
+            "}"
+            "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {"
+            "  width: 0px;"
+            "}").arg(kBgScrollTrack, kBorderCard));
     scrollArea->setWidget(scrollContent);
     outer->addWidget(scrollArea);
 

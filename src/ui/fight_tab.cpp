@@ -110,7 +110,7 @@ static QString valueDeltaInvert(int v, int r) {
 static QWidget* tileGrid(const std::vector<std::pair<QString,QString>>& tiles, int cols = 4) {
     static const std::map<std::string, std::pair<const char*,const char*>> tileAccents = {
         {"HP",  {kBgTileNoLimit, kGreen}},
-        {"ATK", {"#2a1e1e",     kRed}},
+        {"ATK", {kBgTileAtk,   kRed}},
     };
     auto* w = new QWidget; w->setStyleSheet("background:transparent;");
     auto* g = new QGridLayout(w);
@@ -340,9 +340,9 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
                         "border-radius:3px;padding:1px 5px;background:transparent;").arg(color));
             tagsL->addWidget(t);
         };
-        if (npc.raid_target) addTag("RAID",      "#ef5350");
-        if (npc.is_quest)    addTag("QUEST",     "#ffb74d");
-        if (npc.encounter)   addTag("ENCOUNTER", "#ba68c8");
+        if (npc.raid_target) addTag("RAID",      kRed);
+        if (npc.is_quest)    addTag("QUEST",     kOrange);
+        if (npc.encounter)   addTag("ENCOUNTER", kAccentPurple);
         tagsL->addStretch();
         layout->addWidget(tagsW);
     }
@@ -355,8 +355,8 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
     if (npc.zone_type >= 0) {
         auto zt = ZONE_TYPE_LABELS.find(npc.zone_type);
         if (zt != ZONE_TYPE_LABELS.end())
-            zoneTxt += QString("  <span style='color:#555555;font-size:12px;'>[%1]</span>")
-                        .arg(QString::fromUtf8(zt->second));
+            zoneTxt += QString("  <span style='color:%1;font-size:12px;'>[%2]</span>")
+                        .arg(kTextSecondary, QString::fromUtf8(zt->second));
     }
     auto* sub = new QLabel(
         zoneTxt + QString("  *  %1  *  %2")
@@ -368,8 +368,8 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
     sub->setStyleSheet(QString("color:%1;font-size:13px;").arg(kTextSecondary));
     layout->addWidget(sub);
 
-    auto [fCombat, flCombat] = sectionFrame("#64b5f6");
-    flCombat->addWidget(sectionLabel("Combat", "#64b5f6"));
+    auto [fCombat, flCombat] = sectionFrame(kAccentBlue);
+    flCombat->addWidget(sectionLabel("Combat", kAccentBlue));
     flCombat->addWidget(tileGrid({
         {"Level",    QString::number(npc.level)},
         {"HP",       QLocale(QLocale::English).toString(npc.hp)},
@@ -385,8 +385,8 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
     }, 4));
     layout->addWidget(fCombat);
 
-    auto [fRes, flRes] = sectionFrame("#64b5f6");
-    flRes->addWidget(sectionLabel("Resists", "#64b5f6"));
+    auto [fRes, flRes] = sectionFrame(kAccentBlue);
+    flRes->addWidget(sectionLabel("Resists", kAccentBlue));
     auto npcResColor = [](int v) -> QString {
         const char* c = v >= 200 ? kRed : (v >= 100 ? kOrange : kGreen);
         return QString("<span style='color:%1'>%2</span>").arg(c).arg(v);
@@ -398,15 +398,15 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
     }, 5));
     layout->addWidget(fRes);
 
-    auto [fAb, flAb] = sectionFrame("#ffb74d");
-    flAb->addWidget(sectionLabel("Special Abilities", "#ffb74d"));
+    auto [fAb, flAb] = sectionFrame(kOrange);
+    flAb->addWidget(sectionLabel("Special Abilities", kOrange));
     auto abilities = decodeSpecialAbilities(npc.special_abilities);
     if (abilities.empty()) {
-        auto* none = new QLabel("(none)"); none->setStyleSheet("color:#555555;background:transparent;");
+        auto* none = new QLabel("(none)"); none->setStyleSheet(QString("color:%1;background:transparent;").arg(kTextSecondary));
         flAb->addWidget(none);
     } else {
         for (const auto& ab : abilities) {
-            const char* c = ab.severity == "red" ? kRed : ab.severity == "orange" ? kOrange : "#888888";
+            const char* c = ab.severity == "red" ? kRed : ab.severity == "orange" ? kOrange : kTextSecondary;
             auto* lbl = new QLabel(QString::fromStdString(ab.tag));
             lbl->setStyleSheet(QString("color:%1;background:transparent;").arg(c));
             flAb->addWidget(lbl);
@@ -414,17 +414,19 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
     }
     layout->addWidget(fAb);
 
-    auto [fLoot, flLoot] = sectionFrame("#81c784");
+    auto [fLoot, flLoot] = sectionFrame(kGreen);
     {
         auto* hdrRow = new QHBoxLayout;
         hdrRow->setContentsMargins(0,0,0,0);
-        hdrRow->addWidget(sectionLabel("Loot", "#81c784"));
+        hdrRow->addWidget(sectionLabel("Loot", kGreen));
         hdrRow->addStretch();
         auto* sortBtn = new QPushButton(_lootSort == "chance" ? "Score ↓" : "% ↓");
         sortBtn->setFlat(true);
         sortBtn->setStyleSheet(
-            "QPushButton{color:#555555;font-size:13px;background:transparent;border:none;}"
-            "QPushButton:hover{color:#81c784;}");
+            QString("QPushButton{color:%1;font-size:13px;background:transparent;border:1px solid transparent;}"
+                    "QPushButton:hover{color:%2;}"
+                    "QPushButton:focus{border:1px solid %3;border-radius:2px;}")
+                .arg(kTextSecondary, kGreen, kBorderAccent));
         connect(sortBtn, &QPushButton::clicked, this,
                 [this]{ QTimer::singleShot(0, this, &FightTab::toggleLootSort); });
         hdrRow->addWidget(sortBtn);
@@ -485,8 +487,11 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
                                       .arg(item.chance, 0, 'f', 0));
                 btn->setFlat(true);
                 btn->setStyleSheet(
-                    QString("QPushButton{text-align:left;color:%1;background:transparent;border:none;padding:0;}"
-                            "QPushButton:hover{color:#81c784;}").arg(nameColor));
+                    QString("QPushButton{text-align:left;color:%1;background:transparent;"
+                            "border:1px solid transparent;padding:0;}"
+                            "QPushButton:hover{color:%2;}"
+                            "QPushButton:focus{border:1px solid %3;border-radius:2px;}")
+                        .arg(nameColor, kGreen, kBorderAccent));
                 auto fullIt = itemMap.find(item.item_id);
                 if (fullIt != itemMap.end())
                     btn->setToolTip(formatItemTooltip(*fullIt, kTextPrimary));
@@ -498,8 +503,8 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
                 if (item.nodrop) {
                     auto* ndLbl = new QLabel("NO DROP");
                     ndLbl->setStyleSheet(
-                        "color:#ef5350;font-size:11px;font-weight:bold;"
-                        "background:transparent;border:none;");
+                        QString("color:%1;font-size:11px;font-weight:bold;"
+                                "background:transparent;border:none;").arg(kRed));
                     rowL->addWidget(ndLbl);
                 }
                 rowL->addStretch();
@@ -550,7 +555,7 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
     int hp = _totals->hp.capped;
 
     // Incoming Damage
-    auto [fDmg, flDmg] = sectionFrame("#ef5350");
+    auto [fDmg, flDmg] = sectionFrame(kRed);
     flDmg->addWidget(sectionLabelPrimary("Incoming Damage", kRed));
     auto dmg = incomingDamage(npc, *_totals, _charInfo->class_name,
                                _charInfo->level, "none");
@@ -562,7 +567,7 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
     };
     if (spDps > 0.f)
         dmgRows.push_back({"Spell DPS",
-            QString("<span style='color:#ba68c8'>~%1/s</span>").arg(spDps,0,'f',0)});
+            QString("<span style='color:%1'>~%2/s</span>").arg(kAccentPurple).arg(spDps,0,'f',0)});
     flDmg->addWidget(gridWidget(dmgRows, 1));
 
     using DiscRow = std::pair<QString, IncomingDamageResult>;
@@ -584,9 +589,9 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
     layout->addWidget(fDmg);
 
     // Your Resists
-    auto [fRes, flRes] = sectionFrame("#64b5f6");
+    auto [fRes, flRes] = sectionFrame(kAccentBlue);
     flRes->addWidget(sectionLabel(
-        QString("Your Resists (vs lv.%1 spells)").arg(npc.level), "#64b5f6"));
+        QString("Your Resists (vs lv.%1 spells)").arg(npc.level), kAccentBlue));
     auto ratings = resistRatings(npc, *_totals, _charInfo->level);
     auto resEntry = [](const ResistRating& r) -> QString {
         const char* c = r.rating == Rating::GOOD   ? kGreen
@@ -629,17 +634,17 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
     layout->addWidget(fRes);
 
     // NPC Spells
-    auto [fSpells, flSpells] = sectionFrame("#ba68c8");
-    flSpells->addWidget(sectionLabel("NPC Spells", "#ba68c8"));
+    auto [fSpells, flSpells] = sectionFrame(kAccentPurple);
+    flSpells->addWidget(sectionLabel("NPC Spells", kAccentPurple));
     if (spells.isEmpty()) {
-        auto* nl = new QLabel("(no spells)"); nl->setStyleSheet("color:#555555;background:transparent;");
+        auto* nl = new QLabel("(no spells)"); nl->setStyleSheet(QString("color:%1;background:transparent;").arg(kTextSecondary));
         flSpells->addWidget(nl);
     } else {
         int i = 0;
         for (const auto& sp : spells) {
             auto* frame = new QFrame;
-            frame->setStyleSheet(i%2==0 ? "background:#16161e;border-radius:3px;"
-                                        : "background:#1e1e2c;border-radius:3px;");
+            frame->setStyleSheet(QString("background:%1;border-radius:3px;")
+                                     .arg(i%2==0 ? kSurfaceMid : kSurfaceMidAlt));
             auto* inner = new QVBoxLayout(frame);
             inner->setContentsMargins(8, 4, 8, 4); inner->setSpacing(2);
 
@@ -681,7 +686,7 @@ QWidget* FightTab::buildRightPanel(const NpcData& npc) {
     layout->addWidget(fSpells);
 
     // Your Offense
-    auto [fOff, flOff] = sectionFrame("#ffb74d");
+    auto [fOff, flOff] = sectionFrame(kOrange);
     flOff->addWidget(sectionLabelPrimary("Your Offense (vs NPC resists)", kOrange));
     auto off = offenseRatings(npc, *_totals, _charInfo->class_name);
     const char* mc = off.melee.rating == OffenseRating::EASY   ? kGreen
@@ -865,7 +870,7 @@ void FightTab::showLootForSlot(const QString& slot) {
 
     auto* sep = new QFrame;
     sep->setFrameShape(QFrame::HLine);
-    sep->setStyleSheet("QFrame{color:#333333;border:none;background:#333333;max-height:1px;}");
+    sep->setStyleSheet(QString("QFrame{color:%1;border:none;background:%1;max-height:1px;}").arg(kBorderSep));
     _itemSectionLayout->addWidget(sep);
 
     // Slot buttons (only when multiple slots)
@@ -874,18 +879,21 @@ void FightTab::showLootForSlot(const QString& slot) {
         auto* slotL = new QHBoxLayout(slotW);
         slotL->setContentsMargins(0, 2, 0, 4); slotL->setSpacing(4);
         auto* lbl = new QLabel("Slot :");
-        lbl->setStyleSheet("color:#888;font-size:12px;background:transparent;");
+        lbl->setStyleSheet(QString("color:%1;font-size:12px;background:transparent;").arg(kTextSecondary));
         slotL->addWidget(lbl);
         for (const auto& s : _lootSlots) {
             auto* btn = new QPushButton(s);
             bool cur = (s == slot);
             btn->setEnabled(!cur);
             btn->setStyleSheet(cur
-                ? "QPushButton{background:#2a3a5a;border:1px solid #64b5f6;border-radius:3px;"
-                  "color:#64b5f6;padding:1px 8px;font-size:12px;}"
-                : "QPushButton{background:#1a2236;border:1px solid #3a4a6a;border-radius:3px;"
-                  "color:#c0c0c0;padding:1px 8px;font-size:12px;}"
-                  "QPushButton:hover{border-color:#64b5f6;color:#64b5f6;}");
+                ? QString("QPushButton{background:%1;border:1px solid %2;border-radius:3px;"
+                          "color:%2;padding:1px 8px;font-size:12px;}")
+                      .arg(kBorderMid, kAccentBlue)
+                : QString("QPushButton{background:%1;border:1px solid %2;border-radius:3px;"
+                          "color:%3;padding:1px 8px;font-size:12px;}"
+                          "QPushButton:hover{border-color:%4;color:%4;}"
+                          "QPushButton:focus{border-color:%4;color:%4;}")
+                      .arg(kBgCard, kBorderCard, kTextBase, kAccentBlue));
             connect(btn, &QPushButton::clicked, [this, s]() { showLootForSlot(s); });
             slotL->addWidget(btn);
         }

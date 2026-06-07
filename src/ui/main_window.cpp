@@ -148,8 +148,8 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
         fl->setContentsMargins(8, 6, 8, 6);
         _charHeaderLabel = new QLabel(QString::fromUtf8("\xe2\x80\x94"));
         _charHeaderLabel->setStyleSheet(
-            "font-weight: bold; font-size: 14px; color: #e0e0e0; "
-            "border: none; background: transparent;");
+            QString("font-weight: bold; font-size: 14px; color: %1; "
+                    "border: none; background: transparent;").arg(kTextPrimary));
         fl->addWidget(_charHeaderLabel);
         centralLayout->addWidget(frame);
     }

@@ -165,8 +165,8 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
             auto* s = new QFrame;
             s->setFrameShape(QFrame::HLine);
             s->setStyleSheet(
-                "QFrame { border: none; border-top: 1px solid #1e2a3a; "
-                "margin: 3px 0; background: transparent; }");
+                QString("QFrame { border: none; border-top: 1px solid %1; "
+                        "margin: 3px 0; background: transparent; }").arg(kBorderCardSep));
             bodyL->addWidget(s);
         }
         firstSection = false;
@@ -400,7 +400,7 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
             };
             addSep();
             addTitle(QString("SORT  %1").arg(QString::fromStdString(clickSpell->name)),
-                     "#7e57c2");
+                     kAccentPurple);
 
             QStringList meta;
             auto rit = RESIST_LBL.find(clickSpell->resist_type);
@@ -409,7 +409,7 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
             meta << QString("Cible: %1").arg(
                 QString::fromStdString(targetTypeLabel(clickSpell->targettype)));
             auto* metaLbl = new QLabel(meta.join("  \xc2\xb7  "));
-            metaLbl->setStyleSheet("color: #555577; font-size: 11px; background: transparent;");
+            metaLbl->setStyleSheet(QString("color: %1; font-size: 11px; background: transparent;").arg(kTextSecondary));
             bodyL->addWidget(metaLbl);
 
             QString summary = QString::fromStdString(formatSpellSummary(*clickSpell, 0));
@@ -446,7 +446,7 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
 
         auto* s = new QFrame;
         s->setFrameShape(QFrame::HLine);
-        s->setStyleSheet("QFrame { border: none; border-top: 1px solid #1e2a3a; margin: 3px 0; background: transparent; }");
+        s->setStyleSheet(QString("QFrame { border: none; border-top: 1px solid %1; margin: 3px 0; background: transparent; }").arg(kBorderCardSep));
         bodyL->addWidget(s);
         auto* lbl = new QLabel(clsTxt + "  \xc2\xb7  " + racTxt);
         lbl->setStyleSheet(
