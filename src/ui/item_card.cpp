@@ -113,6 +113,9 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
         ? titleOverride
         : (item ? QString::fromStdString(item->name) : "(vide)");
     auto* nameLbl = new QLabel(displayName);
+    // PlainText : un nom d'item contenant '<', '>' ou '&' ne doit jamais être
+    // interprété comme du HTML par l'heuristique Qt::AutoText par défaut.
+    nameLbl->setTextFormat(Qt::PlainText);
     nameLbl->setStyleSheet(
         QString("font-weight: bold; font-size: 13px; color: %1; "
                 "border: none; background: transparent;").arg(kTextPrimary));
@@ -182,6 +185,9 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
 
     auto addTitle = [&](const QString& text, const char* color) {
         auto* lbl = new QLabel(text);
+        // PlainText : certains titres interpolent un nom de sort dynamique
+        // (SORT <nom>) — ne jamais le laisser interpréter comme du HTML.
+        lbl->setTextFormat(Qt::PlainText);
         lbl->setStyleSheet(
             QString("font-size: 11px; color: %1; font-weight: bold; "
                     "letter-spacing: 1px; border: none; background: transparent;")
@@ -342,7 +348,8 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
             auto* lbl = new QLabel(
                 QString("<span style='color:%1;font-weight:bold;'>%2</span>"
                         "<span style='color:%3;'> %4</span>")
-                .arg(col).arg(pfx).arg(kTextSecondary).arg(QString::fromStdString(name)));
+                .arg(col).arg(pfx).arg(kTextSecondary)
+                .arg(QString::fromStdString(name).toHtmlEscaped()));
             lbl->setTextFormat(Qt::RichText);
             lbl->setStyleSheet(
                 "font-size: 13px; font-style: italic; "
