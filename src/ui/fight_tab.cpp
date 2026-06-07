@@ -1,5 +1,6 @@
 ﻿#include "ui/fight_tab.h"
 #include "ui/item_card.h"
+#include "ui/item_tooltip.h"
 #include "ui/ui_helpers.h"
 #include "ui/widgets.h"
 #include "core/config.h"
@@ -433,12 +434,14 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
     }
     if (npc.loottable_id > 0) {
         auto loot = _npcDb->getNpcLoot(npc.loottable_id);
+
+        QList<int> lootIds;
+        for (const auto& li : loot) lootIds.append(li.item_id);
+        auto itemMap = _itemDb->getItemsByIds(lootIds);
+
         if (_lootSort == "score" && _charInfo) {
             auto weights = _config->getClassWeights(_charInfo->class_name);
             if (!weights.empty()) {
-                QList<int> lootIds;
-                for (const auto& li : loot) lootIds.append(li.item_id);
-                auto itemMap = _itemDb->getItemsByIds(lootIds);
                 std::vector<float> scores(loot.size(), 0.f);
                 for (int i = 0; i < (int)loot.size(); ++i) {
                     auto it = itemMap.find(loot[i].item_id);
@@ -484,6 +487,9 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
                 btn->setStyleSheet(
                     QString("QPushButton{text-align:left;color:%1;background:transparent;border:none;padding:0;}"
                             "QPushButton:hover{color:#81c784;}").arg(nameColor));
+                auto fullIt = itemMap.find(item.item_id);
+                if (fullIt != itemMap.end())
+                    btn->setToolTip(formatItemTooltip(*fullIt, kTextPrimary));
                 if (item.item_id > 0)
                     connect(btn, &QPushButton::clicked,
                             [this, id=item.item_id]{ onLootClicked(id); });

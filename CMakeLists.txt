@@ -63,6 +63,8 @@ add_executable(EqQuarmCompanion WIN32
     src/ui/widgets.cpp
     src/ui/item_card.cpp
     src/ui/item_card.h
+    src/ui/item_tooltip.cpp
+    src/ui/item_tooltip.h
     src/ui/settings_dialog.cpp
 )
 target_link_libraries(EqQuarmCompanion PRIVATE

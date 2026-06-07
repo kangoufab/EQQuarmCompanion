@@ -14,6 +14,7 @@
 #include <QCompleter>
 #include <QStringListModel>
 #include "ui/spell_tooltip.h"
+#include "ui/item_tooltip.h"
 #include <QSplitter>
 #include <QGridLayout>
 #include <QScrollArea>
@@ -319,7 +320,8 @@ void CharacterTab::rebuildInventoryPanel()
     };
 
     auto addRow = [&](const std::string& slotName, const QString& itemName,
-                      bool isEmpty, std::function<void()> onClick) {
+                      const ItemData* item, std::function<void()> onClick) {
+        bool isEmpty = (item == nullptr);
         auto* w = new QWidget;
         w->setStyleSheet(QString("background: transparent; border-bottom: 1px solid %1;").arg(kBorderSub));
         auto* rl = new QHBoxLayout(w);
@@ -349,6 +351,7 @@ void CharacterTab::rebuildInventoryPanel()
                         "border: none; font-size: 12px; padding: 0; }"
                         "QPushButton:hover { color: %2; }")
                 .arg(kTextBase, kGreen));
+            nameBtn->setToolTip(formatItemTooltip(*item, kTextPrimary));
             if (onClick) connect(nameBtn, &QPushButton::clicked, onClick);
             rl->addWidget(nameBtn, 1);
         }
@@ -363,14 +366,14 @@ void CharacterTab::rebuildInventoryPanel()
         if (it != _equippedItems.end()) {
             ItemData item = it->second;
             std::string sn = slotName;
-            addRow(slotName, QString::fromStdString(item.name), false,
+            addRow(slotName, QString::fromStdString(item.name), &item,
                    [this, item, sn]() {
                        clearComparison(false);
                        showComparison(item, QString::fromStdString(sn),
                                       {QString::fromStdString(sn)});
                    });
         } else {
-            addRow(slotName, QString(), true, nullptr);
+            addRow(slotName, QString(), nullptr, nullptr);
         }
     }
 
@@ -391,11 +394,11 @@ void CharacterTab::rebuildInventoryPanel()
             for (const auto* bagItem : items) {
                 auto allSlots = detectSlots(*bagItem);
                 if (allSlots.empty()) {
-                    addRow(std::string(), QString::fromStdString(bagItem->name), true, nullptr);
+                    addRow(std::string(), QString::fromStdString(bagItem->name), bagItem, nullptr);
                 } else {
                     ItemData item = *bagItem;
                     QString firstSlot = allSlots[0];
-                    addRow(std::string(), QString::fromStdString(item.name), false,
+                    addRow(std::string(), QString::fromStdString(item.name), &item,
                            [this, item, firstSlot, allSlots]() {
                                clearComparison(false);
                                showComparison(item, firstSlot, allSlots);
