@@ -27,6 +27,9 @@
 #include <QString>
 #include <QFutureWatcher>
 #include <QtConcurrent/QtConcurrent>
+#include <QCoreApplication>
+#include <QIcon>
+#include <QPixmap>
 #include <algorithm>
 #include <functional>
 #include <set>
@@ -284,6 +287,18 @@ void CharacterTab::buildUi()
 
 // ── rebuildInventoryPanel ─────────────────────────────────────────────────
 
+// Icônes d'item — déployées à côté de l'exécutable dans imgs/items/item_<id>.png
+// (CMake copie resources/imgs/items au build, l'installeur suit via {#BinDir}\*)
+static QPixmap loadItemIcon(int itemId, int size)
+{
+    if (itemId <= 0) return {};
+    QString path = QCoreApplication::applicationDirPath()
+                 + "/imgs/items/item_" + QString::number(itemId) + ".png";
+    QPixmap pm(path);
+    if (pm.isNull()) return {};
+    return pm.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+}
+
 static const std::map<std::string, const char*> SLOT_ABBREV = {
     {"Charm","Charm"},{"Left Ear","L.Ear"},{"Head","Head"},{"Face","Face"},
     {"Right Ear","R.Ear"},{"Neck","Neck"},{"Shoulders","Shoul."},{"Arms","Arms"},
@@ -359,24 +374,93 @@ void CharacterTab::rebuildInventoryPanel()
         vl->addWidget(w);
     };
 
-    // ── Équipé ───────────────────────────────────────────────────────────────
-    addTitle(QString::fromUtf8("\xe2\x9a\x94  \xc3\x89quip\xc3\xa9"));
-    for (auto& [slotName, bit] : SLOT_BITMASK) {
-        if (!isSlotAvailable(slotName)) continue;
-        auto it = _equippedItems.find(slotName);
-        if (it != _equippedItems.end()) {
-            ItemData item = it->second;
-            std::string sn = slotName;
-            addRow(slotName, QString::fromStdString(item.name), &item,
-                   [this, item, sn]() {
-                       clearComparison(false);
-                       showComparison(item, QString::fromStdString(sn),
-                                      {QString::fromStdString(sn)});
-                   });
+    // ── Équipé — grille graphique façon paperdoll (icônes item_<id>.png) ──────
+    static const int kEquipCellSize = 42;
+    static const int kEquipIconSize = 32;
+
+    auto makeEquipCell = [&](const std::string& slotName) -> QWidget* {
+        auto eqIt = _equippedItems.find(slotName);
+        bool isEmpty = (eqIt == _equippedItems.end());
+
+        auto* btn = new QPushButton;
+        btn->setFlat(true);
+        btn->setFixedSize(kEquipCellSize, kEquipCellSize);
+        btn->setCursor(isEmpty ? Qt::ArrowCursor : Qt::PointingHandCursor);
+        btn->setStyleSheet(QString(
+            "QPushButton { background: %1; border: 1px solid %2; border-radius: 4px; }"
+            "QPushButton:hover { border-color: %3; }"
+            "QPushButton:focus { border-color: %3; }")
+            .arg(isEmpty ? kBgBase : kBgTile, kBorderCard, kBorderAccent));
+
+        auto abIt = SLOT_ABBREV.find(slotName);
+        const char* ab = (abIt != SLOT_ABBREV.end()) ? abIt->second : slotName.c_str();
+
+        if (isEmpty) {
+            btn->setToolTip(QString::fromUtf8("%1 \xe2\x80\x94 vide").arg(ab));
         } else {
-            addRow(slotName, QString(), nullptr, nullptr);
+            const ItemData& item = eqIt->second;
+            QPixmap icon = loadItemIcon(item.id, kEquipIconSize);
+            if (!icon.isNull()) {
+                btn->setIcon(QIcon(icon));
+                btn->setIconSize(icon.size());
+            } else {
+                btn->setText(ab);
+                btn->setStyleSheet(btn->styleSheet() + QString(
+                    "QPushButton { color: %1; font-size: 10px; }").arg(kTextSlotLabel));
+            }
+            btn->setToolTip(formatItemTooltip(item, kTextPrimary));
+
+            ItemData itemCopy = item;
+            std::string sn = slotName;
+            connect(btn, &QPushButton::clicked, this, [this, itemCopy, sn]() {
+                clearComparison(false);
+                showComparison(itemCopy, QString::fromStdString(sn),
+                               {QString::fromStdString(sn)});
+            });
         }
+        return btn;
+    };
+
+    // Bloc armure/bijoux : grille N colonnes, ordre visuel façon paperdoll
+    static const int kEquipCols = 5;
+    static const std::vector<std::string> kEquipArmorOrder = {
+        "Charm","Left Ear","Head","Face","Right Ear","Neck",
+        "Shoulders","Arms","Back","Left Wrist","Right Wrist","Hands",
+        "Chest","Legs","Feet","Waist","Left Finger","Right Finger",
+    };
+    static const std::vector<std::string> kEquipWeaponOrder = {
+        "Primary","Secondary","Range","Ammo",
+    };
+
+    addTitle(QString::fromUtf8("\xe2\x9a\x94  \xc3\x89quip\xc3\xa9"));
+
+    auto* gridW = new QWidget;
+    gridW->setStyleSheet("background: transparent;");
+    auto* grid = new QGridLayout(gridW);
+    grid->setContentsMargins(6, 8, 6, 4);
+    grid->setSpacing(4);
+    grid->setColumnStretch(kEquipCols, 1);
+    int gi = 0;
+    for (const auto& slotName : kEquipArmorOrder) {
+        if (!isSlotAvailable(slotName)) continue;
+        grid->addWidget(makeEquipCell(slotName), gi / kEquipCols, gi % kEquipCols);
+        ++gi;
     }
+    vl->addWidget(gridW);
+
+    // Bloc armes : rangée centrée séparée (visuellement distincte de l'armure)
+    auto* weaponW = new QWidget;
+    weaponW->setStyleSheet("background: transparent;");
+    auto* weaponL = new QHBoxLayout(weaponW);
+    weaponL->setContentsMargins(8, 0, 8, 8);
+    weaponL->setSpacing(6);
+    weaponL->addStretch();
+    for (const auto& slotName : kEquipWeaponOrder) {
+        if (!isSlotAvailable(slotName)) continue;
+        weaponL->addWidget(makeEquipCell(slotName));
+    }
+    weaponL->addStretch();
+    vl->addWidget(weaponW);
 
     // ── Sacs — groupés par numéro de bag ─────────────────────────────────────
     // Construire la map {bagNum → [items]}

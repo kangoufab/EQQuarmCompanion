@@ -79,6 +79,14 @@ add_custom_command(TARGET EqQuarmCompanion POST_BUILD
     COMMENT "Copying config_defaults.json"
 )
 
+# Copy item icons next to exe (utilisés par la grille équipement de l'onglet Stuff)
+add_custom_command(TARGET EqQuarmCompanion POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+        "${CMAKE_SOURCE_DIR}/resources/imgs/items"
+        "$<TARGET_FILE_DIR:EqQuarmCompanion>/imgs/items"
+    COMMENT "Copying item icons"
+)
+
 # windeployqt (Release seulement)
 find_program(WINDEPLOYQT windeployqt
     HINTS "${Qt6_DIR}/../../../bin")
