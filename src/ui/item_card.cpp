@@ -88,7 +88,7 @@ static const std::vector<std::pair<const char*,int>> RACE_BITS_IC = {
 
 QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
                      const std::map<int,SpellData>* spells, const QString& titleOverride,
-                     const std::map<int,QString>* limitSpellNames)
+                     const std::map<int,QString>* limitSpellNames, const QString& highlightSlot)
 {
     auto* frame = new QFrame;
     frame->setStyleSheet(
@@ -123,14 +123,21 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
         QStringList sub;
         if (item->item_slots) {
             QStringList slotNames;
-            for (auto& [n,b] : SLOT_BITS_IC) if (item->item_slots & b) slotNames << n;
+            for (auto& [n,b] : SLOT_BITS_IC) {
+                if (!(item->item_slots & b)) continue;
+                QString name = QString::fromUtf8(n);
+                if (!highlightSlot.isEmpty() && name == highlightSlot)
+                    name = "<b>" + name + "</b>";
+                slotNames << name;
+            }
             if (!slotNames.isEmpty()) sub << slotNames.join(", ");
         }
         if (item->reqlevel > 0) sub << QString("Req. %1").arg(item->reqlevel);
         if (ref && !ref->name.empty())
-            sub << QString("vs %1").arg(QString::fromStdString(ref->name));
+            sub << QString("vs %1").arg(QString::fromStdString(ref->name).toHtmlEscaped());
         if (!sub.isEmpty()) {
             auto* subLbl = new QLabel(sub.join("  \xc2\xb7  "));
+            subLbl->setTextFormat(Qt::RichText);
             subLbl->setStyleSheet(
                 QString("color: %1; font-size: 11px; border: none; background: transparent;")
                 .arg(kTextSecondary));

@@ -943,8 +943,9 @@ void CharacterTab::showItemPreview(const ItemData& item, const QString& slotTitl
     auto limitNames = buildLimitSpellNames(spells);
     _itemPreviewLayout->addWidget(makeItemCard(&item, nullptr,
                                                 spells.empty() ? nullptr : &spells,
-                                                slotTitle,
-                                                limitNames.empty() ? nullptr : &limitNames));
+                                                {},
+                                                limitNames.empty() ? nullptr : &limitNames,
+                                                slotTitle));
     _itemPreviewArea->setVisible(true);
 }
 
