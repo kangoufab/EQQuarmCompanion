@@ -127,7 +127,8 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
                 if (!(item->item_slots & b)) continue;
                 QString name = QString::fromUtf8(n);
                 if (!highlightSlot.isEmpty() && name == highlightSlot)
-                    name = "<b>" + name + "</b>";
+                    name = QString("<b><span style=\"color: %1;\">%2</span></b>")
+                               .arg(kTextPrimary, name);
                 slotNames << name;
             }
             if (!slotNames.isEmpty()) sub << slotNames.join(", ");
