@@ -13,8 +13,9 @@ class QFrame;
 // titleOverride    : if non-empty, overrides the header (use for slot names).
 // limitSpellNames  : optional map of spell_id → name for SE_LimitSpell (139)
 //                    entries in focus/worn effect tooltips.
-// highlightSlot    : if non-empty, bolds the matching entry in the slot list
-//                    (e.g. the slot the item is currently equipped in).
+// highlightSlot    : if non-empty, bolds and colors (kTextPrimary) the matching
+//                    entry in the slot list (e.g. the slot the item is
+//                    currently equipped in).
 QFrame* makeItemCard(
     const ItemData*                  item,
     const ItemData*                  ref              = nullptr,

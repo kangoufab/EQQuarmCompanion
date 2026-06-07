@@ -399,17 +399,23 @@ void CharacterTab::rebuildInventoryPanel()
         btn->setFlat(true);
         btn->setFixedSize(kEquipCellSize, kEquipCellSize);
         btn->setCursor(isEmpty ? Qt::ArrowCursor : Qt::PointingHandCursor);
-        btn->setStyleSheet(QString(
-            "QPushButton { background: %1; border: 1px solid %2; border-radius: 4px; }"
-            "QPushButton:hover { border-color: %3; }"
-            "QPushButton:focus { border-color: %3; }")
-            .arg(isEmpty ? kBgBase : kBgTile, kBorderCard, kBorderAccent));
+        btn->setFocusPolicy(isEmpty ? Qt::NoFocus : Qt::StrongFocus);
+        QString cellCss = QString(
+            "QPushButton { background: %1; border: 1px solid %2; border-radius: 4px; }")
+            .arg(isEmpty ? kBgBase : kBgTile, kBorderCard);
+        if (!isEmpty)
+            cellCss += QString(
+                "QPushButton:hover { border-color: %1; }"
+                "QPushButton:focus { border-color: %1; }").arg(kBorderAccent);
+        btn->setStyleSheet(cellCss);
 
+        QString fullSlotName = QString::fromStdString(slotName);
         auto abIt = SLOT_ABBREV.find(slotName);
         const char* ab = (abIt != SLOT_ABBREV.end()) ? abIt->second : slotName.c_str();
 
         if (isEmpty) {
             btn->setToolTip(QString::fromUtf8("%1 \xe2\x80\x94 vide").arg(ab));
+            btn->setAccessibleName(fullSlotName + QString::fromUtf8(" \xe2\x80\x94 vide"));
         } else {
             const ItemData& item = eqIt->second;
             QPixmap icon = loadItemIcon(item.icon, kEquipIconSize);
@@ -422,6 +428,7 @@ void CharacterTab::rebuildInventoryPanel()
                     "QPushButton { color: %1; font-size: 10px; }").arg(kTextSlotLabel));
             }
             btn->setToolTip(formatItemTooltip(item, kTextPrimary));
+            btn->setAccessibleName(fullSlotName + " : " + QString::fromStdString(item.name));
 
             ItemData itemCopy = item;
             std::string sn = slotName;
