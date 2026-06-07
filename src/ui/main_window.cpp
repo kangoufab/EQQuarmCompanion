@@ -351,11 +351,11 @@ void MainWindow::openSettings() {
 void MainWindow::updateDbBadge(bool connected) {
     if (connected) {
         _dbBadge->setText(
-            "<span style='color:#81c784;font-size:13px;font-weight:bold;'>&#9679; DB</span>");
+            QString("<span style='color:%1;font-size:13px;font-weight:bold;'>&#9679; DB</span>").arg(kGreen));
         _dbBadge->setToolTip("Base de données connectée");
     } else {
         _dbBadge->setText(
-            "<span style='color:#e57373;font-size:13px;font-weight:bold;'>&#9679; DB hors ligne</span>");
+            QString("<span style='color:%1;font-size:13px;font-weight:bold;'>&#9679; DB hors ligne</span>").arg(kAccentMelee));
         _dbBadge->setToolTip(QString::fromUtf8(
             "Base de données non connectée\nV\xc3\xa9rifier les param\xc3\xa8tres dans \xe2\x9a\x99"));
     }

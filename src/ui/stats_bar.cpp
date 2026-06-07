@@ -374,9 +374,9 @@ QFrame* makePlayerStatsBar(
         // Worn/focus effects dans la catégorie cible
         if (!effectsTarget.empty() && catName == effectsTarget) {
             if (!wornEffects.empty())
-                panelL->addWidget(makeEffectsWidget(wornEffects,  "#8888ff", "",        spellDetails, 0));
+                panelL->addWidget(makeEffectsWidget(wornEffects,  kAccentWorn, "",        spellDetails, 0));
             if (!focusEffects.empty())
-                panelL->addWidget(makeEffectsWidget(focusEffects, "#88cc88", "Focus: ", spellDetails, 0));
+                panelL->addWidget(makeEffectsWidget(focusEffects, kAccentFocus, "Focus: ", spellDetails, 0));
         }
 
         panelL->addStretch();
@@ -407,9 +407,9 @@ QFrame* makePlayerStatsBar(
     // Fallback : si aucune catégorie cible n'est présente, on affiche sous le grid
     if (effectsTarget.empty()) {
         if (!wornEffects.empty())
-            outer->addWidget(makeEffectsWidget(wornEffects,  "#8888ff", "",        spellDetails, 0));
+            outer->addWidget(makeEffectsWidget(wornEffects,  kAccentWorn, "",        spellDetails, 0));
         if (!focusEffects.empty())
-            outer->addWidget(makeEffectsWidget(focusEffects, "#88cc88", "Focus: ", spellDetails, 0));
+            outer->addWidget(makeEffectsWidget(focusEffects, kAccentFocus, "Focus: ", spellDetails, 0));
     }
 
     return frame;

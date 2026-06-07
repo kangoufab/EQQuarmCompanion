@@ -158,8 +158,9 @@ void CharacterTab::buildUi()
     auto* splitter = new QSplitter(Qt::Horizontal);
     splitter->setHandleWidth(4);
     splitter->setStyleSheet(
-        "QSplitter::handle { background: #2a3a5a; }"
-        "QSplitter::handle:hover { background: #4a6a9a; }");
+        QString("QSplitter::handle { background: %1; }"
+                "QSplitter::handle:hover { background: %2; }")
+        .arg(kBorderMid, kBorderAccent));
     outerLayout->addWidget(splitter);
 
     // ── Colonne gauche : inventaire ──────────────────────────────────────────
@@ -168,9 +169,10 @@ void CharacterTab::buildUi()
     _inventoryScroll->setWidgetResizable(true);
     _inventoryScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     _inventoryScroll->setStyleSheet(
-        "QScrollArea { border: none; border-right: 1px solid #2a3a5a; background: #0b1120; }");
+        QString("QScrollArea { border: none; border-right: 1px solid %1; background: %2; }")
+        .arg(kBorderMid, kBgBase));
     _inventoryContent = new QWidget;
-    _inventoryContent->setStyleSheet("background: #0b1120;");
+    _inventoryContent->setStyleSheet(QString("background: %1;").arg(kBgBase));
     _inventoryScroll->setWidget(_inventoryContent);
     splitter->addWidget(_inventoryScroll);
 
@@ -186,7 +188,7 @@ void CharacterTab::buildUi()
     splitter->setStretchFactor(1, 1);
 
     auto* container = new QWidget;
-    container->setStyleSheet("background: #0f1624;");
+    container->setStyleSheet(QString("background: %1;").arg(kBgMain));
     scroll->setWidget(container);
 
     auto* layout = new QVBoxLayout(container);
@@ -243,10 +245,11 @@ void CharacterTab::buildUi()
         _clearBtn->setEnabled(false);
         _clearBtn->setAccessibleName("Effacer la recherche");
         _clearBtn->setStyleSheet(
-            "QPushButton { background: #2a3a5a; border: 1px solid #3a4a6a; "
-            "border-radius: 3px; color: #c0c0c0; padding: 3px 10px; font-size: 13px; }"
-            "QPushButton:hover { border-color: #64b5f6; color: #64b5f6; }"
-            "QPushButton:disabled { color: #444; border-color: #2a3045; }");
+            QString("QPushButton { background: %1; border: 1px solid %2; "
+                    "border-radius: 3px; color: %3; padding: 3px 10px; font-size: 13px; }"
+                    "QPushButton:hover { border-color: %4; color: %4; }"
+                    "QPushButton:disabled { color: #444; border-color: #2a3045; }")
+            .arg(kBorderMid, kBorderCard, kTextBase, kAccentBlue));
         connect(_clearBtn, &QPushButton::clicked, this, [this]() {
             _searchCombo->lineEdit()->clear();
             _searchResults.clear();
@@ -307,15 +310,16 @@ void CharacterTab::rebuildInventoryPanel()
     auto addTitle = [&](const QString& title) {
         auto* lbl = new QLabel(title);
         lbl->setStyleSheet(
-            "background: #141f35; color: #64b5f6; font-size: 11px; font-weight: bold; "
-            "padding: 4px 8px; border-bottom: 1px solid #2a3a5a; border-top: 1px solid #2a3a5a;");
+            QString("background: %1; color: %2; font-size: 11px; font-weight: bold; "
+                    "padding: 4px 8px; border-bottom: 1px solid %3; border-top: 1px solid %3;")
+            .arg(kSurfaceSection, kAccentBlue, kBorderMid));
         vl->addWidget(lbl);
     };
 
     auto addRow = [&](const std::string& slotName, const QString& itemName,
                       bool isEmpty, std::function<void()> onClick) {
         auto* w = new QWidget;
-        w->setStyleSheet("background: transparent; border-bottom: 1px solid #131d2e;");
+        w->setStyleSheet(QString("background: transparent; border-bottom: 1px solid %1;").arg(kBorderSub));
         auto* rl = new QHBoxLayout(w);
         rl->setContentsMargins(6, 2, 4, 2);
         rl->setSpacing(4);
@@ -339,9 +343,10 @@ void CharacterTab::rebuildInventoryPanel()
             auto* nameBtn = new QPushButton(itemName);
             nameBtn->setFlat(true);
             nameBtn->setStyleSheet(
-                "QPushButton { text-align: left; color: #c0c0c0; background: transparent; "
-                "border: none; font-size: 12px; padding: 0; }"
-                "QPushButton:hover { color: #81c784; }");
+                QString("QPushButton { text-align: left; color: %1; background: transparent; "
+                        "border: none; font-size: 12px; padding: 0; }"
+                        "QPushButton:hover { color: %2; }")
+                .arg(kTextBase, kGreen));
             if (onClick) connect(nameBtn, &QPushButton::clicked, onClick);
             rl->addWidget(nameBtn, 1);
         }
@@ -430,7 +435,7 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
     auto* frame = new QFrame;
     frame->setFrameShape(QFrame::StyledPanel);
     frame->setStyleSheet(
-        "QFrame { background: #0f1624; border: none; }");
+        QString("QFrame { background: %1; border: none; }").arg(kBgMain));
     auto* outer = new QVBoxLayout(frame);
     outer->setContentsMargins(0, 4, 0, 4);
     outer->setSpacing(4);
@@ -482,9 +487,9 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
             bool atCap     = hasCap && rawVal >= cap;
 
             const char *tileBg, *tileFg;
-            if (!hasCap)      { tileBg = "#1e2a1e"; tileFg = "#81c784"; }
-            else if (atCap)   { tileBg = "#1e3a5f"; tileFg = "#4fc3f7"; }
-            else               { tileBg = "#252540"; tileFg = "#cccccc"; }
+            if (!hasCap)      { tileBg = kBgTileNoLimit; tileFg = kGreen; }
+            else if (atCap)   { tileBg = kBgTileAtCap;   tileFg = kAccentAtCap; }
+            else               { tileBg = kBgTile;        tileFg = "#cccccc"; }
 
             auto* tile = new QFrame;
             tile->setStyleSheet(
@@ -497,7 +502,8 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
             auto* nameLbl = new QLabel(
                 QString::fromStdString(STAT_LABELS.count(stat) ? STAT_LABELS.at(stat) : stat));
             nameLbl->setStyleSheet(
-                "font-size: 13px; color: #888; border: none; background: transparent;");
+                QString("font-size: 13px; color: %1; border: none; background: transparent;")
+                .arg(kTextSecondary));
             nameLbl->setAlignment(Qt::AlignCenter);
             tileL->addWidget(nameLbl);
 
@@ -506,8 +512,8 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
             QString valHtml;
             if (hasCap) {
                 valHtml = QString("<span style='color:%1;font-weight:bold;'>%2%3</span>"
-                                  "<span style='color:#555;font-size:13px;'>/%4</span>")
-                    .arg(tileFg).arg(dispVal).arg(sfx).arg(cap);
+                                  "<span style='color:%5;font-size:13px;'>/%4</span>")
+                    .arg(tileFg).arg(dispVal).arg(sfx).arg(cap).arg(kTextDim);
             } else {
                 valHtml = QString("<span style='color:%1;font-weight:bold;'>%2%3</span>")
                     .arg(tileFg).arg(dispVal).arg(sfx);
@@ -612,7 +618,8 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
 
         auto* slotLbl = new QLabel("Slot :");
         slotLbl->setStyleSheet(
-            "color: #888; font-size: 14px; border: none; background: transparent;");
+            QString("color: %1; font-size: 14px; border: none; background: transparent;")
+            .arg(kTextSecondary));
         slotL->addWidget(slotLbl);
 
         for (auto& eqSlot : allSlots) {
@@ -621,11 +628,13 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
             btn->setEnabled(!isCurrent);
             btn->setStyleSheet(
                 isCurrent
-                ? "QPushButton { background: #2a3a5a; border: 1px solid #64b5f6; "
-                  "border-radius: 3px; color: #64b5f6; padding: 2px 8px; font-size: 14px; }"
-                : "QPushButton { background: #1a2236; border: 1px solid #3a4a6a; "
-                  "border-radius: 3px; color: #c0c0c0; padding: 2px 8px; font-size: 14px; }"
-                  "QPushButton:hover { border-color: #64b5f6; color: #64b5f6; }");
+                ? QString("QPushButton { background: %1; border: 1px solid %2; "
+                          "border-radius: 3px; color: %2; padding: 2px 8px; font-size: 14px; }")
+                  .arg(kBorderMid, kAccentBlue)
+                : QString("QPushButton { background: %1; border: 1px solid %2; "
+                          "border-radius: 3px; color: %3; padding: 2px 8px; font-size: 14px; }"
+                          "QPushButton:hover { border-color: %4; color: %4; }")
+                  .arg(kBgCard, kBorderCard, kTextBase, kAccentBlue));
             connect(btn, &QPushButton::clicked, [this, newItem, eqSlot, allSlots]() {
                 clearComparison(false);
                 showComparison(newItem, eqSlot, allSlots);
@@ -734,11 +743,12 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
     QString upgradeText =
         isUpgrade ? "UPGRADE" : (scoreDelta == 0 ? "=" : "DOWNGRADE");
     QString upgradeColor =
-        isUpgrade ? "#4caf50" : (scoreDelta == 0 ? "#888" : "#ef5350");
+        isUpgrade ? kGreen : (scoreDelta == 0 ? kTextSecondary : kRed);
 
     auto* sumFrame = new QFrame;
     sumFrame->setStyleSheet(
-        "QFrame { background: #1a2236; border-radius: 4px; border: 1px solid #3a4a6a; }");
+        QString("QFrame { background: %1; border-radius: 4px; border: 1px solid %2; }")
+        .arg(kBgCard, kBorderCard));
     auto* sumL = new QHBoxLayout(sumFrame);
     sumL->setContentsMargins(8, 6, 8, 6);
 
@@ -759,9 +769,10 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
         auto* equipBtn = new QPushButton(
             QString::fromUtf8("\xe2\x9c\x93  \xc3\x89quiper dans ") + slot);
         equipBtn->setStyleSheet(
-            "QPushButton { background: #1e3a1e; border: 1px solid #4caf50; "
-            "border-radius: 3px; color: #4caf50; padding: 4px 12px; font-size: 13px; }"
-            "QPushButton:hover { background: #4caf50; color: #0f1624; }");
+            QString("QPushButton { background: #1e3a1e; border: 1px solid %1; "
+                    "border-radius: 3px; color: %1; padding: 4px 12px; font-size: 13px; }"
+                    "QPushButton:hover { background: %1; color: %2; }")
+            .arg(kGreen, kBgMain));
         connect(equipBtn, &QPushButton::clicked,
                 [this, slot=slot.toStdString(), item=newItem]() {
                     emit equipRequested(slot, item);
@@ -774,9 +785,10 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
         auto* srcBtn = new QPushButton(
             QString::fromUtf8("Qui droppe cet item ?"));
         srcBtn->setStyleSheet(
-            "QPushButton { background: #1e2a3e; border: 1px solid #3a4a6a; "
-            "border-radius: 3px; color: #888; padding: 3px 10px; font-size: 13px; }"
-            "QPushButton:hover { border-color: #64b5f6; color: #64b5f6; }");
+            QString("QPushButton { background: #1e2a3e; border: 1px solid %1; "
+                    "border-radius: 3px; color: %2; padding: 3px 10px; font-size: 13px; }"
+                    "QPushButton:hover { border-color: %3; color: %3; }")
+            .arg(kBorderCard, kTextSecondary, kAccentBlue));
         connect(srcBtn, &QPushButton::clicked,
                 [this, itemId=newItem.id, itemName=QString::fromStdString(newItem.name)]() {
                     onShowSources(itemId, itemName);
@@ -811,7 +823,7 @@ void CharacterTab::onShowSources(int itemId, const QString& itemName)
     dlg->setWindowTitle(QString::fromUtf8("Sources \xe2\x80\x94 ") + itemName);
     dlg->setAttribute(Qt::WA_DeleteOnClose);
     dlg->resize(480, 360);
-    dlg->setStyleSheet("background: #0f1624; color: #c0c0c0;");
+    dlg->setStyleSheet(QString("background: %1; color: %2;").arg(kBgMain, kTextBase));
 
     auto* layout = new QVBoxLayout(dlg);
     layout->setContentsMargins(12, 12, 12, 12);
@@ -820,20 +832,20 @@ void CharacterTab::onShowSources(int itemId, const QString& itemName)
     auto* header = new QLabel(
         QString("<b>%1</b> est dropp\xc3\xa9 par :").arg(itemName));
     header->setTextFormat(Qt::RichText);
-    header->setStyleSheet("color: #64b5f6; font-size: 14px;");
+    header->setStyleSheet(QString("color: %1; font-size: 14px;").arg(kAccentBlue));
     layout->addWidget(header);
 
     // État chargement (remplacé dès que la requête revient)
     auto* loadingLbl = new QLabel(QString::fromUtf8("Chargement\xe2\x80\xa6"));
     loadingLbl->setAlignment(Qt::AlignCenter);
-    loadingLbl->setStyleSheet("color: #555; font-size: 13px; font-style: italic;");
+    loadingLbl->setStyleSheet(QString("color: %1; font-size: 13px; font-style: italic;").arg(kTextDim));
     layout->addWidget(loadingLbl, 1);
 
     // Zone de résultats (masquée jusqu'à la fin de la requête)
     auto* scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scroll->setStyleSheet("QScrollArea { border: 1px solid #3a4a6a; background: #141428; }");
+    scroll->setStyleSheet(QString("QScrollArea { border: 1px solid %1; background: #141428; }").arg(kBorderCard));
     scroll->setVisible(false);
     auto* inner = new QWidget;
     inner->setStyleSheet("background: transparent;");
@@ -845,9 +857,10 @@ void CharacterTab::onShowSources(int itemId, const QString& itemName)
 
     auto* closeBtn = new QPushButton("Fermer");
     closeBtn->setStyleSheet(
-        "QPushButton { background: #2a3a5a; border: 1px solid #3a4a6a; "
-        "border-radius: 3px; color: #c0c0c0; padding: 4px 16px; font-size: 13px; }"
-        "QPushButton:hover { border-color: #64b5f6; }");
+        QString("QPushButton { background: %1; border: 1px solid %2; "
+                "border-radius: 3px; color: %3; padding: 4px 16px; font-size: 13px; }"
+                "QPushButton:hover { border-color: %4; }")
+        .arg(kBorderMid, kBorderCard, kTextBase, kAccentBlue));
     connect(closeBtn, &QPushButton::clicked, dlg, &QDialog::accept);
     layout->addWidget(closeBtn, 0, Qt::AlignRight);
 
@@ -870,7 +883,7 @@ void CharacterTab::onShowSources(int itemId, const QString& itemName)
         if (sources.isEmpty()) {
             auto* lbl = new QLabel(
                 QString::fromUtf8("Aucun NPC ne droppe cet item dans la base de donn\xc3\xa9" "es."));
-            lbl->setStyleSheet("color: #888; font-size: 13px;");
+            lbl->setStyleSheet(QString("color: %1; font-size: 13px;").arg(kTextSecondary));
             lbl->setAlignment(Qt::AlignCenter);
             innerLPtr->addWidget(lbl);
         } else {
@@ -878,12 +891,13 @@ void CharacterTab::onShowSources(int itemId, const QString& itemName)
                 QString zone = src.zone_long_name.empty()
                     ? "?"
                     : QString::fromStdString(src.zone_long_name);
-                QString text = QString("<b>%1</b>  <span style='color:#888;font-size:13px;'>"
+                QString text = QString("<b>%1</b>  <span style='color:%5;font-size:13px;'>"
                                        "niv.%2 \xe2\x80\x94 %3 \xe2\x80\x94 ~%4%</span>")
                     .arg(QString::fromStdString(src.name).replace('_', ' '))
                     .arg(src.level)
                     .arg(zone)
-                    .arg(src.drop_chance, 0, 'f', 1);
+                    .arg(src.drop_chance, 0, 'f', 1)
+                    .arg(kTextSecondary);
                 auto* lbl = new QLabel(text);
                 lbl->setTextFormat(Qt::RichText);
                 lbl->setStyleSheet("border: none; background: transparent; font-size: 13px;");
@@ -1010,8 +1024,8 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
     if (hasCap) {
         headerVal = QString(
             "<span style='color:%1;font-weight:bold;'>%2%3</span>"
-            "<span style='color:#555;'> / %4%3</span>")
-            .arg(catAccent).arg(dispVal).arg(sfx).arg(cap);
+            "<span style='color:%5;'> / %4%3</span>")
+            .arg(catAccent).arg(dispVal).arg(sfx).arg(cap).arg(kTextDim);
         if (rawVal > cap)
             headerVal += QString("<span style='color:#777;'> (brut %1)</span>").arg(rawVal);
     } else {
@@ -1040,18 +1054,18 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
             else if (stat == "aint") baseVal = _charInfo->base_int;
             else if (stat == "acha") baseVal = _charInfo->base_cha;
         }
-        rows += secRow("BASE", "#64b5f6");
-        rows += valRow("Personnage", QString::number(baseVal), "#64b5f6");
+        rows += secRow("BASE", kAccentBlue);
+        rows += valRow("Personnage", QString::number(baseVal), kAccentBlue);
 
         // ITEMS
         bool hasItems = false;
         for (auto& [slotName, item] : _equippedItems) {
             int v = getItemStat(stat, item);
             if (v == 0) continue;
-            if (!hasItems) { rows += secRow("ITEMS", "#81c784"); hasItems = true; }
+            if (!hasItems) { rows += secRow("ITEMS", kGreen); hasItems = true; }
             QString sign = v >= 0 ? "+" : "";
             rows += valRow(QString::fromStdString(item.name),
-                           sign + QString::number(v), "#81c784");
+                           sign + QString::number(v), kGreen);
         }
 
     } else if (isResistStat(stat)) {
@@ -1060,21 +1074,21 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
         for (auto& [s, item] : _equippedItems) itemSum += getItemStat(stat, item);
         int baseVal = rawVal - itemSum;
 
-        rows += secRow("BASE", "#64b5f6");
+        rows += secRow("BASE", kAccentBlue);
         QString baseLbl = _charInfo
             ? QString("Race + %1 L%2")
                   .arg(QString::fromStdString(_charInfo->class_name))
                   .arg(_charInfo->level)
             : "Race + Classe";
-        rows += valRow(baseLbl, QString::number(baseVal), "#64b5f6");
+        rows += valRow(baseLbl, QString::number(baseVal), kAccentBlue);
 
         bool hasItems = false;
         for (auto& [slotName, item] : _equippedItems) {
             int v = getItemStat(stat, item);
             if (v == 0) continue;
-            if (!hasItems) { rows += secRow("ITEMS", "#81c784"); hasItems = true; }
+            if (!hasItems) { rows += secRow("ITEMS", kGreen); hasItems = true; }
             rows += valRow(QString::fromStdString(item.name),
-                           (v >= 0 ? "+" : "") + QString::number(v), "#81c784");
+                           (v >= 0 ? "+" : "") + QString::number(v), kGreen);
         }
 
     } else if (stat == "hp") {
@@ -1082,26 +1096,26 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
         for (auto& [s, item] : _equippedItems) itemHpSum += item.hp;
         int baseHp = totals.hp.base - itemHpSum;
 
-        rows += secRow("BASE", "#64b5f6");
+        rows += secRow("BASE", kAccentBlue);
         if (_charInfo)
             rows += valRow(
                 QString("%1 L%2 (STA %3)")
                     .arg(QString::fromStdString(_charInfo->class_name))
                     .arg(_charInfo->level)
                     .arg(std::min(totals.sta, 255)),
-                QString::number(baseHp), "#64b5f6");
+                QString::number(baseHp), kAccentBlue);
 
         bool hasItems = false;
         for (auto& [slotName, item] : _equippedItems) {
             if (item.hp == 0) continue;
-            if (!hasItems) { rows += secRow("ITEMS", "#81c784"); hasItems = true; }
+            if (!hasItems) { rows += secRow("ITEMS", kGreen); hasItems = true; }
             rows += valRow(QString::fromStdString(item.name),
-                           (item.hp >= 0 ? "+" : "") + QString::number(item.hp), "#81c784");
+                           (item.hp >= 0 ? "+" : "") + QString::number(item.hp), kGreen);
         }
         if (itemHpSum > 2000) {
-            rows += secRow("FORMULE", "#ffb74d");
-            rows += valRow("Items brut", QString::number(itemHpSum),  "#ffb74d", true);
-            rows += valRow("Plafond items (RuleI ItemHPCap)", "+2000", "#ffb74d", true);
+            rows += secRow("FORMULE", kOrange);
+            rows += valRow("Items brut", QString::number(itemHpSum),  kOrange, true);
+            rows += valRow("Plafond items (RuleI ItemHPCap)", "+2000", kOrange, true);
         }
 
     } else if (stat == "mana") {
@@ -1109,7 +1123,7 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
         for (auto& [s, item] : _equippedItems) itemManaSum += item.mana;
         int baseMana = totals.mana.base - itemManaSum;
 
-        rows += secRow("BASE", "#64b5f6");
+        rows += secRow("BASE", kAccentBlue);
         if (_charInfo) {
             bool isInt = (_charInfo->class_name == "Wizard"     ||
                           _charInfo->class_name == "Magician"   ||
@@ -1122,19 +1136,19 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
                     .arg(_charInfo->level)
                     .arg(isInt ? "INT" : "SAG")
                     .arg(primStat),
-                QString::number(baseMana), "#64b5f6");
+                QString::number(baseMana), kAccentBlue);
         }
         bool hasItems = false;
         for (auto& [slotName, item] : _equippedItems) {
             if (item.mana == 0) continue;
-            if (!hasItems) { rows += secRow("ITEMS", "#81c784"); hasItems = true; }
+            if (!hasItems) { rows += secRow("ITEMS", kGreen); hasItems = true; }
             rows += valRow(QString::fromStdString(item.name),
-                           (item.mana >= 0 ? "+" : "") + QString::number(item.mana), "#81c784");
+                           (item.mana >= 0 ? "+" : "") + QString::number(item.mana), kGreen);
         }
         if (itemManaSum > 2000) {
-            rows += secRow("FORMULE", "#ffb74d");
-            rows += valRow("Items brut", QString::number(itemManaSum), "#ffb74d", true);
-            rows += valRow("Plafond items (RuleI ItemManaCap)", "+2000", "#ffb74d", true);
+            rows += secRow("FORMULE", kOrange);
+            rows += valRow("Items brut", QString::number(itemManaSum), kOrange, true);
+            rows += valRow("Plafond items (RuleI ItemManaCap)", "+2000", kOrange, true);
         }
 
     } else if (stat == "atk") {
@@ -1144,45 +1158,45 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
         int totalStr = _charInfo ? std::min(totals.str_v, 255) : 0;
         int strBonus = totalStr >= 75 ? (2 * totalStr - 150) / 3 : 0;
 
-        rows += secRow("ITEMS ATK", "#81c784");
+        rows += secRow("ITEMS ATK", kGreen);
         bool hasItems = false;
         for (auto& [slotName, item] : _equippedItems) {
             if (item.atk == 0) continue;
             hasItems = true;
             rows += valRow(QString::fromStdString(item.name),
-                           QString("+%1").arg(item.atk), "#81c784");
+                           QString("+%1").arg(item.atk), kGreen);
         }
         if (!hasItems)
-            rows += valRow("(aucun item ATK)", "0", "#555");
+            rows += valRow("(aucun item ATK)", "0", kTextDim);
 
-        rows += secRow("FORMULE", "#ffb74d");
-        rows += valRow("Items ATK (cap 250)",  QString::number(cappedAtk),       "#ffb74d", true);
+        rows += secRow("FORMULE", kOrange);
+        rows += valRow("Items ATK (cap 250)",  QString::number(cappedAtk),       kOrange, true);
         rows += valRow(QString("Bonus FOR (%1)").arg(totalStr),
-                       QString("+%1").arg(strBonus),                             "#ffb74d", true);
+                       QString("+%1").arg(strBonus),                             kOrange, true);
         rows += valRow("Affich\xc3\xa9" " = (toHit + offense) \xc3\x97 1000/744",
-                       QString::number(totals.atk),                              "#ffb74d", true);
+                       QString::number(totals.atk),                              kOrange, true);
 
     } else if (stat == "ac") {
         int itemAcSum = 0;
         for (auto& [s, item] : _equippedItems) itemAcSum += item.ac;
 
-        rows += secRow("ITEMS AC", "#81c784");
+        rows += secRow("ITEMS AC", kGreen);
         bool hasItems = false;
         for (auto& [slotName, item] : _equippedItems) {
             if (item.ac == 0) continue;
             hasItems = true;
             rows += valRow(QString::fromStdString(item.name),
-                           QString("+%1").arg(item.ac), "#81c784");
+                           QString("+%1").arg(item.ac), kGreen);
         }
         if (!hasItems)
-            rows += valRow("(aucun)", "0", "#555");
+            rows += valRow("(aucun)", "0", kTextDim);
 
-        rows += secRow("FORMULE", "#ffb74d");
-        rows += valRow("AC brut items",           QString::number(itemAcSum),        "#ffb74d", true);
+        rows += secRow("FORMULE", kOrange);
+        rows += valRow("AC brut items",           QString::number(itemAcSum),        kOrange, true);
         rows += valRow("Mitigation (\xc3\x97" "4/3 hors casters)",
-                       QString::number(totals.mitigation),                          "#ffb74d", true);
+                       QString::number(totals.mitigation),                          kOrange, true);
         rows += valRow("Affich\xc3\xa9" " = (avoid + mit) \xc3\x97 1000/847",
-                       QString::number(totals.ac),                                  "#ffb74d", true);
+                       QString::number(totals.ac),                                  kOrange, true);
 
     } else if (stat == "haste") {
         // Max-wins : trouver le gagnant
@@ -1192,42 +1206,42 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
             if (item.haste > maxVal) { maxVal = item.haste; winnerName = item.name; }
         }
         if (maxVal > 0) {
-            rows += secRow("ITEMS (max-wins)", "#81c784");
+            rows += secRow("ITEMS (max-wins)", kGreen);
             for (auto& [slotName, item] : _equippedItems) {
                 if (item.haste == 0) continue;
                 bool winner = (item.haste == maxVal && item.name == winnerName);
                 QString lbl = QString::fromStdString(item.name);
                 if (winner)
-                    lbl += " <span style='color:#4fc3f7;'>\xe2\x86\x90</span>";
+                    lbl += QString(" <span style='color:%1;'>\xe2\x86\x90</span>").arg(kAccentAtCap);
                 else
-                    lbl += " <span style='color:#555;'>(ignor\xc3\xa9" ")</span>";
+                    lbl += QString(" <span style='color:%1;'>(ignor\xc3\xa9" ")</span>").arg(kTextDim);
                 rows += valRow(lbl,
                                QString("+%1%").arg(item.haste),
-                               winner ? "#4fc3f7" : "#555");
+                               winner ? kAccentAtCap : kTextDim);
             }
         }
         if (_charInfo) {
-            rows += secRow("FORMULE", "#ffb74d");
+            rows += secRow("FORMULE", kOrange);
             rows += valRow(QString("Cap niveau %1").arg(_charInfo->level),
-                           QString("%1%").arg(totals.haste), "#ffb74d", true);
+                           QString("%1%").arg(totals.haste), kOrange, true);
         }
 
     } else if (stat == "hp_regen") {
         bool hasItems = false;
         for (auto& [slotName, item] : _equippedItems) {
             if (item.hp_regen == 0) continue;
-            if (!hasItems) { rows += secRow("ITEMS", "#81c784"); hasItems = true; }
+            if (!hasItems) { rows += secRow("ITEMS", kGreen); hasItems = true; }
             rows += valRow(QString::fromStdString(item.name),
-                           QString("+%1/tick").arg(item.hp_regen), "#81c784");
+                           QString("+%1/tick").arg(item.hp_regen), kGreen);
         }
 
     } else if (stat == "mana_regen") {
         bool hasItems = false;
         for (auto& [slotName, item] : _equippedItems) {
             if (item.mana_regen == 0) continue;
-            if (!hasItems) { rows += secRow("ITEMS", "#81c784"); hasItems = true; }
+            if (!hasItems) { rows += secRow("ITEMS", kGreen); hasItems = true; }
             rows += valRow(QString::fromStdString(item.name),
-                           QString("+%1/tick").arg(item.mana_regen), "#81c784");
+                           QString("+%1/tick").arg(item.mana_regen), kGreen);
         }
     }
 

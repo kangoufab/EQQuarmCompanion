@@ -759,7 +759,7 @@ void SpellsTab::rebuildActiveBuffsList()
         rl->addWidget(clsLbl);
 
         auto* removeBtn = new QPushButton("\xc3\x97");
-        removeBtn->setFixedSize(16, 16);
+        removeBtn->setFixedSize(20, 20);
         removeBtn->setStyleSheet(
             "QPushButton { background: #2a1a1a; border: 1px solid #5a3a3a; "
             "color: #e57373; font-size: 13px; border-radius: 3px; padding: 0; }"
