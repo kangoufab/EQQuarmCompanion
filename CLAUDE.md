@@ -127,6 +127,13 @@ L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
 
 `CharacterInfo::bag_item_ids` est `std::vector<std::pair<int,int>>` — `{bag_number, item_id}` — le numéro de bag est extrait depuis `"GeneralN-SlotM"` dans `character_parser.cpp`. La fenêtre par défaut est 1280×760 (minimum 900×600).
 
+### Grille d'items équipés — icônes via `ItemData::icon`, pas `id`
+Le bloc « Équipé » de l'inventaire affiche une grille graphique façon paperdoll (armure/bijoux en grille 5 colonnes + rangée d'armes séparée Primary/Secondary/Range/Ammo), construite par `makeEquipCell()` dans `rebuildInventoryPanel()`. Chaque cellule est un `QPushButton` avec icône, tooltip enrichi (`formatItemTooltip`) et clic → `showComparison`.
+
+Les fichiers PNG sont nommés `item_<icon>.png` où `<icon>` est la valeur de la colonne **`icon`** de la table `items` (graphique partagé entre items similaires), **pas** l'`id` de l'item — plusieurs items peuvent partager la même icône. `ItemData::icon` est peuplé par `rowToItemData()` dans `item_database.cpp`. `loadItemIcon()` (statique, dans `character_tab.cpp`) résout le chemin via `QCoreApplication::applicationDirPath() + "/imgs/items/item_<icon>.png"`.
+
+Déploiement : `resources/imgs/items/` (uniquement les fichiers `item_*.png`, pas les `.gif` numériques inutilisés) est copié à côté de l'exécutable par CMake (`copy_directory_if_different`, voir `CMakeLists.txt`), et l'installeur Inno Setup le récupère automatiquement via `{#BinDir}\*`.
+
 ## Key Source Files
 
 | File | Purpose |
