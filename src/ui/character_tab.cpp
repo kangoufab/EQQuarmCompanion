@@ -367,16 +367,6 @@ void CharacterTab::rebuildInventoryPanel()
     vl->setContentsMargins(0, 0, 0, 0);
     vl->setSpacing(0);
 
-    if (_charInfo && !_charInfo->name.empty() && !_bisNames) {
-        auto* loadingLbl = new QLabel(
-            QString::fromUtf8("\xe2\xad\x90 BIS en chargement\xe2\x80\xa6"));
-        loadingLbl->setStyleSheet(
-            QString("color: %1; font-size: 11px; font-style: italic; "
-                    "background: transparent; padding: 4px 8px;")
-                .arg(kAccentGold));
-        vl->addWidget(loadingLbl);
-    }
-
     auto addTitle = [&](const QString& title) {
         auto* lbl = new QLabel(title);
         lbl->setStyleSheet(
