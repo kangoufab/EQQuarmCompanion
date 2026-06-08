@@ -199,6 +199,7 @@ MainWindow::MainWindow(Config* config, NpcDatabase* npcDb,
             this, [this](ItemData item) {
         _charTab->loadItemIntoComparison(item);
     });
+    connect(_infosTab, &InfosTab::expansionChanged, this, &MainWindow::refreshBis);
 
     _fileWatcher = new QFileSystemWatcher(this);
     connect(_fileWatcher, &QFileSystemWatcher::fileChanged,
@@ -307,6 +308,7 @@ void MainWindow::onCharacterChanged(int index) {
     _aaStats = _itemDb->getAaStats(_currentChar.aa_purchases);
     recalculateTotals();
     refreshAllTabs();
+    refreshBis();
 }
 
 void MainWindow::recalculateTotals() {
@@ -377,4 +379,24 @@ void MainWindow::checkDbStatus() {
         if (alive) loadCharacterFiles();
     }
     updateDbBadge(alive);
+}
+
+void MainWindow::refreshBis() {
+    QString className = QString::fromStdString(_currentChar.class_name);
+    QString expansion = QString::fromStdString(_config->get("current_expansion"));
+
+    if (className.isEmpty() || expansion.isEmpty() || _currentChar.name.empty()) {
+        _bisNames.clear();
+        _charTab->setBisNames(&_bisNames);
+        _fightTab->setBisNames(&_bisNames);
+        return;
+    }
+
+    _bisScaper.fetchBis(className, expansion, [this](QSet<QString> names) {
+        _bisNames = std::move(names);
+        _charTab->setBisNames(&_bisNames);
+        _fightTab->setBisNames(&_bisNames);
+        _charTab->rebuildInventoryPanel();
+        _fightTab->refreshStats();
+    });
 }

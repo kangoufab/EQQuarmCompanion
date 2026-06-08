@@ -2,10 +2,12 @@
 #include "core/character_parser.h"
 #include "core/stats_calculator.h"
 #include "core/types.h"
+#include "db/bis_scraper.h"
 #include <QComboBox>
 #include <QFileSystemWatcher>
 #include <QLabel>
 #include <QMainWindow>
+#include <QSet>
 #include <QTabWidget>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -33,6 +35,7 @@ private slots:
     void onBuffStatsChanged(PlayerTotals totals, PlayerTotalsExtra spellExtra);
     void openSettings();
     void checkDbStatus();
+    void refreshBis();
 
 private:
     void loadCharacterFiles();
@@ -67,4 +70,6 @@ private:
     PlayerTotalsExtra               _playerExtra;
     AaStats                         _aaStats;
     std::map<std::string, ItemData> _equippedItems;
+    BisScaper                       _bisScaper;
+    QSet<QString>                   _bisNames;
 };
