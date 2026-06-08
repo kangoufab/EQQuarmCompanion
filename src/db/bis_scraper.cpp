@@ -1,30 +1,102 @@
 #include "db/bis_scraper.h"
+#include <QCoreApplication>
+#include <QDateTime>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QRegularExpression>
 #include <QUrl>
 
-// URL base: https://www.eqprogression.com
-// Path pattern: /{class-slug}-best-in-slot-bis-gearing-guide-{expansion-slug}/
-// Class slug: "shadow-knight" for Shadowknight, lowercase otherwise
-// The Python BisScraper uses eqprogression.com — fetchBis takes className and
-// builds the URL the same way, defaulting to Classic expansion.
+static constexpr qint64 kCacheTtlSeconds = 7 * 24 * 3600;
 
-static QString classToSlug(const QString& className) {
-    if (className.compare("Shadowknight", Qt::CaseInsensitive) == 0)
-        return "shadow-knight";
-    return className.toLower();
-}
+static const QMap<QString, QString> kExpSlug = {
+    {"Classic",         "classic"},
+    {"Kunark",          "ruins-of-kunark"},
+    {"Velious",         "scars-of-velious"},
+    {"Luclin",          "shadows-of-luclin"},
+    {"Planes of Power", "planes-of-power"},
+};
+
+static const QMap<QString, QString> kClassSlug = {
+    {"Shadowknight", "shadow-knight"},
+};
 
 BisScaper::BisScaper(QObject* parent) : QObject(parent) {}
 
+QString BisScaper::classToSlug(const QString& className) {
+    return kClassSlug.value(className, className.toLower());
+}
+
+QString BisScaper::expansionToSlug(const QString& expansion) {
+    return kExpSlug.value(expansion, expansion.toLower().replace(' ', '-'));
+}
+
+QString BisScaper::cacheFilePath(const QString& className, const QString& expansion) {
+    QString dir = QCoreApplication::applicationDirPath() + "/bis_cache";
+    QDir().mkpath(dir);
+    return dir + "/" + className + "_" + expansion + ".json";
+}
+
+bool BisScaper::cacheIsValid(const QString& path) {
+    QFileInfo fi(path);
+    if (!fi.exists()) return false;
+    return fi.lastModified().secsTo(QDateTime::currentDateTime()) < kCacheTtlSeconds;
+}
+
+QSet<QString> BisScaper::loadFromCache(const QString& path) {
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) return {};
+    QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+    f.close();
+    if (!doc.isObject()) return {};
+    QSet<QString> names;
+    for (auto it = doc.object().begin(); it != doc.object().end(); ++it)
+        for (const QJsonValue& v : it.value().toArray())
+            names.insert(v.toString());
+    return names;
+}
+
+void BisScaper::saveToCache(const QString& path, const QList<BisEntry>& entries) const {
+    QJsonObject obj;
+    for (const BisEntry& e : entries) {
+        QJsonArray arr = obj.value(e.slotName).toArray();
+        if (!arr.contains(QJsonValue(e.itemName)))
+            arr.append(e.itemName);
+        obj[e.slotName] = arr;
+    }
+    QFile f(path);
+    if (f.open(QIODevice::WriteOnly))
+        f.write(QJsonDocument(obj).toJson());
+}
+
+QSet<QString> BisScaper::entriesToSet(const QList<BisEntry>& entries) {
+    QSet<QString> s;
+    for (const BisEntry& e : entries)
+        s.insert(e.itemName);
+    return s;
+}
+
 void BisScaper::fetchBis(const QString& className,
-                          std::function<void(QList<BisEntry>)> cb)
+                          const QString& expansion,
+                          std::function<void(QSet<QString>)> cb)
 {
-    _callback = std::move(cb);
-    QString slug = classToSlug(className);
-    QString url  = "https://www.eqprogression.com/" + slug +
-                   "-best-in-slot-bis-gearing-guide-classic/";
+    _callback  = std::move(cb);
+    _cachePath = cacheFilePath(className, expansion);
+
+    if (cacheIsValid(_cachePath)) {
+        if (_callback) _callback(loadFromCache(_cachePath));
+        return;
+    }
+
+    QString url = "https://www.eqprogression.com/"
+                  + classToSlug(className)
+                  + "-best-in-slot-bis-gearing-guide-"
+                  + expansionToSlug(expansion) + "/";
     auto* reply = _nam.get(QNetworkRequest(QUrl(url)));
     connect(reply, &QNetworkReply::finished, this, &BisScaper::onReplyFinished);
 }
@@ -32,18 +104,23 @@ void BisScaper::fetchBis(const QString& className,
 void BisScaper::onReplyFinished() {
     auto* reply = qobject_cast<QNetworkReply*>(sender());
     if (!reply) return;
-    QByteArray data = reply->readAll();
+    QByteArray data;
+    if (reply->error() == QNetworkReply::NoError)
+        data = reply->readAll();
     reply->deleteLater();
-    if (_callback) _callback(parseHtml(data));
+    if (data.isEmpty()) {
+        if (_callback) _callback({});
+        return;
+    }
+    QList<BisEntry> entries = parseHtml(data);
+    saveToCache(_cachePath, entries);
+    if (_callback) _callback(entriesToSet(entries));
 }
 
 QList<BisEntry> BisScaper::parseHtml(const QByteArray& html) const {
     QList<BisEntry> result;
     QString page = QString::fromUtf8(html);
 
-    // Parse table rows: each <tr> has <td>slot</td><td>items...</td>
-    // Items are in <span data-tooltip="..."><span>ItemName</span></span>
-    // Slot column is first <td> text content
     static const QRegularExpression rowRe(
         R"(<tr[^>]*>(.*?)</tr>)",
         QRegularExpression::DotMatchesEverythingOption |
@@ -59,7 +136,6 @@ QList<BisEntry> BisScaper::parseHtml(const QByteArray& html) const {
         QRegularExpression::DotMatchesEverythingOption |
         QRegularExpression::CaseInsensitiveOption);
 
-    // Slot name → BisEntry list (aggregate slots like Ears → Left Ear, Right Ear)
     static const QMap<QString, QStringList> slotMap = {
         {"Ears",    {"Left Ear",    "Right Ear"}},
         {"Fingers", {"Left Finger", "Right Finger"}},
@@ -72,34 +148,27 @@ QList<BisEntry> BisScaper::parseHtml(const QByteArray& html) const {
         auto rowMatch = rowIt.next();
         QString rowHtml = rowMatch.captured(1);
 
-        // Extract cells
         QStringList cells;
         auto cellIt = cellRe.globalMatch(rowHtml);
         while (cellIt.hasNext())
             cells << cellIt.next().captured(1);
-
         if (cells.size() < 2) continue;
 
-        // Slot name: strip tags from first cell
         QString rawSlot = cells[0];
         rawSlot.remove(QRegularExpression("<[^>]+>"));
         rawSlot = rawSlot.trimmed();
         if (rawSlot.isEmpty()) continue;
 
-        // Item names from second cell via data-tooltip spans
         QString itemsHtml = cells[1];
         auto tipIt = tooltipRe.globalMatch(itemsHtml);
         while (tipIt.hasNext()) {
             QString itemName = tipIt.next().captured(1).trimmed();
             if (itemName.isEmpty()) continue;
-
-            // Map aggregate slot names to EQ inventory slots
-            QStringList eqSlots = slotMap.value(rawSlot, {rawSlot});
-            for (const QString& eqSlot : eqSlots) {
+            for (const QString& eqSlot : slotMap.value(rawSlot, {rawSlot})) {
                 BisEntry e;
                 e.slotName = eqSlot;
                 e.itemName = itemName;
-                e.itemId   = 0; // ID not available from HTML, resolved separately
+                e.itemId   = 0;
                 result.append(e);
             }
         }
