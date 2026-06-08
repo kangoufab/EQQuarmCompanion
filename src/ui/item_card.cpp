@@ -88,7 +88,8 @@ static const std::vector<std::pair<const char*,int>> RACE_BITS_IC = {
 
 QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
                      const std::map<int,SpellData>* spells, const QString& titleOverride,
-                     const std::map<int,QString>* limitSpellNames, const QString& highlightSlot)
+                     const std::map<int,QString>* limitSpellNames, const QString& highlightSlot,
+                     bool isBis)
 {
     auto* frame = new QFrame;
     frame->setStyleSheet(
@@ -120,7 +121,23 @@ QFrame* makeItemCard(const ItemData* item, const ItemData* ref,
         QString("font-weight: bold; font-size: 13px; color: %1; "
                 "border: none; background: transparent;").arg(kTextPrimary));
     nameLbl->setWordWrap(true);
-    hL->addWidget(nameLbl);
+    if (isBis) {
+        auto* nameRow = new QWidget;
+        nameRow->setStyleSheet("background: transparent;");
+        auto* nameRowL = new QHBoxLayout(nameRow);
+        nameRowL->setContentsMargins(0, 0, 0, 0);
+        nameRowL->setSpacing(6);
+        nameRowL->addWidget(nameLbl, 1);
+        auto* bisLbl = new QLabel(QString::fromUtf8("\xe2\xad\x90 BiS"));
+        bisLbl->setTextFormat(Qt::PlainText);
+        bisLbl->setStyleSheet(
+            QString("color: %1; font-size: 11px; font-weight: bold; "
+                    "background: transparent; border: none;").arg(kAccentGold));
+        nameRowL->addWidget(bisLbl);
+        hL->addWidget(nameRow);
+    } else {
+        hL->addWidget(nameLbl);
+    }
 
     if (item) {
         QStringList sub;

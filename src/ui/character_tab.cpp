@@ -708,9 +708,10 @@ QFrame* CharacterTab::makeStatsBar(const QString& label,
 static QFrame* buildSlotCard(const ItemData* item, const ItemData* refItem,
                                const QString& slotTitle,
                                const std::map<int,SpellData>*  spells          = nullptr,
-                               const std::map<int,QString>*    limitSpellNames = nullptr)
+                               const std::map<int,QString>*    limitSpellNames = nullptr,
+                               bool                            isBis           = false)
 {
-    return makeItemCard(item, refItem, spells, slotTitle, limitSpellNames);
+    return makeItemCard(item, refItem, spells, slotTitle, limitSpellNames, {}, isBis);
 }
 
 // ── onSearchPopup ─────────────────────────────────────────────────────────
@@ -883,13 +884,21 @@ void CharacterTab::showComparison(const ItemData& newItem, const QString& slot,
     QString curName = curItem
         ? QString::fromStdString(curItem->name)
         : QString::fromUtf8("(vide)");
+    bool isBisCur = curItem && _bisNames &&
+        _bisNames->contains(QString::fromStdString(curItem->name));
+    bool isBisNew = _bisNames &&
+        _bisNames->contains(QString::fromStdString(newItem.name));
+
     colL->addWidget(buildSlotCard(curItem, nullptr, curName,
                                   curItem ? &curSpells : nullptr,
-                                  curItem ? &curLimitNames : nullptr));
+                                  curItem ? &curLimitNames : nullptr,
+                                  isBisCur));
     colL->addWidget(makeItemCard(&newItem, curItem,
                                  newSpells.empty() ? nullptr : &newSpells,
                                  {},
-                                 newLimitNames.empty() ? nullptr : &newLimitNames));
+                                 newLimitNames.empty() ? nullptr : &newLimitNames,
+                                 {},
+                                 isBisNew));
     _comparisonLayout->addWidget(colW);
 
     // Résumé : score + UPGRADE/DOWNGRADE
@@ -992,11 +1001,14 @@ void CharacterTab::showItemPreview(const ItemData& item, const QString& slotTitl
 
     auto spells = loadItemSpells(item);
     auto limitNames = buildLimitSpellNames(spells);
+    bool isBisPreview = _bisNames &&
+        _bisNames->contains(QString::fromStdString(item.name));
     _itemPreviewLayout->addWidget(makeItemCard(&item, nullptr,
                                                 spells.empty() ? nullptr : &spells,
                                                 {},
                                                 limitNames.empty() ? nullptr : &limitNames,
-                                                slotTitle));
+                                                slotTitle,
+                                                isBisPreview));
     _itemPreviewArea->setVisible(true);
 }
 

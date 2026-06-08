@@ -950,10 +950,14 @@ void FightTab::showLootForSlot(const QString& slot) {
         }
     }
 
+    bool isBisLoot = _bisNames &&
+        _bisNames->contains(QString::fromStdString(_lootItem.name));
     _itemSectionLayout->addWidget(
         makeItemCard(&_lootItem, equippedItem ? &*equippedItem : nullptr,
                      spells.empty() ? nullptr : &spells,
                      {},
-                     limitNames.empty() ? nullptr : &limitNames));
+                     limitNames.empty() ? nullptr : &limitNames,
+                     {},
+                     isBisLoot));
     _itemSection->setVisible(true);
 }
