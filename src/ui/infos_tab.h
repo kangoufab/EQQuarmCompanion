@@ -12,6 +12,9 @@ class InfosTab : public QWidget {
 public:
     explicit InfosTab(Config* config, QWidget* parent = nullptr);
 
+signals:
+    void expansionChanged();
+
 private slots:
     void onExpansionChanged();
 

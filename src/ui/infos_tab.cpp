@@ -78,6 +78,7 @@ void InfosTab::onExpansionChanged() {
     _config->set("current_expansion", nlohmann::json(exp));
     _config->save();
     refreshContent();
+    emit expansionChanged();
 }
 
 void InfosTab::refreshContent() {
