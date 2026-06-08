@@ -2,6 +2,7 @@
 #include "core/types.h"
 #include <QFutureWatcher>
 #include <QScrollArea>
+#include <QSet>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <optional>
@@ -20,6 +21,7 @@ public:
 
     void setCharacter(CharacterInfo* charInfo, PlayerTotals* totals);
     void refreshStats();
+    void setBisNames(const QSet<QString>* bisNames);
 
 signals:
     void lootItemActivated(ItemData item);
@@ -63,4 +65,6 @@ private:
     std::vector<QString> _lootSlots;
 
     QFutureWatcher<std::vector<NpcData>>* _searchWatcher;
+
+    const QSet<QString>* _bisNames{nullptr};
 };

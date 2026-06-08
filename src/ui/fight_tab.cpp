@@ -274,6 +274,10 @@ void FightTab::refreshStats() {
         _rightScroll->setWidget(buildRightPanel(_currentNpc));
 }
 
+void FightTab::setBisNames(const QSet<QString>* bisNames) {
+    _bisNames = bisNames;
+}
+
 // ── Search ────────────────────────────────────────────────────────────────────
 
 void FightTab::doSearch() {
@@ -464,27 +468,33 @@ QWidget* FightTab::buildLeftPanel(const NpcData& npc) {
         } else {
             for (const auto& item : loot) {
                 const char* nameColor;
+                bool isUsable;
                 if (item.scrolleffect > 0) {
                     // Spell scroll: usability depends on the granted spell's class list,
                     // not on item_slots (scrolls have no equip slots) — same 2-tier
                     // graying as equippable items (usable vs. not-usable-by-class).
                     auto spell = _itemDb->getSpellById(item.scrolleffect);
-                    bool usable = spell && charCanUseSpell(*spell, _charInfo);
-                    nameColor = usable ? kTextPrimary : kTextSecondary;
+                    isUsable  = spell && charCanUseSpell(*spell, _charInfo);
+                    nameColor = isUsable ? kTextPrimary : kTextSecondary;
                 } else {
                     bool equippable = item.item_slots > 0;
-                    bool usable = charCanEquip(item, _charInfo);
+                    isUsable  = charCanEquip(item, _charInfo);
                     // 3 levels: usable by char = bright, has slots but wrong class/race/level = dim, no slots = very dim
-                    nameColor = usable ? kTextPrimary : (equippable ? kTextSecondary : kTextDim);
+                    nameColor = isUsable ? kTextPrimary : (equippable ? kTextSecondary : kTextDim);
                 }
+
+                QString itemName = QString::fromStdString(item.name);
+                bool isBis = isUsable && _bisNames && _bisNames->contains(itemName);
+                if (isBis) nameColor = kAccentGold;
+                QString btnText = (isBis ? QString::fromUtf8("\xe2\xad\x90 ") : QString())
+                    + itemName
+                    + QString("  %1%").arg(item.chance, 0, 'f', 0);
 
                 auto* row = new QWidget; row->setStyleSheet("background:transparent;");
                 auto* rowL = new QHBoxLayout(row);
                 rowL->setContentsMargins(0,0,0,0); rowL->setSpacing(4);
 
-                auto* btn = new QPushButton(
-                    QString("%1  %2%").arg(QString::fromStdString(item.name))
-                                      .arg(item.chance, 0, 'f', 0));
+                auto* btn = new QPushButton(btnText);
                 btn->setFlat(true);
                 btn->setStyleSheet(
                     QString("QPushButton{text-align:left;color:%1;background:transparent;"
