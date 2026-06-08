@@ -153,6 +153,10 @@ void CharacterTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* totals,
     clearComparison(false);
 }
 
+void CharacterTab::setBisNames(const QSet<QString>* bisNames) {
+    _bisNames = bisNames;
+}
+
 // ── buildUi ───────────────────────────────────────────────────────────────
 
 void CharacterTab::buildUi()
@@ -394,14 +398,19 @@ void CharacterTab::rebuildInventoryPanel()
                     .arg(kTextEmptySlot));
             rl->addWidget(nameLbl, 1);
         } else {
-            auto* nameBtn = new QPushButton(itemName);
+            bool isBisItem = _bisNames && _bisNames->contains(itemName);
+            QString displayName = isBisItem
+                ? QString::fromUtf8("\xe2\xad\x90 ") + itemName
+                : itemName;
+            const char* nameColor = isBisItem ? kAccentGold : kTextBase;
+            auto* nameBtn = new QPushButton(displayName);
             nameBtn->setFlat(true);
             nameBtn->setStyleSheet(
                 QString("QPushButton { text-align: left; color: %1; background: transparent; "
                         "border: 1px solid transparent; font-size: 12px; padding: 0; }"
                         "QPushButton:hover { color: %2; }"
                         "QPushButton:focus { border: 1px solid %3; border-radius: 2px; }")
-                .arg(kTextBase, kGreen, kBorderAccent));
+                .arg(nameColor, kGreen, kBorderAccent));
             nameBtn->setToolTip(formatItemTooltip(*item, kTextPrimary));
             if (onClick) connect(nameBtn, &QPushButton::clicked, onClick);
             rl->addWidget(nameBtn, 1);
@@ -422,13 +431,18 @@ void CharacterTab::rebuildInventoryPanel()
         btn->setFixedSize(kEquipCellSize, kEquipCellSize);
         btn->setCursor(isEmpty ? Qt::ArrowCursor : Qt::PointingHandCursor);
         btn->setFocusPolicy(isEmpty ? Qt::NoFocus : Qt::StrongFocus);
+        bool isBisCell = !isEmpty && _bisNames &&
+            _bisNames->contains(QString::fromStdString(eqIt->second.name));
+        const char* borderColor = isBisCell ? kAccentGold : kBorderCard;
         QString cellCss = QString(
             "QPushButton { background: %1; border: 1px solid %2; border-radius: 4px; }")
-            .arg(isEmpty ? kBgBase : kBgTile, kBorderCard);
-        if (!isEmpty)
+            .arg(isEmpty ? kBgBase : kBgTile, borderColor);
+        if (!isEmpty) {
+            const char* hoverColor = isBisCell ? kAccentGold : kBorderAccent;
             cellCss += QString(
                 "QPushButton:hover { border-color: %1; }"
-                "QPushButton:focus { border-color: %1; }").arg(kBorderAccent);
+                "QPushButton:focus { border-color: %1; }").arg(hoverColor);
+        }
         btn->setStyleSheet(cellCss);
 
         QString fullSlotName = QString::fromStdString(slotName);
@@ -713,7 +727,9 @@ void CharacterTab::onSearchPopup()
         if (!canEquip(item)) continue;
         applyWornStats(item, charLevel);
         _searchResults.append(item);
-        names << QString::fromStdString(item.name);
+        QString qname = QString::fromStdString(item.name);
+        bool isBis = _bisNames && _bisNames->contains(qname);
+        names << (isBis ? QString::fromUtf8("\xe2\xad\x90 ") + qname : qname);
     }
 
     _searchModel->setStringList(names);

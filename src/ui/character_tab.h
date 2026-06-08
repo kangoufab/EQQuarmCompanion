@@ -1,6 +1,7 @@
 #pragma once
 #include "core/types.h"
 #include "ui/item_card.h"
+#include <QSet>
 #include <QWidget>
 #include <QList>
 #include <map>
@@ -26,6 +27,8 @@ public:
     void setCharacter(CharacterInfo*, PlayerTotals*,
                       const std::map<std::string, ItemData>&);
     void loadItemIntoComparison(const ItemData& item);
+    void setBisNames(const QSet<QString>* bisNames);
+    void rebuildInventoryPanel();
 
 signals:
     void statsChanged(PlayerTotals totals, std::map<std::string, ItemData> equippedItems);
@@ -78,6 +81,7 @@ private:
 
     QScrollArea*    _inventoryScroll{nullptr};
     QWidget*        _inventoryContent{nullptr};
-    QList<std::pair<int,ItemData>> _bagItems;  // {bag_number, item}
-    void rebuildInventoryPanel();
+    QList<std::pair<int,ItemData>> _bagItems;
+
+    const QSet<QString>* _bisNames{nullptr};
 };
