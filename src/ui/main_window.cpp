@@ -307,6 +307,8 @@ void MainWindow::onCharacterChanged(int index) {
 
     _aaStats = _itemDb->getAaStats(_currentChar.aa_purchases);
     recalculateTotals();
+    _charTab->setBisNames(nullptr);
+    _fightTab->setBisNames(nullptr);
     refreshAllTabs();
     refreshBis();
 }

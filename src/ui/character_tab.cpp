@@ -367,6 +367,16 @@ void CharacterTab::rebuildInventoryPanel()
     vl->setContentsMargins(0, 0, 0, 0);
     vl->setSpacing(0);
 
+    if (_charInfo && !_charInfo->name.empty() && !_bisNames) {
+        auto* loadingLbl = new QLabel(
+            QString::fromUtf8("\xe2\xad\x90 BIS en chargement\xe2\x80\xa6"));
+        loadingLbl->setStyleSheet(
+            QString("color: %1; font-size: 11px; font-style: italic; "
+                    "background: transparent; padding: 4px 8px;")
+                .arg(kAccentGold));
+        vl->addWidget(loadingLbl);
+    }
+
     auto addTitle = [&](const QString& title) {
         auto* lbl = new QLabel(title);
         lbl->setStyleSheet(
@@ -413,7 +423,7 @@ void CharacterTab::rebuildInventoryPanel()
                         "border: 1px solid transparent; font-size: 12px; padding: 0; }"
                         "QPushButton:hover { color: %2; }"
                         "QPushButton:focus { border: 1px solid %3; border-radius: 2px; }")
-                .arg(nameColor, kGreen, kBorderAccent));
+                .arg(nameColor, isBisItem ? kAccentGold : kGreen, kBorderAccent));
             nameBtn->setToolTip(formatItemTooltip(*item, kTextPrimary));
             if (onClick) connect(nameBtn, &QPushButton::clicked, onClick);
             rl->addWidget(nameBtn, 1);
@@ -441,7 +451,7 @@ void CharacterTab::rebuildInventoryPanel()
             "QPushButton { background: %1; border: 1px solid %2; border-radius: 4px; }")
             .arg(isEmpty ? kBgBase : kBgTile, borderColor);
         if (!isEmpty) {
-            const char* hoverColor = isBisCell ? kAccentGold : kBorderAccent;
+            const char* hoverColor = isBisCell ? "#ffd97d" : kBorderAccent;
             cellCss += QString(
                 "QPushButton:hover { border-color: %1; }"
                 "QPushButton:focus { border-color: %1; }").arg(hoverColor);

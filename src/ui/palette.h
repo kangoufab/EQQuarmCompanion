@@ -37,7 +37,7 @@ inline const char* kTextPrimary   = "#e0e0e0";  // headings, key values
 inline const char* kTextBase      = "#c0c0c0";  // body text, item names
 inline const char* kTextSecondary = "#8a8a8a";  // secondary labels, grid keys — ≥4.5:1 on kBgCard/kBgBase/kBgMain (computed)
 inline const char* kTextMuted     = "#828282";  // cap dividers, very dim — ≥4.5:1 on kBgMain/kBgBase (computed)
-inline const char* kTextDim       = "#555555";  // disabled state
+inline const char* kTextDim       = "#666677";  // disabled state — ≥4.5:1 on kBgMain/kBgBase (WCAG AA)
 
 // P1 contrast fixes — these replace colors that failed WCAG AA (< 4.5:1):
 inline const char* kTextEmptySlot = "#717e9f";  // "— vide —" in inventory (4.65:1 on kBgBase, computed)
