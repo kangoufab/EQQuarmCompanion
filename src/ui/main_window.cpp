@@ -394,9 +394,11 @@ void MainWindow::refreshBis() {
 
     _bisScaper.fetchBis(className, expansion, [this](QSet<QString> names) {
         _bisNames = std::move(names);
-        _charTab->setBisNames(&_bisNames);
-        _fightTab->setBisNames(&_bisNames);
-        _charTab->rebuildInventoryPanel();
-        _fightTab->refreshStats();
+        QTimer::singleShot(0, this, [this]() {
+            _charTab->setBisNames(&_bisNames);
+            _fightTab->setBisNames(&_bisNames);
+            _charTab->rebuildInventoryPanel();
+            _fightTab->refreshStats();
+        });
     });
 }
