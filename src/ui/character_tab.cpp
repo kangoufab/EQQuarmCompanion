@@ -248,8 +248,11 @@ void CharacterTab::buildUi()
                 this, &CharacterTab::onSearchPopup);
         connect(completer, QOverload<const QString&>::of(&QCompleter::activated),
                 this, [this](const QString& text) {
+            // Strip the BIS prefix "⭐ " (U+2B50 U+0020) if present before matching
+            static const QString kBisPrefix = QString::fromUtf8("\xe2\xad\x90 ");
+            QString rawText = text.startsWith(kBisPrefix) ? text.mid(kBisPrefix.length()) : text;
             for (int i = 0; i < _searchResults.size(); ++i) {
-                if (QString::fromStdString(_searchResults[i].name) == text) {
+                if (QString::fromStdString(_searchResults[i].name) == rawText) {
                     onItemSelected(i);
                     return;
                 }
