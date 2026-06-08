@@ -24,9 +24,6 @@ public:
                   const QString& expansion,
                   std::function<void(QSet<QString>)> callback);
 
-private slots:
-    void onReplyFinished();
-
 private:
     static QString cacheFilePath(const QString& className, const QString& expansion);
     static bool    cacheIsValid(const QString& path);
@@ -37,7 +34,5 @@ private:
     [[nodiscard]] QList<BisEntry> parseHtml(const QByteArray& html) const;
     static QSet<QString> entriesToSet(const QList<BisEntry>& entries);
 
-    QNetworkAccessManager              _nam;
-    std::function<void(QSet<QString>)> _callback;
-    QString                            _cachePath;
+    QNetworkAccessManager _nam;
 };

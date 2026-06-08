@@ -38,7 +38,6 @@ QString BisScaper::expansionToSlug(const QString& expansion) {
 
 QString BisScaper::cacheFilePath(const QString& className, const QString& expansion) {
     QString dir = QCoreApplication::applicationDirPath() + "/bis_cache";
-    QDir().mkpath(dir);
     return dir + "/" + className + "_" + expansion + ".json";
 }
 
@@ -62,6 +61,7 @@ QSet<QString> BisScaper::loadFromCache(const QString& path) {
 }
 
 void BisScaper::saveToCache(const QString& path, const QList<BisEntry>& entries) const {
+    QDir().mkpath(QFileInfo(path).absolutePath());
     QJsonObject obj;
     for (const BisEntry& e : entries) {
         QJsonArray arr = obj.value(e.slotName).toArray();
@@ -85,11 +85,10 @@ void BisScaper::fetchBis(const QString& className,
                           const QString& expansion,
                           std::function<void(QSet<QString>)> cb)
 {
-    _callback  = std::move(cb);
-    _cachePath = cacheFilePath(className, expansion);
+    QString cachePath = cacheFilePath(className, expansion);
 
-    if (cacheIsValid(_cachePath)) {
-        if (_callback) _callback(loadFromCache(_cachePath));
+    if (cacheIsValid(cachePath)) {
+        if (cb) cb(loadFromCache(cachePath));
         return;
     }
 
@@ -98,23 +97,19 @@ void BisScaper::fetchBis(const QString& className,
                   + "-best-in-slot-bis-gearing-guide-"
                   + expansionToSlug(expansion) + "/";
     auto* reply = _nam.get(QNetworkRequest(QUrl(url)));
-    connect(reply, &QNetworkReply::finished, this, &BisScaper::onReplyFinished);
-}
-
-void BisScaper::onReplyFinished() {
-    auto* reply = qobject_cast<QNetworkReply*>(sender());
-    if (!reply) return;
-    QByteArray data;
-    if (reply->error() == QNetworkReply::NoError)
-        data = reply->readAll();
-    reply->deleteLater();
-    if (data.isEmpty()) {
-        if (_callback) _callback({});
-        return;
-    }
-    QList<BisEntry> entries = parseHtml(data);
-    saveToCache(_cachePath, entries);
-    if (_callback) _callback(entriesToSet(entries));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, cachePath, cb = std::move(cb)]() mutable {
+        QByteArray data;
+        if (reply->error() == QNetworkReply::NoError)
+            data = reply->readAll();
+        reply->deleteLater();
+        if (data.isEmpty()) {
+            if (cb) cb({});
+            return;
+        }
+        QList<BisEntry> entries = parseHtml(data);
+        saveToCache(cachePath, entries);
+        if (cb) cb(entriesToSet(entries));
+    });
 }
 
 QList<BisEntry> BisScaper::parseHtml(const QByteArray& html) const {
