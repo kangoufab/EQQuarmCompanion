@@ -339,7 +339,7 @@ void SpellsTab::buildUi()
 
         // Liste des classes
         _classList = new QListWidget;
-        _classList->setFixedWidth(130);
+        _classList->setMinimumWidth(130);
         _classList->setStyleSheet(
             QString("QListWidget { background: %1; border: 1px solid %2; font-size: 14px; }"
                     "QListWidget::item { color: %3; padding: 3px 6px; }"
@@ -567,7 +567,8 @@ void SpellsTab::rebuildRightPanel()
         if (isBlocked) {
             QString wname = winnerNames.count(spell.id) ? winnerNames[spell.id] : "un autre sort";
             { QFont f = cb->font(); f.setStrikeOut(true); cb->setFont(f); }
-            cb->setStyleSheet(QString("font-size: 14px; color: %1;").arg(kAccentBlocked));
+            cb->setStyleSheet(QString("QCheckBox { font-size: 14px; color: %1; }"
+                                      "QCheckBox:disabled { color: %1; }").arg(kAccentBlocked));
             cb->setToolTip(appendTooltipRows(
                 formatSpellTooltip(spell, tooltipLevel, {}, kAccentBlocked),
                 spellExtraRows(spell, wname)));
@@ -580,7 +581,8 @@ void SpellsTab::rebuildRightPanel()
                 for (auto& b : _activeBuffs)
                     if (b.spell.id == *conflict) { wname = QString::fromStdString(b.spell.name); break; }
                 { QFont f = cb->font(); f.setStrikeOut(true); cb->setFont(f); }
-                cb->setStyleSheet(QString("font-size: 14px; color: %1;").arg(kAccentBlocked));
+                cb->setStyleSheet(QString("QCheckBox { font-size: 14px; color: %1; }"
+                                      "QCheckBox:disabled { color: %1; }").arg(kAccentBlocked));
                 cb->setToolTip(appendTooltipRows(
                     formatSpellTooltip(spell, tooltipLevel, {}, kAccentBlocked),
                     spellExtraRows(spell, wname)));
