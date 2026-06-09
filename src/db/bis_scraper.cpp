@@ -53,8 +53,9 @@ QSet<QString> BisScaper::loadFromCache(const QString& path) {
     QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
     f.close();
     if (!doc.isObject()) return {};
+    QJsonObject obj = doc.object();
     QSet<QString> names;
-    for (auto it = doc.object().begin(); it != doc.object().end(); ++it)
+    for (auto it = obj.begin(); it != obj.end(); ++it)
         for (const QJsonValue& v : it.value().toArray())
             names.insert(v.toString());
     return names;
