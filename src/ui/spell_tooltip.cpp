@@ -1,4 +1,5 @@
 #include "ui/spell_tooltip.h"
+#include "ui/palette.h"
 #include "core/spell_stats.h"
 #include <QString>
 #include <algorithm>
@@ -205,23 +206,23 @@ QString formatSpellTooltip(const SpellData& spell, int level,
                                 "%2</td>")
                         .arg(accentColor, r.label.toHtmlEscaped());
             } else {
-                html += QString("<td style='color:#aaaaaa;padding:1px 20px 1px 10px;'>%1</td>"
-                                "<td align='right' style='color:%2;font-weight:bold;'>%3</td>")
-                        .arg(r.label.toHtmlEscaped(), accentColor, r.value.toHtmlEscaped());
+                html += QString("<td style='color:%1;padding:1px 20px 1px 10px;'>%2</td>"
+                                "<td align='right' style='color:%3;font-weight:bold;'>%4</td>")
+                        .arg(kHtmlLabel, r.label.toHtmlEscaped(), accentColor, r.value.toHtmlEscaped());
             }
             html += "</tr>";
         }
     }
 
     if (!cond.empty()) {
-        html += "<tr><td colspan='2' style='color:#445566;font-size:11px;font-weight:bold;"
-                "padding:6px 0 2px;'>─ CONDITIONS</td></tr>";
+        html += QString("<tr><td colspan='2' style='color:%1;font-size:11px;font-weight:bold;"
+                        "padding:6px 0 2px;'>─ CONDITIONS</td></tr>").arg(kHtmlCondHeader);
         for (auto& r : cond) {
             html += QString("<tr>"
-                            "<td style='color:#6a8399;padding:1px 20px 1px 10px;'>%1</td>"
-                            "<td align='right' style='color:#8aabb8;'>%2</td>"
+                            "<td style='color:%1;padding:1px 20px 1px 10px;'>%2</td>"
+                            "<td align='right' style='color:%3;'>%4</td>"
                             "</tr>")
-                    .arg(r.label.toHtmlEscaped(), r.value.toHtmlEscaped());
+                    .arg(kHtmlCondLabel, r.label.toHtmlEscaped(), kHtmlCondValue, r.value.toHtmlEscaped());
         }
     }
 

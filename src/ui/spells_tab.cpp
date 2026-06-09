@@ -37,13 +37,13 @@ static QString spellExtraRows(const SpellData& spell, const QString& conflictNam
     QString rows;
 
     if (!conflictName.isEmpty()) {
-        rows += "<tr><td colspan='2' style='color:#4a2020;font-size:11px;font-weight:bold;"
-                "padding:6px 0 2px;'>─ CONFLIT</td></tr>";
+        rows += QString("<tr><td colspan='2' style='color:%1;font-size:11px;font-weight:bold;"
+                        "padding:6px 0 2px;'>─ CONFLIT</td></tr>").arg(kHtmlConflictHeader);
         rows += QString("<tr>"
-                        "<td style='color:#7a4040;padding:1px 20px 1px 10px;'>Bloqué par</td>"
-                        "<td align='right' style='color:%1;'>%2</td>"
+                        "<td style='color:%1;padding:1px 20px 1px 10px;'>Bloqué par</td>"
+                        "<td align='right' style='color:%2;'>%3</td>"
                         "</tr>")
-                .arg(kAccentBlocked, conflictName.toHtmlEscaped());
+                .arg(kHtmlConflictLabel, kAccentBlocked, conflictName.toHtmlEscaped());
     }
 
     bool hasDur    = spell.buffdurationformula > 0 && spell.buffduration > 0;
@@ -52,8 +52,8 @@ static QString spellExtraRows(const SpellData& spell, const QString& conflictNam
     if (!hasDur && !hasCast && !hasRecast)
         return rows;
 
-    rows += "<tr><td colspan='2' style='color:#2d4258;font-size:11px;font-weight:bold;"
-            "padding:6px 0 2px;'>─ SORT</td></tr>";
+    rows += QString("<tr><td colspan='2' style='color:%1;font-size:11px;font-weight:bold;"
+                    "padding:6px 0 2px;'>─ SORT</td></tr>").arg(kHtmlSortHeader);
 
     if (hasDur) {
         int ticks   = spell.buffduration;
@@ -68,9 +68,9 @@ static QString spellExtraRows(const SpellData& spell, const QString& conflictNam
             durStr = QString("%1 sec (%2 ticks)").arg(seconds).arg(ticks);
         }
         rows += QString("<tr>"
-                        "<td style='color:#4a6070;padding:1px 20px 1px 10px;'>Durée</td>"
-                        "<td align='right' style='color:#6a8090;'>%1</td>"
-                        "</tr>").arg(durStr);
+                        "<td style='color:%1;padding:1px 20px 1px 10px;'>Durée</td>"
+                        "<td align='right' style='color:%2;'>%3</td>"
+                        "</tr>").arg(kHtmlSortLabel, kHtmlSortValue, durStr);
     }
 
     if (hasCast) {
@@ -78,10 +78,12 @@ static QString spellExtraRows(const SpellData& spell, const QString& conflictNam
                        spell.skill == 54 || spell.skill == 12 || spell.skill == 70);
         double castSec = spell.cast_time / 1000.0;
         rows += QString("<tr>"
-                        "<td style='color:#4a6070;padding:1px 20px 1px 10px;'>%1</td>"
-                        "<td align='right' style='color:#6a8090;'>%2 sec</td>"
+                        "<td style='color:%1;padding:1px 20px 1px 10px;'>%2</td>"
+                        "<td align='right' style='color:%3;'>%4 sec</td>"
                         "</tr>")
+                .arg(kHtmlSortLabel)
                 .arg(isSong ? "Cast (song)" : "Cast")
+                .arg(kHtmlSortValue)
                 .arg(castSec, 0, 'f', 1);
     } else if (hasRecast) {
         int recastSec = spell.recast_delay / 1000;
@@ -95,9 +97,9 @@ static QString spellExtraRows(const SpellData& spell, const QString& conflictNam
             recastStr = QString("%1 sec").arg(recastSec);
         }
         rows += QString("<tr>"
-                        "<td style='color:#4a6070;padding:1px 20px 1px 10px;'>Recast</td>"
-                        "<td align='right' style='color:#6a8090;'>%1</td>"
-                        "</tr>").arg(recastStr);
+                        "<td style='color:%1;padding:1px 20px 1px 10px;'>Recast</td>"
+                        "<td align='right' style='color:%2;'>%3</td>"
+                        "</tr>").arg(kHtmlSortLabel, kHtmlSortValue, recastStr);
     }
 
     return rows;
@@ -182,9 +184,9 @@ void SpellsTab::setCharacter(CharacterInfo* charInfo, PlayerTotals* baseTotals,
 
     if (_classList && _classList->count() > 0) {
         int row = std::max(0, _classList->currentRow());
-        // setCurrentRow n'émet pas currentRowChanged si la row n'a pas changé,
-        // donc on appelle directement onClassSelected pour forcer le rechargement.
+        _classList->blockSignals(true);
         _classList->setCurrentRow(row);
+        _classList->blockSignals(false);
         onClassSelected(row);
     } else {
         refreshStats();
@@ -269,7 +271,7 @@ void SpellsTab::buildUi()
     // ── GAUCHE : buffs actifs ─────────────────────────────────────────────
     {
         auto* leftFrame = new QFrame;
-        leftFrame->setFixedWidth(220);
+        leftFrame->setMinimumWidth(220);
         leftFrame->setStyleSheet(
             QString("QFrame { background: %1; border-radius: 4px; border: 1px solid %2; }")
             .arg(kBgCard).arg(kBorderCard));
@@ -432,14 +434,14 @@ void SpellsTab::onClassSelected(int row) {
 
 void SpellsTab::loadSpellsForClass(const std::string& className) {
     _currentClassSpells.clear();
-    if (!_itemDb) { qDebug() << "[SpellsTab] itemDb null"; rebuildRightPanel(); return; }
+    if (!_itemDb) { rebuildRightPanel(); return; }
 
     int maxLvl = expansionMaxLevel();
+#ifdef QT_DEBUG
     qDebug() << "[SpellsTab] loadSpellsForClass" << QString::fromStdString(className) << "maxLvl=" << maxLvl;
+#endif
     auto spells = _itemDb->getBeneficialSpellsByClass(
         QString::fromStdString(className), maxLvl);
-
-    qDebug() << "[SpellsTab] got" << spells.size() << "spells from DB";
 
     for (auto& sd : spells) {
         // Exclure les sorts self-only (targettype==6) sauf si classe == classe perso
@@ -449,7 +451,9 @@ void SpellsTab::loadSpellsForClass(const std::string& className) {
         _currentClassSpells.push_back(sd);
     }
 
-    qDebug() << "[SpellsTab] after filter:" << _currentClassSpells.size() << "spells";
+#ifdef QT_DEBUG
+    qDebug() << "[SpellsTab] loadSpellsForClass done:" << _currentClassSpells.size() << "spells";
+#endif
     rebuildRightPanel();
 }
 
@@ -568,6 +572,7 @@ void SpellsTab::rebuildRightPanel()
                 formatSpellTooltip(spell, tooltipLevel, {}, kAccentBlocked),
                 spellExtraRows(spell, wname)));
             cb->setEnabled(false);
+            cb->setAccessibleDescription(QString::fromUtf8("Bloqué par ") + wname);
         } else if (!isSelected) {
             auto conflict = findConflictInPool(spell, activePool, charLevel);
             if (conflict) {
@@ -575,11 +580,12 @@ void SpellsTab::rebuildRightPanel()
                 for (auto& b : _activeBuffs)
                     if (b.spell.id == *conflict) { wname = QString::fromStdString(b.spell.name); break; }
                 { QFont f = cb->font(); f.setStrikeOut(true); cb->setFont(f); }
-            cb->setStyleSheet(QString("font-size: 14px; color: %1;").arg(kAccentBlocked));
+                cb->setStyleSheet(QString("font-size: 14px; color: %1;").arg(kAccentBlocked));
                 cb->setToolTip(appendTooltipRows(
                     formatSpellTooltip(spell, tooltipLevel, {}, kAccentBlocked),
                     spellExtraRows(spell, wname)));
                 cb->setEnabled(false);
+                cb->setAccessibleDescription(QString::fromUtf8("Bloqué par ") + wname);
             } else {
                 cb->setStyleSheet(QString("font-size: 14px; color: %1;").arg(kTextBase));
                 cb->setToolTip(appendTooltipRows(

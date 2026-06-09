@@ -441,7 +441,7 @@ void CharacterTab::rebuildInventoryPanel()
             "QPushButton { background: %1; border: 1px solid %2; border-radius: 4px; }")
             .arg(isEmpty ? kBgBase : kBgTile, borderColor);
         if (!isEmpty) {
-            const char* hoverColor = isBisCell ? "#ffd97d" : kBorderAccent;
+            const char* hoverColor = isBisCell ? kAccentGoldHover : kBorderAccent;
             cellCss += QString(
                 "QPushButton:hover { border-color: %1; }"
                 "QPushButton:focus { border-color: %1; }").arg(hoverColor);
@@ -467,7 +467,7 @@ void CharacterTab::rebuildInventoryPanel()
                 // et kTextSlotLabel n'atteint que 3.90:1 dessus (échec WCAG AA) —
                 // kTextTileKey est garanti ≥4.5:1 sur tous les fonds de tuile.
                 btn->setStyleSheet(btn->styleSheet() + QString(
-                    "QPushButton { color: %1; font-size: 10px; }").arg(kTextTileKey));
+                    "QPushButton { color: %1; font-size: 11px; }").arg(kTextTileKey));
             }
             btn->setToolTip(formatItemTooltip(item, kTextPrimary));
             btn->setAccessibleName(fullSlotName + " : " + QString::fromStdString(item.name));

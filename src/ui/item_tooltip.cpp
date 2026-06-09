@@ -82,8 +82,8 @@ QString formatItemTooltip(const ItemData& item, const QString& accentColor)
         if (id <= 0 || effName.empty()) return;
         effRows.push_back({
             QString("<span style='color:%1;font-weight:bold;'>%2</span>"
-                    "<span style='color:#aaaaaa;'> %3</span>")
-            .arg(col, pfx, QString::fromStdString(effName).toHtmlEscaped()),
+                    "<span style='color:%3;'> %4</span>")
+            .arg(col, pfx, kHtmlLabel, QString::fromStdString(effName).toHtmlEscaped()),
             QString()
         });
     };
@@ -113,9 +113,9 @@ QString formatItemTooltip(const ItemData& item, const QString& accentColor)
                                 "font-style:italic;font-size:12px;'>%1</td></tr>")
                         .arg(r.label);
             } else {
-                html += QString("<tr><td style='color:#aaaaaa;padding:1px 20px 1px 10px;'>%1</td>"
-                                "<td align='right' style='color:%2;font-weight:bold;'>%3</td></tr>")
-                        .arg(r.label, accentColor, r.value);
+                html += QString("<tr><td style='color:%1;padding:1px 20px 1px 10px;'>%2</td>"
+                                "<td align='right' style='color:%3;font-weight:bold;'>%4</td></tr>")
+                        .arg(kHtmlLabel, r.label, accentColor, r.value);
             }
         }
     }

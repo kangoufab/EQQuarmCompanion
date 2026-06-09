@@ -45,9 +45,9 @@ static QString makeStatTooltip(const std::string& statKey,
 
     QString rows;
     auto row = [&](const QString& label, const QString& val, const char* color) {
-        rows += QString("<tr><td style='padding-left:12px;color:#aaa;'>%1</td>"
-                        "<td align='right' style='color:%2;'>%3</td></tr>")
-                .arg(label).arg(color).arg(val);
+        rows += QString("<tr><td style='padding-left:12px;color:%1;'>%2</td>"
+                        "<td align='right' style='color:%3;'>%4</td></tr>")
+                .arg(kHtmlLabel).arg(label).arg(color).arg(val);
     };
     auto sectionHeader = [&](const QString& title, const char* color) {
         rows += QString("<tr><td colspan='2' style='color:%1;font-size:13px;"
@@ -210,7 +210,8 @@ static QWidget* makeEffectsWidget(const std::vector<EffectEntry>& effects,
         if (spellId == -1) {
             // Flowing Thought agrégé : itemName contient les sources séparées par '\n'
             QString tip = QString("<b>Flowing Thought</b><br>"
-                                  "<span style='color:#aaa;'>Mana Regen +%1/tick</span>")
+                                  "<span style='color:%1;'>Mana Regen +%2/tick</span>")
+                          .arg(kHtmlLabel)
                           .arg(name.size() > 17 ? QString::fromStdString(name).mid(17) : "?");
             if (!itemName.empty()) {
                 tip += "<br><br>";

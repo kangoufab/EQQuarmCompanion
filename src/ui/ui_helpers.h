@@ -21,12 +21,12 @@ inline const QString kComboStyle = QString(
     .arg(kBgCard, kBorderCard, kTextBase, kAccentBlue, kBorderMid);
 
 inline std::pair<const char*, const char*> sectionTheme(const char* accent) {
-    if (QLatin1String(accent) == kAccentBlue)   return {kBgCard,        kBorderCard};
-    if (QLatin1String(accent) == kOrange)        return {"#2a241a",       "#5a4a3a"};
-    if (QLatin1String(accent) == kGreen)         return {"#1a2a1e",       "#3a5a4a"};
-    if (QLatin1String(accent) == kRed)           return {"#2a1a1a",       "#5a3a3a"};
-    if (QLatin1String(accent) == kAccentPurple)  return {"#241a2a",       "#4a3a5a"};
-    return {kSurfaceDark, "#3a3a5a"};
+    if (QLatin1String(accent) == kAccentBlue)   return {kBgCard,          kBorderCard};
+    if (QLatin1String(accent) == kOrange)        return {kBgTintOrange,    kBorderTintOrange};
+    if (QLatin1String(accent) == kGreen)         return {kBgTintGreen,     kBorderTintGreen};
+    if (QLatin1String(accent) == kRed)           return {kBgTintRed,       kBorderTintRed};
+    if (QLatin1String(accent) == kAccentPurple)  return {kBgTintPurple,    kBorderTintPurple};
+    return {kSurfaceDark, kBorderTintDefault};
 }
 
 inline QLabel* sectionLabel(const QString& text, const char* accent = kTextSecondary) {

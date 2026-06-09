@@ -68,3 +68,29 @@ inline const char* kAccentWorn   = "#8888ff";  // Worn effect prefix
 inline const char* kAccentFocus  = "#88cc88";  // Focus effect prefix
 inline const char* kAccentProc   = "#ffaa44";  // Proc effect prefix
 inline const char* kAccentBuff   = "#80b0e0";  // Active buff label / tooltip accent
+
+// ── BIS / state variants ──────────────────────────────────────────────────
+inline const char* kAccentGoldHover = "#ffd97d";  // BIS gold cell hover / focus
+
+// ── Section tints — used by sectionTheme() in ui_helpers.h ───────────────
+inline const char* kBgTintOrange      = "#2a241a";
+inline const char* kBorderTintOrange  = "#5a4a3a";
+inline const char* kBgTintGreen       = "#1a2a1e";
+inline const char* kBorderTintGreen   = "#3a5a4a";
+inline const char* kBgTintRed         = "#2a1a1a";
+inline const char* kBorderTintRed     = "#5a3a3a";
+inline const char* kBgTintPurple      = "#241a2a";
+inline const char* kBorderTintPurple  = "#4a3a5a";
+inline const char* kBorderTintDefault = "#3a3a5a";  // neutral-cool fallback border
+
+// ── HTML tooltip colors ───────────────────────────────────────────────────
+// Used in Qt HTML tooltip strings (can't use QSS tokens in HTML attributes).
+inline const char* kHtmlLabel          = "#aaaaaa";  // stat label in effect rows
+inline const char* kHtmlCondHeader     = "#445566";  // ─ CONDITIONS header
+inline const char* kHtmlCondLabel      = "#6a8399";  // CONDITIONS label
+inline const char* kHtmlCondValue      = "#8aabb8";  // CONDITIONS value
+inline const char* kHtmlConflictHeader = "#4a2020";  // ─ CONFLIT header
+inline const char* kHtmlConflictLabel  = "#7a4040";  // CONFLIT label
+inline const char* kHtmlSortHeader     = "#2d4258";  // ─ SORT header
+inline const char* kHtmlSortLabel      = "#4a6070";  // SORT label
+inline const char* kHtmlSortValue      = "#6a8090";  // SORT value
