@@ -104,20 +104,26 @@ Qt's AUTOMOC scans files listed in `add_library()`/`add_executable()`. Any QObje
 "Clickies" is a synthetic class entry in the Buffs tab that collects click-effect spells from: (1) equipped items (already in `_equippedItems`), and (2) items in personal bag slots only (`General1-8`, not `Bank`/`SharedBank`) loaded via `ItemDatabase::getItemClickeffects()`. Deduplication by spell_id keeps the first item encountered. `CharacterInfo::bag_item_ids` stores the IDs from bag slots parsed in `character_parser.cpp`.
 
 ### Tooltips de sorts — `formatSpellTooltip` et couleur accent
-`formatSpellTooltip` (dans `spell_tooltip.h/cpp`) génère du HTML `<table>` avec deux sections : **EFFETS** (SPAs 0-133) et **CONDITIONS** (SPAs 134-144 — limites focus). Le paramètre `accentColor` colore le header du sort et les valeurs d'effets ; les labels restent en `#aaaaaa` et les conditions en `#6a8399`. Les appelants passent leur couleur existante (`col` dans `item_card.cpp`, `color` dans `stats_bar.cpp`). L'onglet Buffs passe `kAccentBuff` (buff), `kAccentPurple` (clicky), `#cc6666` (bloqué).
+`formatSpellTooltip` (dans `spell_tooltip.h/cpp`) génère du HTML `<table>` avec deux sections : **EFFETS** (SPAs 0-133) et **CONDITIONS** (SPAs 134-144 — limites focus). Le paramètre `accentColor` colore le header du sort et les valeurs d'effets ; les labels utilisent `kHtmlLabel` (`#aaaaaa`) et les conditions `kHtmlCondLabel`/`kHtmlCondValue`/`kHtmlCondHeader`. Les appelants passent leur couleur existante (`col` dans `item_card.cpp`, `color` dans `stats_bar.cpp`). L'onglet Buffs passe `kAccentBuff` (buff), `kAccentPurple` (clicky), `kAccentBlocked` (bloqué).
 
-Dans l'onglet Buffs, les tooltips enrichis (sections CONFLIT + SORT avec durée/cast) sont construits par `spellExtraRows()` et injectés via `appendTooltipRows()` — directement dans `spells_tab.cpp`, sans modifier `formatSpellTooltip`.
+Dans l'onglet Buffs, les tooltips enrichis (sections CONFLIT + SORT avec durée/cast) sont construits par `spellExtraRows()` et injectés via `appendTooltipRows()` — directement dans `spells_tab.cpp`, sans modifier `formatSpellTooltip`. Les couleurs de ces sections utilisent `kHtmlConflictHeader`, `kHtmlConflictLabel`, `kHtmlSortHeader`, `kHtmlSortLabel`, `kHtmlSortValue`.
 
 ### Strikeout dans l'onglet Buffs — `QFont::setStrikeOut()` pas CSS
 Le strikeout des sorts bloqués est appliqué via `QFont::setStrikeOut(true)` sur le widget (label/checkbox), **pas** via `text-decoration: line-through` dans le stylesheet. Raison : Qt propage l'attribut `strikeOut` du QFont du widget vers son rendu de tooltip, causant un texte barré dans le tooltip. Le `QToolTip` utilise `QToolTip::font()` comme base (indépendant du widget), donc `QFont::setStrikeOut()` n'affecte que le label, pas le tooltip.
 
+Les checkboxes bloquées ont aussi un override explicite `QCheckBox:disabled { color: kAccentBlocked; }` dans leur stylesheet. Sans cela, `setEnabled(false)` fait utiliser à Qt la couleur système `grayText` qui peut tomber sous 4.5:1 sur `kBgCard`, écrasant la couleur définie par le sélecteur `QCheckBox { color: ... }`. L'override `:disabled` prend priorité et préserve `kAccentBlocked` (#cc6666) quelle que soit la palette système.
+
 ### Token system — palette.h comme source unique de couleurs
 Toutes les couleurs UI sont déclarées dans `src/ui/palette.h` (`inline const char*`). Les règles :
 - Ne jamais hardcoder une couleur déjà présente comme token. Utiliser `kBgCard`, `kGreen`, `kAccentBlue`, etc.
-- Tout nouveau fichier `.cpp` dans `src/ui/` doit inclure `ui/palette.h` (direct) ou `ui/ui_helpers.h` / `ui/stat_categories.h` (transitif).
+- Tout nouveau fichier `.cpp` dans `src/ui/` doit inclure `ui/palette.h` (direct) ou `ui/ui_helpers.h` / `ui/stat_categories.h` (transitif). `spell_tooltip.cpp` l'inclut directement.
 - Tout nouveau token s'ajoute dans `palette.h` **avant** d'être utilisé. Ne pas créer de variables locales `static const char* color = "#..."`.
 - `stat_categories.h` : ne jamais redéfinir `CatColors`, `CAT_COLORS`, `CAT_LABELS`, `CLASS_CATEGORIES`, `STAT_LABELS`, `STAT_SUFFIX` dans un fichier local — importer le header. Partagé par `character_tab.cpp`, `stats_bar.cpp`, **et** `spells_tab.cpp`.
 - Tokens `kAccentWorn`, `kAccentFocus`, `kAccentProc`, `kAccentBuff` dans `palette.h` — utilisés par `item_card.cpp`, `spell_tooltip.cpp` et `spells_tab.cpp`. Ne pas re-hardcoder `#8888ff`, `#88cc88`, `#ffaa44`, `#80b0e0`.
+- Familles de tokens supplémentaires dans `palette.h` :
+  - `kAccentGoldHover` — variante hover/focus du gold BIS (`character_tab.cpp`).
+  - `kBgTint*` / `kBorderTint*` — teintes de fond par couleur sémantique, utilisées par `sectionTheme()` dans `ui_helpers.h`. Ne pas hardcoder `"#2a241a"` etc. — utiliser `kBgTintOrange`, `kBgTintGreen`, `kBgTintRed`, `kBgTintPurple`.
+  - `kHtmlLabel`, `kHtmlCondHeader/Label/Value`, `kHtmlConflictHeader/Label`, `kHtmlSortHeader/Label/Value` — couleurs pour les strings HTML de tooltip (impossible d'utiliser des variables QSS dans les attributs `style=`). Ces tokens garantissent la cohérence entre `spell_tooltip.cpp`, `item_tooltip.cpp`, `stats_bar.cpp` et `spells_tab.cpp`.
 
 ### Stuff tab — layout 3 colonnes
 L'onglet Stuff a un layout 3 colonnes via `QSplitter` :
@@ -163,7 +169,7 @@ Déploiement : `resources/imgs/items/` (uniquement les fichiers `item_*.png`, pa
 | `src/ui/spell_tooltip.h/cpp` | `formatSpellTooltip(spell, level, spellNames, accentColor)` — tooltip HTML en `<table>` 2 colonnes : section EFFETS (SPAs 0-133) + CONDITIONS (SPAs 134-144). `accentColor` colore header + valeurs (Worn `kAccentWorn`, Focus `kAccentFocus`, Proc `kAccentProc`, Click `kAccentPurple`, Buff `kAccentBuff`). |
 | `src/ui/stats_bar.h` | `makePlayerStatsBar()` — bandeau de stats avec tooltips par source |
 | `src/ui/ui_helpers.h` | Helpers UI inline : `sectionFrame()`, `sectionLabel()`, `gridWidget()`, `kComboStyle` — couleurs depuis `palette.h` |
-| `src/ui/palette.h` | Token colors système : `kBg*`, `kText*`, `kGreen/kOrange/kRed`, `kAccent*`, `kAccentGold`, `kAccentWorn/Focus/Proc/Buff` — voir ce fichier pour tous les tokens |
+| `src/ui/palette.h` | Token colors système : `kBg*`, `kText*`, `kGreen/kOrange/kRed`, `kAccent*`, `kAccentGold`, `kAccentWorn/Focus/Proc/Buff`, `kAccentGoldHover`, `kBgTint*/kBorderTint*` (teintes section), `kHtml*` (couleurs tooltip HTML) — voir ce fichier pour tous les tokens |
 | `src/ui/stat_categories.h` | `CatColors` struct + `STAT_CATEGORIES`, `CAT_LABELS`, `CAT_COLORS`, `CLASS_CATEGORIES`, `STAT_LABELS`, `STAT_SUFFIX` — partagé par `character_tab.cpp`, `stats_bar.cpp`, `spells_tab.cpp` |
 | `src/ui/widgets.h` | `SearchComboBox` — QComboBox avec signal `popup_requested()` |
 
