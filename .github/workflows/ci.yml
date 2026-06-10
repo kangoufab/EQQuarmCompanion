@@ -50,8 +50,15 @@ jobs:
       - name: Configure
         run: cmake --preset ci-debug
 
+      # VCPKG_APPLOCAL_DEPS=OFF : les DLL vcpkg (libgtest.dll) ne sont pas copiées
+      # à côté de l'exe. gtest_discover_tests lance eq_tests.exe au build (et ctest
+      # le relance), il faut donc le dossier des DLL debug vcpkg sur le PATH.
       - name: Build
-        run: cmake --build build/debug
+        run: |
+          $env:PATH = "$env:GITHUB_WORKSPACE\build\debug\vcpkg_installed\x64-mingw-dynamic\debug\bin;$env:PATH"
+          cmake --build build/debug
 
       - name: Test
-        run: ctest --preset ci-debug
+        run: |
+          $env:PATH = "$env:GITHUB_WORKSPACE\build\debug\vcpkg_installed\x64-mingw-dynamic\debug\bin;$env:PATH"
+          ctest --preset ci-debug
