@@ -52,6 +52,8 @@ add_executable(EqQuarmCompanion WIN32
     "${CMAKE_BINARY_DIR}/app.rc"
     src/ui/main_window.cpp
     src/ui/character_tab.cpp
+    src/ui/character_tab_tooltip.cpp
+    src/ui/character_tab_internal.h
     src/ui/fight_tab.cpp
     src/ui/spells_tab.cpp
     src/ui/spells_tab.h

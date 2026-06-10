@@ -100,6 +100,9 @@ Some db/ `.cpp` files use `#undef slots` before including project headers as an 
 ### AUTOMOC requires headers in source lists
 Qt's AUTOMOC scans files listed in `add_library()`/`add_executable()`. Any QObject subclass header **must** appear in the CMakeLists source list, not just the `.cpp`. Missing this causes vtable link errors.
 
+### CharacterTab — implémentation répartie sur plusieurs `.cpp`
+`character_tab.cpp` était un god-file (>1480 l). L'implémentation de la classe `CharacterTab` est désormais scindée en deux unités de compilation : `character_tab.cpp` (UI, inventaire, comparaison, slots) et `character_tab_tooltip.cpp` (`buildStatTooltip`). C++ autorise de définir des méthodes membres d'une même classe dans des `.cpp` différents — le **header `character_tab.h` et l'API publique sont inchangés**, donc AUTOMOC n'est pas impacté (seul le header avec `Q_OBJECT` doit rester listé, ce qui est le cas). Les helpers libres partagés par les deux TU (`getItemStat`, `isAttrStat`, `isResistStat`) vivent dans `character_tab_internal.h` en `inline` (définition unique conforme à l'ODR), **pas** en `static` (sinon redéfinition par TU). Pour scinder à nouveau, ajouter le nouveau `.cpp` à la liste de sources de `EqQuarmCompanion` dans `CMakeLists.txt`.
+
 ### QtConcurrent for async NPC search
 `FightTab` dispatches NPC database searches via `QtConcurrent::run()` + `QFutureWatcher` to avoid blocking the UI thread. Pattern established in `src/ui/fight_tab.cpp`.
 
@@ -165,7 +168,9 @@ Déploiement : `resources/imgs/items/` (uniquement les fichiers `item_*.png`, pa
 | `src/db/bis_scraper.h` | `BisScaper` — scraper async HTML (QNetworkAccessManager) pour Best-in-Slot |
 | `src/ui/main_window.h/cpp` | App shell; `_playerTotals` (base+items+AAs), `_buffedTotals` (+ active buffs); file watcher |
 | `src/ui/item_card.h/cpp` | Widget item unifié (carte compacte Option B) — utilisé par Stuff et Fight |
-| `src/ui/character_tab.h/cpp` | Stuff tab — layout 3 colonnes (QSplitter) : inventaire équipé+sacs / recherche / comparaison; `rebuildInventoryPanel()` |
+| `src/ui/character_tab.h/cpp` | Stuff tab — layout 3 colonnes (QSplitter) : inventaire équipé+sacs / recherche / comparaison; `rebuildInventoryPanel()`. **L'implémentation de la classe est répartie sur 2 `.cpp`** (voir décision d'archi ci-dessous) |
+| `src/ui/character_tab_tooltip.cpp` | Définit `CharacterTab::buildStatTooltip()` (~290 l, décomposition HTML BASE/ITEMS/FORMULE d'un stat), extrait de `character_tab.cpp` |
+| `src/ui/character_tab_internal.h` | Header interne (pas de QObject) : helpers `inline` `getItemStat`/`isAttrStat`/`isResistStat` partagés entre les 2 TU de CharacterTab |
 | `src/ui/fight_tab.h/cpp` | 2D DPS×slow table, loot, NPC tags, resists; `refreshStats()` rebuilds right panel with buffed totals. CH rotation: `safeP = floor(hp×0.70×10/maxDPS)` = pause max (dixièmes) pour HP ≥ 30% ; affiché pour N min clerics tel que `ceil(100/N) ≤ safeP`. |
 | `src/ui/infos_tab.h/cpp` | Expansion selector + resist debuff groups |
 | `src/ui/spells_tab.h/cpp` | Buffs tab — class list, checkboxes, stacking, sets save/load, search bar, Clickies. `_conflicts` = `map<int,int>` loser→winner. Helpers fichier : `spellExtraRows()` (sections CONFLIT+SORT dans les tooltips), `appendTooltipRows()` (injection dans table existante). |
