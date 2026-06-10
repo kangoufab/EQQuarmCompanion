@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Évite d'empiler les builds sur une même branche.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Qt 6.11.1 MinGW + la chaîne MinGW 13.1 et Ninja (ajoutés au PATH).
+      # Définit QT_ROOT_DIR, consommé par le preset CMake "ci-debug".
+      - name: Install Qt + MinGW + Ninja
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.11.1'
+          host: windows
+          target: desktop
+          arch: win64_mingw
+          tools: 'tools_mingw1310 tools_ninja'
+          cache: true
+
+      # Les runners GitHub Windows fournissent vcpkg préinstallé
+      # (VCPKG_INSTALLATION_ROOT). Cache du dossier de binaires vcpkg.
+      - name: Cache vcpkg artifacts
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/build/debug/vcpkg_installed
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-${{ runner.os }}-
+
+      - name: Configure
+        run: cmake --preset ci-debug
+
+      - name: Build
+        run: cmake --build build/debug
+
+      - name: Test
+        run: ctest --preset ci-debug

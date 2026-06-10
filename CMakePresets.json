@@ -32,14 +32,34 @@
         "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic",
         "VCPKG_APPLOCAL_DEPS": "OFF"
       }
+    },
+    {
+      "name": "ci-debug",
+      "displayName": "CI Debug (env-driven)",
+      "description": "Pour GitHub Actions : Qt via QT_ROOT_DIR, vcpkg via VCPKG_INSTALLATION_ROOT, MinGW/Ninja sur le PATH.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_PREFIX_PATH": "$env{QT_ROOT_DIR}",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic",
+        "VCPKG_APPLOCAL_DEPS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
     }
   ],
   "buildPresets": [
     { "name": "windows-x64-debug",   "configurePreset": "windows-x64-debug"   },
-    { "name": "windows-x64-release", "configurePreset": "windows-x64-release" }
+    { "name": "windows-x64-release", "configurePreset": "windows-x64-release" },
+    { "name": "ci-debug",            "configurePreset": "ci-debug"            }
   ],
   "testPresets": [
     { "name": "windows-x64-debug", "configurePreset": "windows-x64-debug",
+      "output": { "outputOnFailure": true } },
+    { "name": "ci-debug", "configurePreset": "ci-debug",
       "output": { "outputOnFailure": true } }
   ]
 }

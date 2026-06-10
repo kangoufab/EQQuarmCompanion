@@ -64,6 +64,12 @@ Génère `installer/output/EqQuarmCompanion-Setup.exe`.
 
 **Règle :** toujours regénérer l'installer après un build release.
 
+## Qualité & CI
+
+- **CI** : `.github/workflows/ci.yml` build + `ctest` sur `push`/PR vers `main` (runner `windows-latest`). Qt 6.11.1 MinGW + Ninja via `install-qt-action`, vcpkg préinstallé du runner, presets `ci-debug`/`ci-*` (dans `CMakePresets.json`) qui lisent l'environnement (`QT_ROOT_DIR`, `VCPKG_INSTALLATION_ROOT`) au lieu des chemins absolus locaux. Ne touche pas aux presets `windows-x64-*` de dev. Le workflow n'est validable qu'une fois poussé sur GitHub (environnement sensible).
+- **`.clang-format`** : style calé sur le code existant (4 espaces, ~100 col, pointeurs collés au type). **Non appliqué rétroactivement** — à adopter au fil des fichiers modifiés, pour éviter un diff massif.
+- **`.clang-tidy`** : analyse statique conservatrice (bugprone/performance/quelques modernize). Usage : configurer avec `CMAKE_EXPORT_COMPILE_COMMANDS=ON` (déjà dans `ci-debug`) puis `clang-tidy -p build/debug src/core/<fichier>.cpp`.
+
 ## Architecture
 
 ```
