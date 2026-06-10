@@ -1,0 +1,33 @@
+# Style EqQuarmCompanion — calé sur le code existant (4 espaces, ~100 col, pointeurs collés au type).
+# Non appliqué rétroactivement : à adopter au fil des fichiers modifiés.
+---
+Language:        Cpp
+BasedOnStyle:    LLVM
+Standard:        c++17
+
+IndentWidth:     4
+TabWidth:        4
+UseTab:          Never
+ColumnLimit:     100
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+DerivePointerAlignment: false
+
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: true
+
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignTrailingComments: true
+SpaceBeforeParens: ControlStatements
+SpacesInAngles:  Never
+
+IncludeBlocks:   Preserve
+SortIncludes:    false
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1

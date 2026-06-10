@@ -1,0 +1,27 @@
+# Analyse statique légère pour EqQuarmCompanion.
+# Génère compile_commands.json (CMAKE_EXPORT_COMPILE_COMMANDS=ON, déjà supporté par Ninja)
+# puis : clang-tidy -p build/debug src/core/<fichier>.cpp
+#
+# Checks volontairement conservateurs : on cible les vrais bugs et les coûts cachés,
+# sans imposer une modernisation massive du code Qt existant.
+Checks: >
+  bugprone-*,
+  performance-*,
+  misc-*,
+  readability-misleading-indentation,
+  readability-redundant-*,
+  readability-non-const-parameter,
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-use-emplace,
+  modernize-loop-convert,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -misc-non-private-member-variables-in-classes,
+  -misc-no-recursion,
+  -readability-redundant-access-specifiers
+
+# Qt génère beaucoup de code dans les headers MOC/UI ; on ne lint que nos sources.
+HeaderFilterRegex: 'src/(core|db|ui)/.*\.h$'
+WarningsAsErrors: ''
+FormatStyle:      file
