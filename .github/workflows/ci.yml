@@ -23,6 +23,11 @@ jobs:
       # Définit QT_ROOT_DIR, consommé par le preset CMake "ci-debug".
       - name: Install Qt + MinGW + Ninja
         uses: jurplel/install-qt-action@v4
+        env:
+          # Pointe aqtinstall vers notre settings.ini : plusieurs trusted_mirrors
+          # pour le checksum de Updates.xml + retries généreux (corrige
+          # "Failed to download checksum ... Failed to locate XML data").
+          AQT_CONFIG: ${{ github.workspace }}/.github/aqt-settings.ini
         with:
           version: '6.11.1'
           host: windows
@@ -30,9 +35,6 @@ jobs:
           arch: win64_mingw
           tools: 'tools_mingw1310 tools_ninja'
           cache: true
-          # Force le dépôt maître officiel : par défaut aqtinstall peut être
-          # redirigé vers un mirror non-officiel qui n'a pas le checksum de
-          # Updates.xml ("Failed to locate XML data for Qt version ...").
           extra: '--base https://download.qt.io/'
 
       # Les runners GitHub Windows fournissent vcpkg préinstallé
