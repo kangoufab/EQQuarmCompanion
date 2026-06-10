@@ -1,5 +1,6 @@
 add_executable(eq_tests
     test_config.cpp
+    test_character_parser.cpp
     test_npc_analysis.cpp
     test_stats_calculator.cpp
     test_spell_stats.cpp

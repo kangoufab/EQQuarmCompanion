@@ -48,7 +48,7 @@ cd build/debug
 ctest --output-on-failure
 ```
 
-29 tests across 5 suites: config, stats_calculator, npc_analysis, spell_stats, spell_stacking.
+36 tests across 6 suites: config, character_parser, stats_calculator, npc_analysis, spell_stats, spell_stacking. Les tests `character_parser` (dans `tests/test_character_parser.cpp`) couvrent le happy-path mais aussi les comportements documentés : `bag_item_ids` depuis `GeneralN-SlotM`, section AAIndex, expansion de slots Ear/Wrist/Fingers, base stats/race, classe inconnue, pattern `*-Quarmy.txt`.
 
 ### Installer
 
