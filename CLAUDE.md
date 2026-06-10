@@ -194,3 +194,5 @@ At runtime, the app loads `config.json` from the same directory as the executabl
 
 MySQL database named `quarm` (Project Quarm server DB). Connection params in `config.json` under `"db"`. Default: `localhost:3306` user `root` password `rooteq`. Tables used: `npc_types`, `spells_new`, `loottable`, `lootdrop`, `items`, `races`, `global_loot`.
 
+**Index FULLTEXT** : `npc_database.cpp` et `item_database.cpp` créent automatiquement un index `ft_name` (`ALTER TABLE … ADD FULLTEXT`) au premier usage si absent, pour remplacer les `LIKE '%term%'` par une recherche FULLTEXT. Si le compte DB n'a pas les droits `ALTER`, appliquer la migration manuelle `docs/sql_migrations/add_fulltext_indexes.sql` une fois (`mysql -u root quarm < docs/sql_migrations/add_fulltext_indexes.sql`).
+
