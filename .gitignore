@@ -12,3 +12,6 @@ tools/
 !installer/build_installer.ps1
 config.json
 installer/output/
+
+# Icônes brutes inutilisées — seules les item_*.png sont déployées (cf. CLAUDE.md)
+resources/imgs/items/*.gif
