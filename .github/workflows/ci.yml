@@ -23,19 +23,20 @@ jobs:
       # Définit QT_ROOT_DIR, consommé par le preset CMake "ci-debug".
       - name: Install Qt + MinGW + Ninja
         uses: jurplel/install-qt-action@v4
-        env:
-          # Pointe aqtinstall vers notre settings.ini : plusieurs trusted_mirrors
-          # pour le checksum de Updates.xml + retries généreux (corrige
-          # "Failed to download checksum ... Failed to locate XML data").
-          AQT_CONFIG: ${{ github.workspace }}/.github/aqt-settings.ini
         with:
-          version: '6.11.1'
+          # 6.8.3 (LTS) côté CI, plutôt que la 6.11.1 du poste de dev : le dépôt
+          # Qt 6.11.x utilise un nouveau layout (sous-dossiers _mingw /
+          # _llvm_mingw) que aqtinstall 3.3.0 — la version installée par l'action
+          # — ne sait pas résoudre ("Failed to locate XML data for Qt 6.11.1").
+          # La 6.8 LTS a le layout classique et build le projet à l'identique :
+          # les APIs Qt6 Widgets/Sql/Network/Concurrent utilisées sont stables
+          # sur tout 6.x. MinGW 13.1 (tools_mingw1310) couvre 6.8 comme 6.11.
+          version: '6.8.3'
           host: windows
           target: desktop
           arch: win64_mingw
           tools: 'tools_mingw1310 tools_ninja'
           cache: true
-          extra: '--base https://download.qt.io/'
 
       # Les runners GitHub Windows fournissent vcpkg préinstallé
       # (VCPKG_INSTALLATION_ROOT). Cache du dossier de binaires vcpkg.
