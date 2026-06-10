@@ -254,8 +254,10 @@ static bool hasItemsFulltextIndex(const QSqlDatabase& db) {
         s_itemsFulltext = create.exec("ALTER TABLE items ADD FULLTEXT INDEX ft_name (Name)");
         if (s_itemsFulltext)
             qInfo() << "[ItemDatabase] FULLTEXT index créé sur items.Name";
+#ifdef QT_DEBUG
         else
             qDebug() << "[ItemDatabase] FULLTEXT index indisponible:" << create.lastError().text();
+#endif
     }
     s_itemsFulltextChecked = true;
     return s_itemsFulltext;

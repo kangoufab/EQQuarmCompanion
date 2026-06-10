@@ -26,8 +26,10 @@ static bool hasNpcsFulltextIndex(const QSqlDatabase& db) {
         s_npcsFulltext = create.exec("ALTER TABLE npc_types ADD FULLTEXT INDEX ft_name (name)");
         if (s_npcsFulltext)
             qInfo() << "[NpcDatabase] FULLTEXT index créé sur npc_types.name";
+#ifdef QT_DEBUG
         else
             qDebug() << "[NpcDatabase] FULLTEXT index indisponible:" << create.lastError().text();
+#endif
     }
     s_npcsFulltextChecked = true;
     return s_npcsFulltext;
