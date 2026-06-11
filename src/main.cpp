@@ -9,6 +9,7 @@
 #include <QTextStream>
 #include <QDateTime>
 #include <filesystem>
+#include <system_error>
 #include "core/config.h"
 #include "db/db_connection.h"
 #include "db/npc_database.h"
@@ -57,9 +58,21 @@ int main(int argc, char* argv[]) {
     app.setApplicationName("EQ Quarm Companion");
     app.setWindowIcon(QIcon(":/app_icon.png"));
 
-    auto exeDirForLog = std::filesystem::path(
+    auto exeDir = std::filesystem::path(
         QCoreApplication::applicationDirPath().toStdWString());
-    auto logPath = exeDirForLog / "eqquarm_debug.log";
+
+    // config.json et log sont stockés dans %APPDATA%\EqQuarmCompanion plutôt
+    // qu'à côté de l'exe : évite la virtualisation UAC (VirtualStore) quand
+    // l'app est installée dans Program Files. config_defaults.json reste une
+    // ressource en lecture seule livrée avec l'exe.
+    QString appData = qEnvironmentVariable("APPDATA");
+    std::filesystem::path dataDir = appData.isEmpty()
+        ? exeDir
+        : std::filesystem::path(appData.toStdWString()) / L"EqQuarmCompanion";
+    std::error_code ec;
+    std::filesystem::create_directories(dataDir, ec);
+
+    auto logPath = dataDir / "eqquarm_debug.log";
     g_logFile = new QFile(QString::fromStdWString(logPath.wstring()));
     g_logFile->open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
     qInstallMessageHandler(messageHandler);
@@ -69,8 +82,14 @@ int main(int argc, char* argv[]) {
     splash->show();
     app.processEvents();
 
-    auto cfgPath  = exeDirForLog / "config.json";
-    auto defsPath = exeDirForLog / "config_defaults.json";
+    auto cfgPath  = dataDir / "config.json";
+    auto defsPath = exeDir / "config_defaults.json";
+
+    // Migration : ancienne config à côté de l'exe → %APPDATA%\EqQuarmCompanion.
+    auto legacyCfg = exeDir / "config.json";
+    if (!std::filesystem::exists(cfgPath) && std::filesystem::exists(legacyCfg))
+        std::filesystem::copy_file(legacyCfg, cfgPath,
+            std::filesystem::copy_options::overwrite_existing, ec);
 
     Config config(cfgPath, defsPath);
 

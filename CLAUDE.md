@@ -188,7 +188,7 @@ Déploiement : `resources/imgs/items/` (uniquement les fichiers `item_*.png`, pa
 
 ## Config File
 
-At runtime, the app loads `config.json` from the same directory as the executable (created on first run from `resources/config_defaults.json`). The `eq_files_dir` key points to the EverQuest character file directory.
+At runtime, the app stores `config.json` (et `eqquarm_debug.log`) dans **`%APPDATA%\EqQuarmCompanion\`**, pas à côté de l'exe — choix fait dans `main.cpp` pour éviter la virtualisation UAC (VirtualStore) quand l'app est installée dans `Program Files`. `config_defaults.json` reste une ressource en lecture seule livrée à côté de l'exe ; `config.json` est créé au premier lancement à partir de ce fichier. Si un `config.json` hérité existe à côté de l'exe (ancien emplacement), il est **migré** (copié) vers `%APPDATA%` au démarrage tant que la cible n'existe pas encore. Si `%APPDATA%` n'est pas défini, l'app retombe sur le dossier de l'exe. Le `eq_files_dir` key points to the EverQuest character file directory.
 
 ## Database
 
