@@ -22,7 +22,10 @@ SetupIconFile=..\resources\app_icon.ico
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 
 [Files]
-Source: "{#BinDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+; config.json n'est PAS distribué : il peut contenir la config locale du dev
+; (credentials DB, personnages). L'app le recrée dans %APPDATA%\EqQuarmCompanion
+; à partir de config_defaults.json au premier lancement.
+Source: "{#BinDir}\*"; DestDir: "{app}"; Excludes: "config.json"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\EqQuarmCompanion.exe"
