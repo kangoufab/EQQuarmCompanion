@@ -127,8 +127,12 @@ QList<BisEntry> BisScaper::parseHtml(const QByteArray& html) const {
         QRegularExpression::DotMatchesEverythingOption |
         QRegularExpression::CaseInsensitiveOption);
 
+    // Capture le nom jusqu'au premier '<' (pas d'ancre </span> finale) : certains
+    // items insèrent un <br /> juste après le nom dans le span interne (slots Face,
+    // Fingers…), ce qui faisait échouer un motif exigeant </span> immédiatement et
+    // ignorait silencieusement ces items. [^<]+ s'arrête déjà au tag, le nom est trim.
     static const QRegularExpression tooltipRe(
-        R"(<span[^>]*data-tooltip[^>]*>\s*<span[^>]*>([^<]+)</span>)",
+        R"(<span[^>]*data-tooltip[^>]*>\s*<span[^>]*>([^<]+))",
         QRegularExpression::DotMatchesEverythingOption |
         QRegularExpression::CaseInsensitiveOption);
 
