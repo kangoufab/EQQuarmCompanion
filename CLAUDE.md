@@ -155,10 +155,10 @@ Déploiement : `resources/imgs/items/` (uniquement les fichiers `item_*.png`, pa
 
 | File | Purpose |
 |------|---------|
-| `src/core/types.h` | All shared structs (ItemData, LootItem, NpcData, CharacterInfo, PlayerTotals, PlayerTotalsExtra, SpellData…); `CharacterInfo::bag_item_ids` = `vector<pair<int,int>>` {bag_number, item_id} |
+| `src/core/types.h` | All shared structs (ItemData, LootItem, NpcData, CharacterInfo, PlayerTotals, PlayerTotalsExtra, SpellData…); `CharacterInfo::bag_item_ids` = `vector<pair<int,int>>` {bag_number, item_id}. `AaStats` : `combat_stability_pct` / `combat_agility_pct` (AA % pour AC soft cap et avoidance). `PlayerTotals` : `avoidance` (score avoidance avec AA). |
 | `src/core/config.h/cpp` | JSON config read/write, DbConfig, getClassWeights, setClassWeights, getCharacterClass |
 | `src/core/character_parser.h/cpp` | Parse EQ TSV character files; extrait `{bag_number, item_id}` depuis `GeneralN-SlotM` → `bag_item_ids` |
-| `src/core/stats_calculator.h/cpp` | HP/Mana/ATK/AC caps, `applyWornStats`, `calculateTotalsWithSpells` (inclut AAs) |
+| `src/core/stats_calculator.h/cpp` | HP/Mana/ATK/AC caps, `applyWornStats`, `calculateTotalsWithSpells` (inclut AAs). AC mitigation : soft cap par classe (350-430) + Combat Stability AA% + shield AC bypass (Luclin+) ; overcap returns Luclin (/12 melee, 0 casters) et PoP (class/level-spécifiques). Avoidance : defense skill + AGI + Combat Agility AA%. `PlayerTotals` expose `mitigation` (soft-capped) et `avoidance` (avec AA). |
 | `src/core/npc_analysis.h/cpp` | Incoming damage, resist ratings, slow land %, special abilities. Triple attack (SA 6) = DA chance (pas DA×0.135). Defensive disc : DB inchangé, seul DI/2 — réduction ~33%, pas 50%. Vérifiés sur log AoW lv70. |
 | `src/core/spell_stats.h/cpp` | spellValue, spellIncomingDps |
 | `src/core/spell_stacking.h/cpp` | spellsStack() — bard vs non-bard logic |
@@ -179,7 +179,7 @@ Déploiement : `resources/imgs/items/` (uniquement les fichiers `item_*.png`, pa
 | `src/ui/infos_data.h` | `kExpCaps` (cap joueur par extension : Luclin=60, PoP=65), `kDebuffsByExp`, `getResistDebuffs()` |
 | `src/ui/infos_spell_data.h` | Données statiques sorts debuff; `getInfoGroups()`, `getCrossConflicts()`, `getResistGroupOrder()`, `getResistBardGroups()`, `bestInGroup()`, `spellResistVal()` |
 | `src/ui/settings_dialog.h` | `SettingsDialog` — dialog 3 onglets : DB / Fichiers / Poids (sliders stat par classe) |
-| `src/ui/spell_tooltip.h/cpp` | `formatSpellTooltip(spell, level, spellNames, accentColor)` — tooltip HTML en `<table>` 2 colonnes : section EFFETS (SPAs 0-133) + CONDITIONS (SPAs 134-144). `accentColor` colore header + valeurs (Worn `kAccentWorn`, Focus `kAccentFocus`, Proc `kAccentProc`, Click `kAccentPurple`, Buff `kAccentBuff`). |
+| `src/ui/spell_tooltip.h/cpp` | `formatSpellTooltip(spell, level, spellNames, accentColor, nameResolver)` — tooltip HTML en `<table>` 2 colonnes : section EFFETS (SPAs 0-133) + CONDITIONS (SPAs 134-144). `accentColor` colore header + valeurs (Worn `kAccentWorn`, Focus `kAccentFocus`, Proc `kAccentProc`, Click `kAccentPurple`, Buff `kAccentBuff`). `SpellNameResolver` (`std::function<QString(int)>`) = callback optionnel pour résoudre les noms de sorts SPA 139 (LimitSpell) quand la map `spellNames` ne les contient pas. SPA 139 négatif → "Excl. Spell", positif → "Limit Spell". |
 | `src/ui/stats_bar.h` | `makePlayerStatsBar()` — bandeau de stats avec tooltips par source |
 | `src/ui/ui_helpers.h` | Helpers UI inline : `sectionFrame()`, `sectionLabel()`, `gridWidget()`, `kComboStyle` — couleurs depuis `palette.h` |
 | `src/ui/palette.h` | Token colors système : `kBg*`, `kText*`, `kGreen/kOrange/kRed`, `kAccent*`, `kAccentGold`, `kAccentWorn/Focus/Proc/Buff`, `kAccentGoldHover`, `kBgTint*/kBorderTint*` (teintes section), `kHtml*` (couleurs tooltip HTML) — voir ce fichier pour tous les tokens |

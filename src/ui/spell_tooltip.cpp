@@ -10,7 +10,8 @@
 
 QString formatSpellTooltip(const SpellData& spell, int level,
                             const std::map<int,QString>& spellNames,
-                            const QString& accentColor)
+                            const QString& accentColor,
+                            const SpellNameResolver& nameResolver)
 {
     static const std::map<int, const char*> SPA_DESC = {
         {0,"HP"}, {1,"AC"}, {2,"ATK"}, {3,"Movement Speed"},
@@ -156,8 +157,14 @@ QString formatSpellTooltip(const SpellData& spell, int level,
             else                addCond("Spell Type", QString::number(base));
         } else if (spa == 139) {
             int sid = std::abs(base);
+            QString sname;
             auto it = spellNames.find(sid);
-            addCond("Limit Spell", (it != spellNames.end()) ? it->second : QString("#%1").arg(sid));
+            if (it != spellNames.end())
+                sname = it->second;
+            else if (nameResolver)
+                sname = nameResolver(sid);
+            addCond(base < 0 ? "Excl. Spell" : "Limit Spell",
+                    sname.isEmpty() ? QString("#%1").arg(sid) : sname);
         } else if (spa == 140) {
             addCond("Min Duration", QString("%1 ticks (%2 sec)").arg(base).arg(base * 6));
         } else if (spa == 141) {

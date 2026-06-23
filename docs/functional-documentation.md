@@ -197,6 +197,18 @@ else           : mitigation += spellAC / 4
 
 // AGI → mitigation
 if AGI > 70: mitigation += AGI / 20
+
+// ── Soft cap (attack.cpp:5139-5270, Velious+, level > 50) ──
+if niveau > 50:
+    softcap = softcap_classe          ← WAR 430, PAL/SHD/CLR/BRD 403, RNG/SHM 375, autres 350
+    softcap += CombatStability% × softcap / 100   ← AA Combat Stability
+    softcap += shieldAC                            ← shield AC bypass (Luclin+)
+    if mitigation > softcap:
+        // Luclin (niveau ≤ 60) :
+        //   casters + prêtres (NEC/WIZ/MAG/ENC/CLR/DRU/SHM) → hard cap (overcap = 0)
+        //   melee → mitigation = softcap + overcap / 12
+        // PoP (niveau > 60) : returns class/level-spécifiques
+        //   WAR 3-5, PAL/SHD 4-6, BRD 6-8, MNK/ROG 12-20, RNG/BST 7-10, autres 20
 ```
 
 **Pure casters :** Necromancer, Wizard, Magician, Enchanter.
@@ -206,6 +218,7 @@ if AGI > 70: mitigation += AGI / 20
 ```
 defSkill  = min(niveau, 60) × defenseSkillMax(classe) / 60
 avoidance = max(1, defSkill × 400 / 225 + agiAvoidance(AGI, niveau))
+avoidance += avoidance × CombatAgility% / 100    ← AA Combat Agility (attack.cpp:5383)
 ```
 
 **defenseSkillMax par classe :**

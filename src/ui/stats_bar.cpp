@@ -183,7 +183,8 @@ static QWidget* makeEffectsWidget(const std::vector<EffectEntry>& effects,
                                    const char* color,
                                    const char* prefix,
                                    const std::map<int, SpellData>& spellDetails,
-                                   int tooltipLevel)
+                                   int tooltipLevel,
+                                   const SpellNameResolver& nameResolver = {})
 {
     auto* w = new QWidget;
     w->setStyleSheet("background: transparent;");
@@ -222,7 +223,7 @@ static QWidget* makeEffectsWidget(const std::vector<EffectEntry>& effects,
         } else if (spellId > 0) {
             auto it = spellDetails.find(spellId);
             if (it != spellDetails.end()) {
-                QString tip = formatSpellTooltip(it->second, tooltipLevel, {}, QString(color));
+                QString tip = formatSpellTooltip(it->second, tooltipLevel, {}, QString(color), nameResolver);
                 if (!itemName.empty())
                     tip = QString("<i style='color:%1;'>%2</i><br>")
                           .arg(kTextSecondary, QString::fromStdString(itemName)) + tip;
@@ -243,7 +244,8 @@ QFrame* makePlayerStatsBar(
     const PlayerTotalsExtra& extra,
     const std::vector<EffectEntry>& wornEffects,
     const std::vector<EffectEntry>& focusEffects,
-    const std::map<int, SpellData>& spellDetails)
+    const std::map<int, SpellData>& spellDetails,
+    const SpellNameResolver& nameResolver)
 {
     // Catégories selon la classe
     std::vector<std::pair<std::string, std::vector<std::string>>> cats;
@@ -375,9 +377,9 @@ QFrame* makePlayerStatsBar(
         // Worn/focus effects dans la catégorie cible
         if (!effectsTarget.empty() && catName == effectsTarget) {
             if (!wornEffects.empty())
-                panelL->addWidget(makeEffectsWidget(wornEffects,  kAccentWorn, "",        spellDetails, 0));
+                panelL->addWidget(makeEffectsWidget(wornEffects,  kAccentWorn, "",        spellDetails, 0, nameResolver));
             if (!focusEffects.empty())
-                panelL->addWidget(makeEffectsWidget(focusEffects, kAccentFocus, "Focus: ", spellDetails, 0));
+                panelL->addWidget(makeEffectsWidget(focusEffects, kAccentFocus, "Focus: ", spellDetails, 0, nameResolver));
         }
 
         panelL->addStretch();
@@ -409,9 +411,9 @@ QFrame* makePlayerStatsBar(
     // Fallback : si aucune catégorie cible n'est présente, on affiche sous le grid
     if (effectsTarget.empty()) {
         if (!wornEffects.empty())
-            outer->addWidget(makeEffectsWidget(wornEffects,  kAccentWorn, "",        spellDetails, 0));
+            outer->addWidget(makeEffectsWidget(wornEffects,  kAccentWorn, "",        spellDetails, 0, nameResolver));
         if (!focusEffects.empty())
-            outer->addWidget(makeEffectsWidget(focusEffects, kAccentFocus, "Focus: ", spellDetails, 0));
+            outer->addWidget(makeEffectsWidget(focusEffects, kAccentFocus, "Focus: ", spellDetails, 0, nameResolver));
     }
 
     return frame;

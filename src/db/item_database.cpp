@@ -12,7 +12,7 @@
 // ── AA effect → stat key (portée de item_database.py) ─────────────────────
 // Mapping effectid → clé stat pour les aa_effects.
 // Références : EQMacEmu common/spdat.h (IDs) + zone/bonuses.cpp (ApplyAABonuses).
-// SE_CombatStability(259) : raise softcap AC — non modélisé ici.
+// SE_CombatStability(259) et SE_AvoidMeleeChance(172) → AaStats champs dédiés.
 // SE_RaiseStatCap(262)    : raise WIS/INT caps — mana indirect, non modélisé ici.
 // CalcMaxMana() n'utilise pas aabonuses.Mana donc aucun AA n'ajoute directement au pool.
 static const std::map<int, const char*> AA_EFFECT_TO_STAT = {
@@ -411,13 +411,25 @@ AaStats ItemDatabase::getAaStats(const std::vector<std::pair<int,int>>& purchase
             int effectid = q2.value(1).toInt();
             int total    = q2.value(2).toInt();
             if (total == 0) continue; // placeholder (ex: Natural Durability base1=0)
-            auto sit = AA_EFFECT_TO_STAT.find(effectid);
-            if (sit != AA_EFFECT_TO_STAT.end()) {
-                const char* statKey = sit->second;
-                result.stats[statKey] += total;
+            if (effectid == 259) {        // SE_CombatStability → raise mitigation softcap
+                result.combat_stability_pct += total;
                 auto nit = aaidToName.find(aaid);
                 if (nit != aaidToName.end())
-                    result.sources[statKey].emplace_back(nit->second, total);
+                    result.sources["combat_stability"].emplace_back(nit->second, total);
+            } else if (effectid == 172) { // SE_AvoidMeleeChance → raise avoidance
+                result.combat_agility_pct += total;
+                auto nit = aaidToName.find(aaid);
+                if (nit != aaidToName.end())
+                    result.sources["combat_agility"].emplace_back(nit->second, total);
+            } else {
+                auto sit = AA_EFFECT_TO_STAT.find(effectid);
+                if (sit != AA_EFFECT_TO_STAT.end()) {
+                    const char* statKey = sit->second;
+                    result.stats[statKey] += total;
+                    auto nit = aaidToName.find(aaid);
+                    if (nit != aaidToName.end())
+                        result.sources[statKey].emplace_back(nit->second, total);
+                }
             }
         }
     }

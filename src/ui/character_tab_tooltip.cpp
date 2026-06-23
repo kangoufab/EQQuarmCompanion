@@ -240,8 +240,10 @@ QString CharacterTab::buildStatTooltip(const std::string& stat,
 
         rows += secRow("FORMULE", kOrange);
         rows += valRow("AC brut items",           QString::number(itemAcSum),        kOrange, true);
-        rows += valRow("Mitigation (\xc3\x97" "4/3 hors casters)",
+        rows += valRow("Mitigation (soft-capped)",
                        QString::number(totals.mitigation),                          kOrange, true);
+        rows += valRow("Avoidance (def+AGI+AA)",
+                       QString::number(totals.avoidance),                           kOrange, true);
         rows += valRow("Affich\xc3\xa9" " = (avoid + mit) \xc3\x97 1000/847",
                        QString::number(totals.ac),                                  kOrange, true);
 

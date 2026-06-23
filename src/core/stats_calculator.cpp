@@ -277,21 +277,36 @@ static int defenseSkillMax(std::string_view cls) {
 // Retourne (displayed_ac, mitigation, avoidance)
 // ═══════════════════════════════════════════════════════════════════════════
 struct AcResult { int displayed, mitigation, avoidance, defSkill; };
+
+// Soft cap par classe (attack.cpp:5139-5167, Velious+, level > 50)
+static int mitigationSoftCap(std::string_view cls) {
+    if (cls == "Warrior") return 430;
+    if (cls == "Paladin" || cls == "Shadowknight" ||
+        cls == "Cleric"  || cls == "Bard") return 403;
+    if (cls == "Ranger" || cls == "Shaman") return 375;
+    return 350; // DRU, ROG, WIZ, ENC, NEC, MAG, BST, MNK
+}
+
 // spellAc doit être passé séparément : le serveur divise l'AC sort par 4 (casters: /3)
 // APRÈS le scaling 4/3 et l'anti-twink, contrairement à l'item AC.
 static AcResult calcDisplayedAc(std::string_view cls, int level, int totalAgi,
-                                 int itemAc, int spellAc = 0, int race = 0) {
+                                 int itemAc, int spellAc = 0, int race = 0,
+                                 int shieldAc = 0,
+                                 int combatStabilityPct = 0,
+                                 int combatAgilityPct = 0) {
     bool pureCaster = isPureCaster(cls);
     int defSkill  = std::min(level, 60) * defenseSkillMax(cls) / 60;
     int avoidance = std::max(1, defSkill * 400 / 225 + agiAvoidance(totalAgi, level));
+
+    // Combat Agility AA (attack.cpp:5383)
+    avoidance += avoidance * combatAgilityPct / 100;
 
     // Item AC ×4/3 pour non-casters (attack.cpp GetMitigation ligne ~4922)
     int mitigation = itemAc;
     if (!pureCaster)
         mitigation = 4 * mitigation / 3;
 
-    // Anti-twink cap (ignoré si ignoreCap=true pour CalcAC affichée, mais le serveur
-    // passe ignoreCap=true dans CalcAC → on l'applique quand même pour la cohérence)
+    // Anti-twink cap
     if (level < 50 && mitigation > level * 6 + 25)
         mitigation = level * 6 + 25;
 
@@ -315,6 +330,40 @@ static AcResult calcDisplayedAc(std::string_view cls, int level, int totalAgi,
         mitigation += totalAgi / 20;
 
     if (mitigation < 0) mitigation = 0;
+
+    // Soft cap (attack.cpp:5139-5270, Velious+ level > 50)
+    if (level > 50) {
+        int softcap = mitigationSoftCap(cls);
+        softcap += combatStabilityPct * softcap / 100;
+        softcap += shieldAc; // shield AC bypasses cap (Luclin+)
+        if (mitigation > softcap) {
+            int overcap = mitigation - softcap;
+            bool isCasterOrPriest = pureCaster ||
+                cls == "Cleric" || cls == "Druid" || cls == "Shaman";
+            // PoP-era: class-specific returns (attack.cpp:5195-5268)
+            if (level > 60) {
+                int returns = 20;
+                if (cls == "Warrior")
+                    returns = (level <= 61) ? 5 : (level <= 63) ? 4 : 3;
+                else if (cls == "Paladin" || cls == "Shadowknight")
+                    returns = (level <= 61) ? 6 : (level <= 63) ? 5 : 4;
+                else if (cls == "Bard")
+                    returns = (level <= 61) ? 8 : (level <= 63) ? 7 : 6;
+                else if (cls == "Monk" || cls == "Rogue")
+                    returns = (level <= 61) ? 20 : (level == 62) ? 18
+                            : (level == 63) ? 16 : (level == 64) ? 14 : 12;
+                else if (cls == "Ranger" || cls == "Beastlord")
+                    returns = (level <= 61) ? 10 : (level == 62) ? 9
+                            : (level == 63) ? 8 : 7;
+                mitigation = softcap + overcap / returns;
+            }
+            // Luclin-era: casters/priests = hard cap, melee = /12
+            else if (isCasterOrPriest)
+                mitigation = softcap;
+            else
+                mitigation = softcap + overcap / 12;
+        }
+    }
 
     int displayed = (avoidance + mitigation) * 1000 / 847;
     return {displayed, mitigation, avoidance, defSkill};
@@ -398,10 +447,12 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
     int itemHp = 0, itemMana = 0, itemHaste = 0;
     const bool classHasMana = hasMana(ci.class_name);
 
+    int shieldAc = 0;
     for (const auto& item : items) {
         itemHp      += item.hp;
         if (classHasMana) itemMana += item.mana;
         itemAtkRaw  += item.atk;
+        if (item.itemtype == 8) shieldAc = item.ac; // ItemTypeShield — tracked separately for soft cap
         rawAc       += item.ac;
         itemStr     += item.astr;  itemSta += item.asta;
         itemDex     += item.adex;  itemAgi += item.aagi;
@@ -488,9 +539,13 @@ PlayerTotals calculateTotals(const CharacterInfo& ci,
                                   itemAtkRaw, primaryItemtype);
     }
 
-    // AC : itemAc + aaAc dans rawAc, spellAc=0 ici (pas de sorts dans calculateTotals)
-    const auto acResult = calcDisplayedAc(ci.class_name, ci.level, totalAgi, rawAc, 0, ci.race);
+    // AC : itemAc dans rawAc, spellAc=0 ici (pas de sorts dans calculateTotals)
+    int csPct = aa ? aa->combat_stability_pct : 0;
+    int caPct = aa ? aa->combat_agility_pct   : 0;
+    const auto acResult = calcDisplayedAc(ci.class_name, ci.level, totalAgi,
+                                          rawAc, 0, ci.race, shieldAc, csPct, caPct);
     t.mitigation = acResult.mitigation;
+    t.avoidance  = acResult.avoidance;
     t.ac         = acResult.displayed;
 
     // ── Remplissage de PlayerTotalsExtra ────────────────────────────────
@@ -715,7 +770,7 @@ PlayerTotals calculateTotalsWithSpells(
         t.dr = br.dr;  t.pr = br.pr;
     }
 
-    int itemAtkRaw = 0, rawAc = 0;
+    int itemAtkRaw = 0, rawAc = 0, shieldAc = 0;
     int itemHpRegenRaw = 0, itemManaRegenRaw = 0;
     int itemHpRaw = 0, itemManaRaw = 0;
     const bool classHasMana = hasMana(ci.class_name);
@@ -724,6 +779,7 @@ PlayerTotals calculateTotalsWithSpells(
         itemHpRaw        += item.hp;
         if (classHasMana) itemManaRaw += item.mana;
         itemAtkRaw       += item.atk;
+        if (item.itemtype == 8) shieldAc = item.ac; // ItemTypeShield
         rawAc            += item.ac;
         t.str_v          += item.astr;
         t.sta            += item.asta;
@@ -837,9 +893,13 @@ PlayerTotals calculateTotalsWithSpells(
     }
 
     {
+        int csPct = aa ? aa->combat_stability_pct : 0;
+        int caPct = aa ? aa->combat_agility_pct   : 0;
         auto acResult = calcDisplayedAc(ci.class_name, ci.level, totalAgi,
-                                        rawAc, spellAcRaw, ci.race);
+                                        rawAc, spellAcRaw, ci.race,
+                                        shieldAc, csPct, caPct);
         t.mitigation = acResult.mitigation;
+        t.avoidance  = acResult.avoidance;
         t.ac         = acResult.displayed;
     }
 
@@ -860,6 +920,8 @@ int playerTotalStat(const std::string& stat, const PlayerTotals& t) {
     if (stat == "hp")         return t.hp.capped;
     if (stat == "mana")       return t.mana.capped;
     if (stat == "ac")         return t.ac;
+    if (stat == "mitigation") return t.mitigation;
+    if (stat == "avoidance")  return t.avoidance;
     if (stat == "atk")        return t.atk;
     if (stat == "haste")      return t.haste;
     if (stat == "hp_regen")   return t.hp_regen;

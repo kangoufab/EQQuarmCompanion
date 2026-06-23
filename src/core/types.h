@@ -28,6 +28,8 @@ struct AaStats {
     // Détail par AA et par stat : stat_key → [(nom_aa, valeur), ...]
     std::map<std::string, std::vector<std::pair<std::string,int>>> sources;
     float nd_pct{};                   // % HP bonus de Natural Durability + Physical Enhancement
+    int combat_stability_pct{};       // SE_CombatStability(259) — raise mitigation softcap
+    int combat_agility_pct{};         // SE_AvoidMeleeChance(172) — raise avoidance
 };
 
 // ── NPC ───────────────────────────────────────────────────────────────
@@ -52,6 +54,7 @@ struct StatRange { int base{}, capped{}; };
 struct PlayerTotals {
     StatRange hp, mana;
     int atk{}, mitigation{}, ac{};
+    int avoidance{};
     int str_v{}, sta{}, dex{}, agi{}, int_v{}, wis{}, cha{};
     int mr{}, fr{}, cr{}, dr{}, pr{};
     int haste{}, hp_regen{}, mana_regen{};

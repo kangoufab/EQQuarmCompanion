@@ -165,8 +165,10 @@ IncomingDamageResult incomingDamage(const NpcData& npc,
     r.mitigation_pct = mitRatio * 100.f;
     r.exp_roll = static_cast<int>(std::round(expRollF));
 
-    // Base avoidance score from class/level + AGI
-    int baseAv  = (level > 0) ? playerAvoidanceScore(className, level, player.agi) : 300;
+    // Avoidance score (includes Combat Agility AA from PlayerTotals).
+    // Fallback to class/level formula only if avoidance not yet computed.
+    int baseAv = player.avoidance > 0 ? player.avoidance
+                                      : std::max(1, playerAvoidanceScore(className, level, player.agi));
     float baseHC = avoidanceHitChance(npcTh, baseAv, 0);
 
     // Discipline modifiers

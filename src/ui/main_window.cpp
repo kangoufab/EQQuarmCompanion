@@ -230,10 +230,14 @@ void MainWindow::rebuildGlobalStatsBar(const PlayerTotals& totals,
         auto worn  = collectWornEffects(items);
         auto focus = collectFocusEffects(items);
         auto spellDetails = loadSpellDetails(worn, focus, _itemDb);
+        SpellNameResolver resolver = [this](int sid) -> QString {
+            auto s = _itemDb->getSpellById(sid);
+            return s ? QString::fromStdString(s->name) : QString();
+        };
         _globalStatsLayout->addWidget(
             makePlayerStatsBar(totals, _currentChar.class_name,
                                _config->get("current_expansion"),
-                               extra, worn, focus, spellDetails));
+                               extra, worn, focus, spellDetails, resolver));
     }
 }
 

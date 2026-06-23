@@ -1,5 +1,6 @@
 #pragma once
 #include "core/types.h"
+#include "ui/spell_tooltip.h"
 #include <QFrame>
 #include <QString>
 #include <map>
@@ -16,6 +17,7 @@ using EffectEntry = std::tuple<std::string, int, std::string>;
 // extra        : détail par source pour les tooltips sur les tuiles (optionnel).
 // wornEffects / focusEffects : entrées (nom, spell_id, item_source).
 // spellDetails : map spell_id → SpellData pour les tooltips worn/focus.
+// nameResolver : optional fallback for spell name resolution (SPA 139).
 QFrame* makePlayerStatsBar(
     const PlayerTotals& totals,
     const std::string& className,
@@ -23,4 +25,5 @@ QFrame* makePlayerStatsBar(
     const PlayerTotalsExtra& extra                              = {},
     const std::vector<EffectEntry>& wornEffects                = {},
     const std::vector<EffectEntry>& focusEffects               = {},
-    const std::map<int, SpellData>& spellDetails               = {});
+    const std::map<int, SpellData>& spellDetails               = {},
+    const SpellNameResolver& nameResolver                      = {});
