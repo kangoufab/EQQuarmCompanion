@@ -182,7 +182,7 @@ Déploiement : `resources/imgs/items/` (uniquement les fichiers `item_*.png`, pa
 | `src/ui/spells_tab.h/cpp` | Buffs tab — class list, checkboxes, stacking, sets save/load, search bar, Clickies. `_conflicts` = `map<int,int>` loser→winner. Helpers fichier : `spellExtraRows()` (sections CONFLIT+SORT dans les tooltips), `appendTooltipRows()` (injection dans table existante). |
 | `src/ui/infos_data.h` | `kExpCaps` (cap joueur par extension : Luclin=60, PoP=65), `kDebuffsByExp`, `getResistDebuffs()` |
 | `src/ui/infos_spell_data.h` | Données statiques sorts debuff; `getInfoGroups()`, `getCrossConflicts()`, `getResistGroupOrder()`, `getResistBardGroups()`, `bestInGroup()`, `spellResistVal()` |
-| `src/ui/settings_dialog.h` | `SettingsDialog` — dialog 3 onglets : DB / Fichiers / Poids (sliders stat par classe) |
+| `src/ui/settings_dialog.h` | `SettingsDialog` — dialog 2 onglets : Fichiers / Poids (sliders stat par classe) |
 | `src/ui/spell_tooltip.h/cpp` | `formatSpellTooltip(spell, level, spellNames, accentColor, nameResolver)` — tooltip HTML en `<table>` 2 colonnes : section EFFETS (SPAs 0-133) + CONDITIONS (SPAs 134-144). `accentColor` colore header + valeurs (Worn `kAccentWorn`, Focus `kAccentFocus`, Proc `kAccentProc`, Click `kAccentPurple`, Buff `kAccentBuff`). `SpellNameResolver` (`std::function<QString(int)>`) = callback optionnel pour résoudre les noms de sorts SPA 139 (LimitSpell) quand la map `spellNames` ne les contient pas. SPA 139 négatif → "Excl. Spell", positif → "Limit Spell". |
 | `src/ui/stats_bar.h` | `makePlayerStatsBar()` — bandeau de stats avec tooltips par source |
 | `src/ui/ui_helpers.h` | Helpers UI inline : `sectionFrame()`, `sectionLabel()`, `gridWidget()`, `kComboStyle` — couleurs depuis `palette.h` |
