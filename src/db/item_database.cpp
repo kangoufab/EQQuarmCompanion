@@ -234,35 +234,6 @@ QMap<int, ItemData> ItemDatabase::getItemsByIds(const QList<int>& ids) {
     return result;
 }
 
-// Détecte une fois si l'index FULLTEXT existe (docs/sql_migrations/add_fulltext_indexes.sql).
-// FULLTEXT passe de O(n) full-scan à O(log n) sur la colonne Name.
-static bool s_itemsFulltext = false;
-static bool s_itemsFulltextChecked = false;
-
-static bool hasItemsFulltextIndex(const QSqlDatabase& db) {
-    if (s_itemsFulltextChecked) return s_itemsFulltext;
-    QSqlQuery chk(db);
-    chk.exec(
-        "SELECT 1 FROM information_schema.STATISTICS"
-        " WHERE table_schema = DATABASE()"
-        "   AND table_name   = 'items'"
-        "   AND index_name   = 'ft_name' LIMIT 1"
-    );
-    s_itemsFulltext = chk.next();
-    if (!s_itemsFulltext) {
-        QSqlQuery create(db);
-        s_itemsFulltext = create.exec("ALTER TABLE items ADD FULLTEXT INDEX ft_name (Name)");
-        if (s_itemsFulltext)
-            qInfo() << "[ItemDatabase] FULLTEXT index créé sur items.Name";
-#ifdef QT_DEBUG
-        else
-            qDebug() << "[ItemDatabase] FULLTEXT index indisponible:" << create.lastError().text();
-#endif
-    }
-    s_itemsFulltextChecked = true;
-    return s_itemsFulltext;
-}
-
 QList<ItemData> ItemDatabase::searchItems(const QString& nameFragment, int limit, int slotFilter) {
     QList<ItemData> result;
     QString cols = buildCols();
@@ -276,7 +247,7 @@ QList<ItemData> ItemDatabase::searchItems(const QString& nameFragment, int limit
     QSqlQuery q(db);
     q.prepare(
         QString("SELECT %1 FROM %2 WHERE i.Name LIKE :name%3"
-                " ORDER BY CHAR_LENGTH(i.Name) ASC LIMIT :lim")
+                " ORDER BY LENGTH(i.Name) ASC LIMIT :lim")
             .arg(cols).arg(from).arg(slotCond)
     );
     q.bindValue(":name", nameFragment.trimmed() + "%");

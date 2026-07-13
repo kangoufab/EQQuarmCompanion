@@ -8,33 +8,6 @@
 
 NpcDatabase::NpcDatabase(QObject* parent) : QObject(parent) {}
 
-static bool s_npcsFulltext = false;
-static bool s_npcsFulltextChecked = false;
-
-static bool hasNpcsFulltextIndex(const QSqlDatabase& db) {
-    if (s_npcsFulltextChecked) return s_npcsFulltext;
-    QSqlQuery chk(db);
-    chk.exec(
-        "SELECT 1 FROM information_schema.STATISTICS"
-        " WHERE table_schema = DATABASE()"
-        "   AND table_name   = 'npc_types'"
-        "   AND index_name   = 'ft_name' LIMIT 1"
-    );
-    s_npcsFulltext = chk.next();
-    if (!s_npcsFulltext) {
-        QSqlQuery create(db);
-        s_npcsFulltext = create.exec("ALTER TABLE npc_types ADD FULLTEXT INDEX ft_name (name)");
-        if (s_npcsFulltext)
-            qInfo() << "[NpcDatabase] FULLTEXT index créé sur npc_types.name";
-#ifdef QT_DEBUG
-        else
-            qDebug() << "[NpcDatabase] FULLTEXT index indisponible:" << create.lastError().text();
-#endif
-    }
-    s_npcsFulltextChecked = true;
-    return s_npcsFulltext;
-}
-
 // ── Helper: fallback zone for script-spawned NPCs ─────────────────────────
 
 static QString fallbackZone(const QString& name) {
@@ -76,7 +49,7 @@ QList<NpcData> NpcDatabase::searchNpcs(const QString& nameFragment) {
         " LEFT JOIN zone z ON z.short_name = s2.zone"
         " WHERE nt.name LIKE :name"
         " GROUP BY nt.id, nt.name, nt.level"
-        " ORDER BY CHAR_LENGTH(nt.name) ASC LIMIT 50"
+        " ORDER BY LENGTH(nt.name) ASC LIMIT 50"
     );
     q.bindValue(":name", QString("%%1%").arg(nameFragment));
     if (!q.exec()) {
@@ -104,7 +77,7 @@ std::optional<NpcData> NpcDatabase::getNpcById(int id) {
     q.prepare(
         "SELECT nt.id, nt.name, nt.level, nt.maxlevel, nt.hp, nt.mana,"
         " nt.race, nt.`class` AS npc_class, nt.bodytype,"
-        " COALESCE(r.name, CONCAT('Race ', nt.race)) AS race_name,"
+        " COALESCE(r.name, 'Race ' || nt.race) AS race_name,"
         " nt.AC AS ac, nt.ATK AS atk, nt.mindmg AS min_hit, nt.maxdmg AS max_hit,"
         " nt.attack_delay, nt.attack_count, nt.Accuracy AS accuracy,"
         " nt.STR AS str_v, nt.STA AS sta, nt.DEX AS dex, nt.AGI AS agi,"
