@@ -89,6 +89,14 @@ add_custom_command(TARGET EqQuarmCompanion POST_BUILD
     COMMENT "Copying item icons"
 )
 
+# Copy embedded SQLite data next to exe (généré par db_export/, voir CLAUDE.md)
+add_custom_command(TARGET EqQuarmCompanion POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/resources/quarm_data.db"
+        "$<TARGET_FILE_DIR:EqQuarmCompanion>/quarm_data.db"
+    COMMENT "Copying embedded SQLite data"
+)
+
 # windeployqt (Release seulement)
 find_program(WINDEPLOYQT windeployqt
     HINTS "${Qt6_DIR}/../../../bin")
