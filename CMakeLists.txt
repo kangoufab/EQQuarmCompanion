@@ -103,3 +103,6 @@ endif()
 # ── Tests ─────────────────────────────────────────────────────────────
 enable_testing()
 add_subdirectory(tests)
+
+# ── Outil dev : régénération de la BDD SQLite embarquée (cf. CLAUDE.md) ──
+add_subdirectory(db_export)
