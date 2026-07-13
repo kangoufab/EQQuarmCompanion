@@ -46,18 +46,6 @@ void Config::save() const {
     f << _data.dump(2);
 }
 
-DbConfig Config::getDbConfig() const {
-    DbConfig d;
-    if (auto it = _data.find("db"); it != _data.end()) {
-        d.host     = it->value("host",     "localhost");
-        d.port     = it->value("port",     3306);
-        d.user     = it->value("user",     "root");
-        d.password = it->value("password", "");
-        d.database = it->value("database", "quarm");
-    }
-    return d;
-}
-
 std::map<std::string, float> Config::getClassWeights(
     std::string_view className) const
 {

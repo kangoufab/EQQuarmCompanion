@@ -4,11 +4,6 @@
 #include <string>
 #include <nlohmann/json.hpp>
 
-struct DbConfig {
-    std::string host, user, password, database;
-    int port{3306};
-};
-
 class Config {
 public:
     Config(std::filesystem::path configPath,
@@ -19,7 +14,6 @@ public:
     void set(std::string_view key, nlohmann::json value);
     void save() const;
 
-    [[nodiscard]] DbConfig getDbConfig() const;
     [[nodiscard]] std::map<std::string, float> getClassWeights(
         std::string_view className) const;
     void setClassWeights(std::string_view className,

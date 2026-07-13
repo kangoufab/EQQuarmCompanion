@@ -1,17 +1,14 @@
 #pragma once
-#include "core/config.h"
-#include <QtSql/QSqlDatabase>
 #include <QString>
+#include <QtSql/QSqlDatabase>
 
 class DbConnection {
 public:
     static DbConnection& instance();
 
-    bool connect(const DbConfig& cfg);
+    // Ouvre le fichier SQLite embarqué (quarm_data.db) en lecture seule.
+    bool connect(const QString& sqliteFilePath);
     void disconnect();
-
-    // Ouvre une connexion temporaire pour tester les paramètres sans perturber la connexion active
-    static bool testConnection(const DbConfig& cfg);
 
     [[nodiscard]] bool isConnected() const;
     [[nodiscard]] QSqlDatabase& db();

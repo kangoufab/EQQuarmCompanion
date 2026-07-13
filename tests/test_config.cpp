@@ -7,7 +7,6 @@ namespace {
     const char* kDefaults = R"({
         "eq_files_dir": "",
         "current_expansion": "Classic",
-        "db": {"host":"localhost","port":3306,"user":"root","password":"","database":"quarm"},
         "characters": {},
         "class_weights": {}
     })";
@@ -43,21 +42,9 @@ TEST(Config, SetAndSaveRoundtrip) {
     std::filesystem::remove(defaults);
 }
 
-TEST(Config, GetDbConfig) {
-    auto defaults = writeTempDefaults();
-    auto cfg = std::filesystem::temp_directory_path() / "eq_test_cfg_db.json";
-    Config c(cfg, defaults);
-    auto db = c.getDbConfig();
-    EXPECT_EQ(db.host, "localhost");
-    EXPECT_EQ(db.port, 3306);
-    EXPECT_EQ(db.database, "quarm");
-    std::filesystem::remove(defaults);
-}
-
 TEST(Config, GetClassWeights) {
     const char* withWeights = R"({
         "eq_files_dir":"","current_expansion":"Classic",
-        "db":{"host":"localhost","port":3306,"user":"root","password":"","database":"quarm"},
         "characters":{},
         "class_weights":{"Warrior":{"ac":4,"hp":3}}
     })";

@@ -5,7 +5,6 @@
 #include <QLineEdit>
 #include <QMap>
 #include <QSlider>
-#include <QSpinBox>
 class Config;
 
 class SettingsDialog : public QDialog {
@@ -15,22 +14,13 @@ public:
 
 private slots:
     void onAccepted();
-    void onTestConnection();
 
 private:
-    QWidget* buildDbTab();
     QWidget* buildFilesTab();
     QWidget* buildWeightsTab();
     QWidget* buildClassWeightsWidget(const QString& className);
 
     Config*    _config;
-
-    // Onglet DB
-    QLineEdit* _dbHost;
-    QSpinBox*  _dbPort;
-    QLineEdit* _dbUser;
-    QLineEdit* _dbPassword;
-    QLineEdit* _dbName;
 
     // Onglet Fichiers
     QLineEdit* _eqFilesDir;

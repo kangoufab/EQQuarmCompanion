@@ -1,12 +1,10 @@
 #include "ui/settings_dialog.h"
 #include "core/config.h"
-#include "db/db_connection.h"
 #include <nlohmann/json.hpp>
 #include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
-#include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QTabWidget>
@@ -33,7 +31,6 @@ SettingsDialog::SettingsDialog(Config* cfg, QWidget* parent)
     setMinimumWidth(520);
 
     auto* tabs = new QTabWidget;
-    tabs->addTab(buildDbTab(),      QString::fromUtf8("Connexion DB"));
     tabs->addTab(buildFilesTab(),   "Fichiers EQ");
     tabs->addTab(buildWeightsTab(), "Poids de stats");
 
@@ -45,36 +42,6 @@ SettingsDialog::SettingsDialog(Config* cfg, QWidget* parent)
     auto* vl = new QVBoxLayout(this);
     vl->addWidget(tabs);
     vl->addWidget(btns);
-}
-
-// ── Onglet Connexion DB ───────────────────────────────────────────────────
-
-QWidget* SettingsDialog::buildDbTab()
-{
-    auto* w = new QWidget;
-    auto* form = new QFormLayout(w);
-    auto dbCfg = _config->getDbConfig();
-
-    _dbHost     = new QLineEdit(QString::fromStdString(dbCfg.host));
-    _dbPort     = new QSpinBox;
-    _dbPort->setRange(1, 65535);
-    _dbPort->setValue(dbCfg.port);
-    _dbUser     = new QLineEdit(QString::fromStdString(dbCfg.user));
-    _dbPassword = new QLineEdit(QString::fromStdString(dbCfg.password));
-    _dbPassword->setEchoMode(QLineEdit::Password);
-    _dbName     = new QLineEdit(QString::fromStdString(dbCfg.database));
-
-    form->addRow("Host :",           _dbHost);
-    form->addRow("Port :",           _dbPort);
-    form->addRow(QString::fromUtf8("Utilisateur :"), _dbUser);
-    form->addRow("Mot de passe :",   _dbPassword);
-    form->addRow(QString::fromUtf8("Base de données :"), _dbName);
-
-    auto* testBtn = new QPushButton(QString::fromUtf8("Tester la connexion"));
-    connect(testBtn, &QPushButton::clicked, this, &SettingsDialog::onTestConnection);
-    form->addRow("", testBtn);
-
-    return w;
 }
 
 // ── Onglet Fichiers EQ ────────────────────────────────────────────────────
@@ -166,34 +133,8 @@ QWidget* SettingsDialog::buildClassWeightsWidget(const QString& className)
 
 // ── Slots ─────────────────────────────────────────────────────────────────
 
-void SettingsDialog::onTestConnection()
-{
-    DbConfig cfg;
-    cfg.host     = _dbHost->text().toStdString();
-    cfg.port     = _dbPort->value();
-    cfg.user     = _dbUser->text().toStdString();
-    cfg.password = _dbPassword->text().toStdString();
-    cfg.database = _dbName->text().toStdString();
-
-    if (DbConnection::testConnection(cfg)) {
-        QMessageBox::information(this, QString::fromUtf8("Connexion"),
-                                 QString::fromUtf8("Connexion réussie \xe2\x9c\x93"));
-    } else {
-        QMessageBox::warning(this, QString::fromUtf8("Connexion"),
-                             QString::fromUtf8("\xc3\x89" "chec de la connexion \xe2\x9c\x97"));
-    }
-}
-
 void SettingsDialog::onAccepted()
 {
-    nlohmann::json db;
-    db["host"]     = _dbHost->text().toStdString();
-    db["port"]     = _dbPort->value();
-    db["user"]     = _dbUser->text().toStdString();
-    db["password"] = _dbPassword->text().toStdString();
-    db["database"] = _dbName->text().toStdString();
-    _config->set("db", db);
-
     _config->set("eq_files_dir",
                  nlohmann::json(_eqFilesDir->text().toStdString()));
     _config->set("current_expansion",

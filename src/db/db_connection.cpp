@@ -7,17 +7,14 @@ DbConnection& DbConnection::instance() {
     return inst;
 }
 
-bool DbConnection::connect(const DbConfig& cfg) {
+bool DbConnection::connect(const QString& sqliteFilePath) {
     if (_db.isOpen()) _db.close();
     if (QSqlDatabase::contains("main"))
         QSqlDatabase::removeDatabase("main");
 
-    _db = QSqlDatabase::addDatabase("QMYSQL", "main");
-    _db.setHostName(QString::fromStdString(cfg.host));
-    _db.setPort(cfg.port);
-    _db.setDatabaseName(QString::fromStdString(cfg.database));
-    _db.setUserName(QString::fromStdString(cfg.user));
-    _db.setPassword(QString::fromStdString(cfg.password));
+    _db = QSqlDatabase::addDatabase("QSQLITE", "main");
+    _db.setDatabaseName(sqliteFilePath);
+    _db.setConnectOptions("QSQLITE_OPEN_READONLY");
 
     if (!_db.open()) {
         qWarning() << "DB connection failed:" << _db.lastError().text();
@@ -33,20 +30,3 @@ void DbConnection::disconnect() {
 
 bool DbConnection::isConnected() const { return _db.isOpen(); }
 QSqlDatabase& DbConnection::db() { return _db; }
-
-bool DbConnection::testConnection(const DbConfig& cfg) {
-    static const QString TEST_CONN = "test_conn";
-    bool ok = false;
-    {
-        QSqlDatabase db = QSqlDatabase::addDatabase("QMYSQL", TEST_CONN);
-        db.setHostName(QString::fromStdString(cfg.host));
-        db.setPort(cfg.port);
-        db.setDatabaseName(QString::fromStdString(cfg.database));
-        db.setUserName(QString::fromStdString(cfg.user));
-        db.setPassword(QString::fromStdString(cfg.password));
-        ok = db.open();
-        if (ok) db.close();
-    }
-    QSqlDatabase::removeDatabase(TEST_CONN);
-    return ok;
-}

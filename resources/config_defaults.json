@@ -1,13 +1,6 @@
 {
   "eq_files_dir": "",
   "current_expansion": "Luclin",
-  "db": {
-    "host": "localhost",
-    "port": 3306,
-    "user": "root",
-    "password": "",
-    "database": "quarm"
-  },
   "characters": {},
   "class_weights": {
     "Warrior":     {"ac": 4, "hp": 3, "damage": 3, "delay": -2, "astr": 2, "asta": 3, "aagi": 1, "adex": 1, "awis": 0, "aint": 0, "acha": 0, "mana": 0},

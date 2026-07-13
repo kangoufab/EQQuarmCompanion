@@ -93,11 +93,11 @@ int main(int argc, char* argv[]) {
 
     Config config(cfgPath, defsPath);
 
-    // Connexion DB (non bloquant si échec — certaines fonctions désactivées)
-    auto dbCfg = config.getDbConfig();
-    bool dbOk  = DbConnection::instance().connect(dbCfg);
+    // Connexion DB embarquée (SQLite bundlé à côté de l'exe — non bloquant si échec)
+    auto dbPath = QString::fromStdWString((exeDir / "quarm_data.db").wstring());
+    bool dbOk   = DbConnection::instance().connect(dbPath);
     if (!dbOk)
-        qWarning() << "DB non connectée — vérifier les paramètres dans config.json";
+        qWarning() << "DB non connectée — quarm_data.db introuvable à côté de l'exécutable";
 
     NpcDatabase  npcDb;
     ItemDatabase itemDb;

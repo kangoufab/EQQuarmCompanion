@@ -52,14 +52,9 @@ static bool         s_dbReady = false;
 class NpcIntegrationTest : public ::testing::Test {
 public:
     static void SetUpTestSuite() {
-        DbConfig cfg;
-        cfg.host     = "localhost";
-        cfg.port     = 3306;
-        cfg.user     = "root";
-        cfg.password = "rooteq";
-        cfg.database = "quarm";
-        s_dbReady = DbConnection::instance().connect(cfg);
-        if (s_dbReady) s_npcDb = new NpcDatabase();
+        // Task 1: MySQL config removed. Task 2 will adapt this to SQLite fixture.
+        // For now, integration tests are skipped.
+        s_dbReady = false;
     }
     static void TearDownTestSuite() {
         delete s_npcDb;

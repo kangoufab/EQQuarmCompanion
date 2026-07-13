@@ -17,6 +17,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include <QCoreApplication>
 #include <QFile>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -367,7 +368,7 @@ void MainWindow::updateDbBadge(bool connected) {
         _dbBadge->setText(
             QString("<span style='color:%1;font-size:13px;font-weight:bold;'>&#9679; DB hors ligne</span>").arg(kAccentMelee));
         _dbBadge->setToolTip(QString::fromUtf8(
-            "Base de données non connectée\nV\xc3\xa9rifier les param\xc3\xa8tres dans \xe2\x9a\x99"));
+            "Base de donn\xc3\xa9es non connect\xc3\xa9e\nquarm_data.db introuvable \xc3\xa0 c\xc3\xb4t\xc3\xa9 de l'ex\xc3\xa9cutable"));
     }
 }
 
@@ -378,8 +379,8 @@ void MainWindow::checkDbStatus() {
         alive = q.exec("SELECT 1");
     }
     if (!alive) {
-        auto dbCfg = _config->getDbConfig();
-        alive = DbConnection::instance().connect(dbCfg);
+        auto dbPath = QCoreApplication::applicationDirPath() + "/quarm_data.db";
+        alive = DbConnection::instance().connect(dbPath);
         if (alive) loadCharacterFiles();
     }
     updateDbBadge(alive);
