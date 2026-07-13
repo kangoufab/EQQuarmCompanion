@@ -49,7 +49,7 @@ db_export --host <host> --port <port> --user <user> --password <password> --data
 3. `CREATE TABLE` généré dynamiquement côté SQLite avec ces colonnes/types.
 4. `SELECT *` par lots côté MySQL, `INSERT` côté SQLite dans une transaction unique (la vitesse d'exécution de l'outil lui-même n'est pas critique — c'est un outil dev, pas le runtime livré).
 5. Recréation des index nécessaires aux jointures/filtres réellement exploités par l'app, pour ne pas dégrader les perfs par rapport au MySQL actuel :
-   - clé primaire `id` de chaque table
+   - clé primaire `id` de chaque table qui en a une (`items`, `spells_new`, `npc_types`, `races`, `spawn2`, `zone`, `npc_spells_entries`, `aa_effects`). Exception : `altadv_vars`, `lootdrop_entries`, `loottable_entries` et `spawnentry` sont des tables de jointure Quarm sans colonne `id` — leur clé primaire est composite et ses colonnes sont déjà couvertes par les index de jointure/filtre listés ci-dessous.
    - `spawnentry.npcID`, `spawn2.spawngroupID`, `zone.short_name`
    - `npc_spells_entries.spellid`
    - `loottable_entries.lootdrop_id`, `lootdrop_entries.item_id`

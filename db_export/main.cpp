@@ -37,19 +37,27 @@ ExportArgs parseArgs(const QStringList& args) {
 // Tables copiées telles quelles + colonnes indexées pour les jointures/filtres
 // utilisés par src/db/item_database.cpp et src/db/npc_database.cpp
 // (cf. docs/specs/2026-07-13-embedded-sqlite-db-design.md).
+//
+// La plupart des tables ont une clé primaire surrogate `id` qu'on indexe pour
+// accélérer les lookups par id (getItemById, getNpcById, getSpellById...).
+// Exception : altadv_vars, lootdrop_entries, loottable_entries et spawnentry
+// sont des tables de jointure sans colonne `id` — leur clé primaire est
+// composite (ex. loottable_entries = (loottable_id, lootdrop_id)) et ses
+// colonnes sont déjà indexées ci-dessous individuellement en tant que
+// colonnes de jointure/filtre.
 const QMap<QString, QStringList> TABLES = {
-    {"items",              {"worneffect", "focuseffect", "proceffect", "clickeffect", "scrolleffect"}},
-    {"spells_new",         {}},
-    {"npc_types",          {"race", "loottable_id", "npc_spells_id"}},
-    {"races",              {}},
+    {"items",              {"id", "worneffect", "focuseffect", "proceffect", "clickeffect", "scrolleffect"}},
+    {"spells_new",         {"id"}},
+    {"npc_types",          {"id", "race", "loottable_id", "npc_spells_id"}},
+    {"races",              {"id"}},
     {"spawnentry",         {"npcID", "spawngroupID"}},
-    {"spawn2",             {"spawngroupID", "zone"}},
-    {"zone",               {"short_name"}},
-    {"npc_spells_entries", {"npc_spells_id", "spellid"}},
+    {"spawn2",             {"id", "spawngroupID", "zone"}},
+    {"zone",               {"id", "short_name"}},
+    {"npc_spells_entries", {"id", "npc_spells_id", "spellid"}},
     {"loottable_entries",  {"loottable_id", "lootdrop_id"}},
     {"lootdrop_entries",   {"lootdrop_id", "item_id"}},
     {"altadv_vars",        {"eqmacid", "skill_id"}},
-    {"aa_effects",         {"aaid"}},
+    {"aa_effects",         {"id", "aaid"}},
 };
 
 } // namespace
@@ -95,5 +103,7 @@ int main(int argc, char** argv) {
     QSqlDatabase::removeDatabase("export_dst");
 
     qInfo() << (allOk ? "Export completed successfully." : "Export completed with errors.");
+    if (!allOk)
+        QFile::remove(args.outPath);
     return allOk ? 0 : 1;
 }
