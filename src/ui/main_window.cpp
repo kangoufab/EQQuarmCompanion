@@ -368,7 +368,7 @@ void MainWindow::updateDbBadge(bool connected) {
         _dbBadge->setText(
             QString("<span style='color:%1;font-size:13px;font-weight:bold;'>&#9679; DB hors ligne</span>").arg(kAccentMelee));
         _dbBadge->setToolTip(QString::fromUtf8(
-            "Base de donn\xc3\xa9es non connect\xc3\xa9e\nquarm_data.db introuvable \xc3\xa0 c\xc3\xb4t\xc3\xa9 de l'ex\xc3\xa9cutable"));
+            "Base de données non connectée\nquarm_data.db introuvable à côté de l'exécutable"));
     }
 }
 
