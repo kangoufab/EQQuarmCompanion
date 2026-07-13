@@ -48,7 +48,9 @@ cd build/debug
 ctest --output-on-failure
 ```
 
-36 tests across 6 suites: config, character_parser, stats_calculator, npc_analysis, spell_stats, spell_stacking. Les tests `character_parser` (dans `tests/test_character_parser.cpp`) couvrent le happy-path mais aussi les comportements documentés : `bag_item_ids` depuis `GeneralN-SlotM`, section AAIndex, expansion de slots Ear/Wrist/Fingers, base stats/race, classe inconnue, pattern `*-Quarmy.txt`.
+35 tests across 6 suites: config, character_parser, stats_calculator, npc_analysis, spell_stats, spell_stacking. Les tests `character_parser` (dans `tests/test_character_parser.cpp`) couvrent le happy-path mais aussi les comportements documentés : `bag_item_ids` depuis `GeneralN-SlotM`, section AAIndex, expansion de slots Ear/Wrist/Fingers, base stats/race, classe inconnue, pattern `*-Quarmy.txt`.
+
+Un 7e binaire optionnel, `eq_integration_tests` (option CMake `BUILD_INTEGRATION_TESTS`, OFF par défaut), exécute des tests de régression NPC contre `resources/quarm_data.db` — pas contre un MySQL live. Il n'apparaît pas dans `ctest` standard (pas de `gtest_discover_tests`).
 
 ### Installer
 
@@ -77,11 +79,12 @@ Génère `installer/output/EqQuarmCompanion-Setup.exe`.
 ```
 src/
   core/       # Pure C++17 — no Qt. All game logic, formulas, parsers.
-  db/         # Qt SQL + Network. Database access (MySQL via ODBC or direct).
+  db/         # Qt SQL + Network. Database access (SQLite embarqué, quarm_data.db).
   ui/         # Qt6 Widgets. 4 tabs: Stuff / Fight / Buffs / Infos.
   main.cpp
-resources/    # config_defaults.json, icons
+resources/    # config_defaults.json, icons, quarm_data.db (BDD SQLite embarquée)
 tests/        # GTest unit tests (core/ only)
+db_export/    # Outil dev — régénère resources/quarm_data.db depuis la BDD Quarm MySQL source
 docs/
   specs/      # Functional specs for each feature
   plans/      # Implementation plans (6 C++ rewrite plans + 1 evolution plan)
@@ -156,7 +159,7 @@ Déploiement : `resources/imgs/items/` (uniquement les fichiers `item_*.png`, pa
 | File | Purpose |
 |------|---------|
 | `src/core/types.h` | All shared structs (ItemData, LootItem, NpcData, CharacterInfo, PlayerTotals, PlayerTotalsExtra, SpellData…); `CharacterInfo::bag_item_ids` = `vector<pair<int,int>>` {bag_number, item_id}. `AaStats` : `combat_stability_pct` / `combat_agility_pct` (AA % pour AC soft cap et avoidance). `PlayerTotals` : `avoidance` (score avoidance avec AA). |
-| `src/core/config.h/cpp` | JSON config read/write, DbConfig, getClassWeights, setClassWeights, getCharacterClass |
+| `src/core/config.h/cpp` | JSON config read/write, getClassWeights, setClassWeights, getCharacterClass |
 | `src/core/character_parser.h/cpp` | Parse EQ TSV character files; extrait `{bag_number, item_id}` depuis `GeneralN-SlotM` → `bag_item_ids` |
 | `src/core/stats_calculator.h/cpp` | HP/Mana/ATK/AC caps, `applyWornStats`, `calculateTotalsWithSpells` (inclut AAs). AC mitigation : soft cap par classe (350-430) + Combat Stability AA% + shield AC bypass (Luclin+) ; overcap returns Luclin (/12 melee, 0 casters) et PoP (class/level-spécifiques). Avoidance : defense skill + AGI + Combat Agility AA%. `PlayerTotals` expose `mitigation` (soft-capped) et `avoidance` (avec AA). |
 | `src/core/npc_analysis.h/cpp` | Incoming damage, resist ratings, slow land %, special abilities. Triple attack (SA 6) = DA chance (pas DA×0.135). Defensive disc : DB inchangé, seul DI/2 — réduction ~33%, pas 50%. Vérifiés sur log AoW lv70. |
@@ -164,10 +167,11 @@ Déploiement : `resources/imgs/items/` (uniquement les fichiers `item_*.png`, pa
 | `src/core/spell_stacking.h/cpp` | spellsStack() — bard vs non-bard logic |
 | `src/core/derived_metrics.h` | `offensivePower()`, `defensiveScore()` — scores offensifs/défensifs joueur pour le système d'upgrade |
 | `src/core/equipped_effects.h` | `getActiveEffects()` — effets worn/proc actifs depuis les items équipés |
-| `src/db/db_connection.h` | `DbConnection` singleton — gestion de `QSqlDatabase`; `connect()`, `testConnection()` |
+| `src/db/db_connection.h` | `DbConnection` singleton — gestion de `QSqlDatabase` (driver `QSQLITE`, fichier `quarm_data.db` embarqué à côté de l'exe) ; `connect(QString)` |
 | `src/db/item_database.h/cpp` | Item DB queries; `getItemClickeffects(QList<int>)` → `QList<QPair<QString,int>>` (item_name, spell_id) |
 | `src/db/npc_database.h` | `NpcDatabase` — `searchNpcs()`, `getNpcById()`, `getNpcSpells()`, `getNpcLoot()` |
 | `src/db/bis_scraper.h` | `BisScaper` — scraper async HTML (QNetworkAccessManager) pour Best-in-Slot |
+| `db_export/main.cpp` | Outil CLI dev-only — copie les tables MySQL Quarm vers `resources/quarm_data.db` (SQLite). Args : `--host --port --user --password --database --out`. |
 | `src/ui/main_window.h/cpp` | App shell; `_playerTotals` (base+items+AAs), `_buffedTotals` (+ active buffs); file watcher |
 | `src/ui/item_card.h/cpp` | Widget item unifié (carte compacte Option B) — utilisé par Stuff et Fight |
 | `src/ui/character_tab.h/cpp` | Stuff tab — layout 3 colonnes (QSplitter) : inventaire équipé+sacs / recherche / comparaison; `rebuildInventoryPanel()`. **L'implémentation de la classe est répartie sur 2 `.cpp`** (voir décision d'archi ci-dessous) |
@@ -192,7 +196,17 @@ At runtime, the app stores `config.json` (et `eqquarm_debug.log`) dans **`%APPDA
 
 ## Database
 
-MySQL database named `quarm` (Project Quarm server DB). Connection params in `config.json` under `"db"`. Default: `localhost:3306` user `root` password `rooteq`. Tables used: `npc_types`, `spells_new`, `loottable`, `lootdrop`, `items`, `races`, `global_loot`.
+Les données de référence (items, sorts, NPCs, races, zones, loot, AA) sont embarquées avec l'application sous forme d'un fichier **SQLite** (`resources/quarm_data.db`, copié à côté de l'exécutable au build par CMake et récupéré automatiquement par l'installeur via `{#BinDir}\*`). `DbConnection::connect()` ouvre ce fichier en lecture seule via le driver `QSQLITE` — natif à Qt, aucune lib cliente externe à installer (contrairement à l'ancien driver `QMYSQL`, qui nécessitait un plugin compilé contre MariaDB). **Aucune installation MySQL/MariaDB n'est nécessaire côté utilisateur final.**
 
-**Index FULLTEXT — actuellement débranché (régression).** `npc_database.cpp` et `item_database.cpp` contiennent des helpers `hasNpcsFulltextIndex`/`hasItemsFulltextIndex` (qui font `ALTER TABLE … ADD FULLTEXT INDEX ft_name` si l'index manque) + la migration `docs/sql_migrations/add_fulltext_indexes.sql`. Le branchement FULLTEXT était bien câblé dans `searchItems`/`searchNpcs` (commit `5366365`) : `if (hasXFulltextIndex(db)) { … WHERE MATCH(Name) AGAINST(:t IN BOOLEAN MODE) … } else { … LIKE … }`. Le refactor QCompleter (`d47f79d`) a **supprimé la branche FULLTEXT** des deux recherches, laissant uniquement le `LIKE '%term%'` (full-scan) et les helpers comme code mort. L'index `ft_name` n'est donc plus ni créé ni exploité. Le bouton « Source » (`getNpcSources`) filtre par `item_id` et n'a jamais utilisé le FULLTEXT. Pour restaurer : remettre la branche `MATCH … AGAINST` (cf. `git show 5366365:src/db/item_database.cpp`).
+Tables embarquées (copie intégrale, toutes colonnes) : `items`, `spells_new`, `npc_types`, `races`, `spawnentry`, `spawn2`, `zone`, `npc_spells_entries`, `loottable_entries`, `lootdrop_entries`, `altadv_vars`, `aa_effects`.
+
+**Régénération.** Quand la BDD Quarm source (MySQL) évolue, un développeur ayant accès à une instance MySQL/MariaDB locale avec la BDD `quarm` importée relance l'outil `db_export/` :
+
+```powershell
+build\debug\bin\db_export.exe --host localhost --port 3306 --user root --password rooteq --database quarm --out resources\quarm_data.db
+```
+
+puis rebuild + régénère l'installeur (cf. section Installer ci-dessus). Le fichier `resources/quarm_data.db` généré est commité dans le repo — c'est ce qui permet à un utilisateur final ou à la CI de builder/lancer l'app sans jamais toucher à MySQL.
+
+**Note historique.** L'index FULLTEXT MySQL (`ft_name`) et son branchement dans `searchItems`/`searchNpcs` — déjà débranché depuis le refactor QCompleter `d47f79d` — ont été définitivement supprimés (code mort `hasItemsFulltextIndex`/`hasNpcsFulltextIndex`) lors du passage à SQLite. Les recherches restent en `LIKE` full-scan, sans régression de perf par rapport à l'état MySQL précédent.
 
