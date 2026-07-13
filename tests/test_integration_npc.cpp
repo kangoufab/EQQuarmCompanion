@@ -2,6 +2,7 @@
 #include <QCoreApplication>
 #include <QSqlQuery>
 #include <QVariant>
+#include <filesystem>
 #include "core/npc_analysis.h"
 #include "core/types.h"
 #include "db/db_connection.h"
@@ -52,9 +53,11 @@ static bool         s_dbReady = false;
 class NpcIntegrationTest : public ::testing::Test {
 public:
     static void SetUpTestSuite() {
-        // Task 1: MySQL config removed. Task 2 will adapt this to SQLite fixture.
-        // For now, integration tests are skipped.
-        s_dbReady = false;
+        auto dbPath = std::filesystem::path(EQ_SOURCE_DIR) / "resources" / "quarm_data.db";
+        s_dbReady = std::filesystem::exists(dbPath)
+                    && DbConnection::instance().connect(
+                           QString::fromStdWString(dbPath.wstring()));
+        if (s_dbReady) s_npcDb = new NpcDatabase();
     }
     static void TearDownTestSuite() {
         delete s_npcDb;
@@ -64,7 +67,7 @@ public:
 protected:
     void SetUp() override {
         if (!s_dbReady)
-            GTEST_SKIP() << "Quarm DB non accessible (localhost:3306 quarm)";
+            GTEST_SKIP() << "resources/quarm_data.db introuvable ou illisible";
     }
 };
 
